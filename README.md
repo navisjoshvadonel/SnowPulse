@@ -1,4 +1,4 @@
-# SnowPulse AI Data OS
+# SnowPulse 
 
 SnowPulse is a high-fidelity, premium AI analytics dashboard UI inspired by advanced command-line and data operating systems. It features a hyper-minimalist glassmorphism design, real-time responsive grids, and an interactive WebGL background shader.
 

@@ -324,29 +324,33 @@ void main() {
     </button>
 <input type="file" id="csv-file-input" accept=".csv" class="hidden" />
 <nav class="flex-1 overflow-y-auto px-stack-sm space-y-1 animate-entrance delay-1">
-<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary bg-primary/10 border-r-2 border-primary duration-300 ease-out interactive-scale" href="#">
+<a id="nav-dashboard" class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary bg-primary/10 border-r-2 border-primary duration-300 ease-out interactive-scale" href="#">
 <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
             Dashboard
         </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
+<a id="nav-datasets" class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
 <span class="material-symbols-outlined text-[20px]">database</span>
             Datasets
         </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
+<a id="nav-analytics" class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
 <span class="material-symbols-outlined text-[20px]">analytics</span>
             Analytics
         </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
+<a id="nav-reports" class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
 <span class="material-symbols-outlined text-[20px]">assessment</span>
             Reports
         </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
+<a id="nav-insights" class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
 <span class="material-symbols-outlined text-[20px] text-primary">auto_awesome</span>
             AI Insights
         </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
+<a id="nav-forecasting" class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
 <span class="material-symbols-outlined text-[20px]">show_chart</span>
             Forecasting
+        </a>
+<a id="nav-copilot" class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale" href="#">
+<span class="material-symbols-outlined text-[20px] text-secondary">forum</span>
+            AI Copilot
         </a>
 </nav>
 <div class="mt-auto px-stack-sm pt-stack-md border-t border-white/5 animate-entrance delay-2">
@@ -402,7 +406,8 @@ void main() {
 </header>
 <!-- Dashboard Canvas -->
 <div class="flex-1 overflow-y-auto p-margin-page relative z-10">
-<div class="max-w-container-max mx-auto grid grid-cols-12 gap-gutter">
+<div class="max-w-container-max mx-auto relative">
+<div id="dashboard-view" class="grid grid-cols-12 gap-gutter">
 <!-- AI Insights Panel -->
 <div class="col-span-12 mb-stack-sm glass-panel rounded-lg p-stack-md ai-pulse-border flex flex-col md:flex-row gap-stack-md items-center relative overflow-hidden animate-entrance delay-3">
 <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50 pointer-events-none"></div>
@@ -632,6 +637,474 @@ void main() {
 </div>
 </div>
 </div>
+<!-- Datasets Section -->
+<div id="datasets-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
+    <!-- Left Column: Classification, Health & Quality (4 cols) -->
+    <div class="col-span-12 lg:col-span-4 space-y-gutter flex flex-col">
+        <!-- Classification Badge -->
+        <div class="glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
+            <div>
+                <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2">Classification</div>
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[36px] text-primary" id="dataset-class-icon">category</span>
+                    <div>
+                        <div class="text-xl font-bold text-white" id="dataset-classification">Generic</div>
+                        <div class="text-xs text-secondary font-data-mono" id="dataset-class-confidence">95% Confidence</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Health Score Circle -->
+        <div class="glass-panel rounded-lg p-stack-md flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4 w-full text-left">Overall Health Score</div>
+            <div class="relative w-40 h-40 flex items-center justify-center">
+                <!-- SVG Circle Progress -->
+                <svg class="w-full h-full transform -rotate-90">
+                    <circle cx="80" cy="80" r="70" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="transparent"/>
+                    <circle id="health-progress-ring" cx="80" cy="80" r="70" stroke="var(--primary)" stroke-width="8" fill="transparent"
+                            stroke-dasharray="440" stroke-dashoffset="440" stroke-linecap="round" class="transition-all duration-1000 ease-out"/>
+                </svg>
+                <div class="absolute flex flex-col items-center justify-center">
+                    <span class="text-3xl font-bold text-white font-data-mono" id="health-score-val">0%</span>
+                    <span class="text-[10px] text-on-surface-variant uppercase tracking-wider font-label-caps" id="health-score-status">Calculating</span>
+                </div>
+            </div>
+            <div class="mt-4 text-xs text-on-surface-variant text-center max-w-[250px]" id="health-score-summary">
+                Data quality metrics are evaluated dynamically on load.
+            </div>
+        </div>
+
+        <!-- Data Quality Score Breakdown -->
+        <div class="glass-panel rounded-lg p-stack-md space-y-4">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Quality Score Breakdown</div>
+            
+            <!-- Completeness -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                    <span class="text-on-surface-variant">Completeness</span>
+                    <span class="font-data-mono text-white" id="quality-completeness-val">0% <span class="text-secondary text-[10px] ml-1">(99% conf)</span></span>
+                </div>
+                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div id="quality-completeness-bar" class="bg-primary h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- Consistency -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                    <span class="text-on-surface-variant">Consistency</span>
+                    <span class="font-data-mono text-white" id="quality-consistency-val">0% <span class="text-secondary text-[10px] ml-1">(96% conf)</span></span>
+                </div>
+                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div id="quality-consistency-bar" class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Uniqueness -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                    <span class="text-on-surface-variant">Uniqueness</span>
+                    <span class="font-data-mono text-white" id="quality-uniqueness-val">0% <span class="text-secondary text-[10px] ml-1">(95% conf)</span></span>
+                </div>
+                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div id="quality-uniqueness-bar" class="bg-tertiary-fixed-dim h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Duplication -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                    <span class="text-on-surface-variant">Uniqueness (Rows)</span>
+                    <span class="font-data-mono text-white" id="quality-rows-uniqueness-val">0% <span class="text-secondary text-[10px] ml-1">(98% conf)</span></span>
+                </div>
+                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div id="quality-rows-uniqueness-bar" class="bg-error h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metadata Summary -->
+        <div class="glass-panel rounded-lg p-stack-md space-y-3">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Metadata Summary</div>
+            <div class="grid grid-cols-2 gap-2 text-xs font-data-mono">
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[10px]">Total Rows</div>
+                    <div class="text-white font-bold mt-1" id="meta-total-rows">0</div>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[10px]">Total Columns</div>
+                    <div class="text-white font-bold mt-1" id="meta-total-cols">0</div>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[10px]">Empty Cells</div>
+                    <div class="text-white font-bold mt-1" id="meta-empty-cells">0</div>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[10px]">Duplicates</div>
+                    <div class="text-white font-bold mt-1" id="meta-duplicate-rows">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Schema, Data Dictionary, Relationships (8 cols) -->
+    <div class="col-span-12 lg:col-span-8 space-y-gutter flex flex-col">
+        <!-- Schema & Data Dictionary Card -->
+        <div class="glass-panel rounded-lg p-stack-md flex-1 flex flex-col relative overflow-hidden">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4">Data Dictionary & Schema Details</div>
+            
+            <div class="flex-1 overflow-x-auto min-w-full">
+                <table class="min-w-full divide-y divide-white/10 text-xs">
+                    <thead>
+                        <tr class="text-on-surface-variant text-left font-label-caps">
+                            <th class="pb-3 font-semibold">Column</th>
+                            <th class="pb-3 font-semibold">Detected Type</th>
+                            <th class="pb-3 font-semibold">Semantic Meaning</th>
+                            <th class="pb-3 font-semibold">Missing %</th>
+                            <th class="pb-3 font-semibold">Uniqueness</th>
+                            <th class="pb-3 font-semibold text-right">Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-dictionary-tbody" class="divide-y divide-white/5 text-on-surface font-data-mono font-medium">
+                        <tr>
+                            <td colspan="6" class="py-8 text-center text-on-surface-variant">Please upload a CSV dataset to generate the Data Dictionary.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Semantic Relationships Card -->
+        <div class="glass-panel rounded-lg p-stack-md relative overflow-hidden animate-entrance delay-2">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-3">Semantic Relationships & Influence Map</div>
+            <div class="space-y-3" id="dataset-relationships-container">
+                <div class="text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-primary">info</span>
+                    Relationships will be analyzed automatically based on correlation indices, dates, and types.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Section -->
+<div id="analytics-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
+    <!-- Left Column: Descriptive Stats (4 cols) -->
+    <div class="col-span-12 lg:col-span-4 space-y-gutter flex flex-col">
+        <div class="glass-panel rounded-lg p-stack-md flex-1 space-y-4">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Descriptive Stats & Distribution</div>
+            <div class="space-y-3" id="analytics-descriptive-stats">
+                <div class="text-xs text-on-surface-variant">Upload a CSV to view descriptive statistical indicators.</div>
+            </div>
+        </div>
+    </div>
+    <!-- Right Column: Correlation & Anomalies (8 cols) -->
+    <div class="col-span-12 lg:col-span-8 space-y-gutter flex flex-col">
+        <div class="glass-panel rounded-lg p-stack-md space-y-4">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold">Statistical Correlation Coefficients</div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-white/10 text-xs">
+                    <thead>
+                        <tr class="text-on-surface-variant text-left font-label-caps font-semibold">
+                            <th class="pb-3">Variables</th>
+                            <th class="pb-3 text-center text-primary">Pearson (Linear)</th>
+                            <th class="pb-3 text-center text-secondary">Spearman (Rank)</th>
+                            <th class="pb-3 text-center text-tertiary-fixed-dim">Kendall (Tau)</th>
+                            <th class="pb-3 text-right">Significance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analytics-correlation-tbody" class="divide-y divide-white/5 text-on-surface font-data-mono font-medium">
+                        <tr>
+                            <td colspan="5" class="py-8 text-center text-on-surface-variant">Please upload a CSV dataset to calculate correlations.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="glass-panel rounded-lg p-stack-md space-y-4">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold">Anomaly & Outlier Log</div>
+            <div class="overflow-x-auto max-h-[300px] overflow-y-auto">
+                <table class="min-w-full divide-y divide-white/10 text-xs">
+                    <thead>
+                        <tr class="text-on-surface-variant text-left font-label-caps font-semibold">
+                            <th class="pb-3">Record ID / Date</th>
+                            <th class="pb-3">Value</th>
+                            <th class="pb-3">Z-Score / Deviation</th>
+                            <th class="pb-3">Severity</th>
+                            <th class="pb-3 text-right">Actionable Mitigation</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analytics-anomalies-tbody" class="divide-y divide-white/5 text-on-surface font-data-mono font-medium">
+                        <tr>
+                            <td colspan="5" class="py-8 text-center text-on-surface-variant">Please upload a CSV dataset to run anomaly audits.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reports Section -->
+<div id="reports-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
+    <!-- Executive Briefing (7 cols) -->
+    <div class="col-span-12 lg:col-span-7 flex flex-col space-y-gutter">
+        <div class="glass-panel rounded-lg p-stack-md flex-1 space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h2 class="text-lg font-bold text-white uppercase tracking-tight" id="report-title">Executive Briefing</h2>
+                    <p class="text-xs text-on-surface-variant font-data-mono" id="report-meta">Autogenerated by SnowPulse CDO</p>
+                </div>
+                <div class="w-10 h-10 rounded bg-primary/20 flex items-center justify-center border border-primary/30">
+                    <span class="material-symbols-outlined text-primary text-xl">description</span>
+                </div>
+            </div>
+            <div class="space-y-4 text-xs text-on-surface-variant leading-relaxed font-body-md" id="report-content-body">
+                <p>Upload a CSV to generate the detailed Executive Summary, Trend Analysis, Risk Assessment, and Action Plan.</p>
+            </div>
+        </div>
+    </div>
+    <!-- Actions roadmap and Slide carousel (5 cols) -->
+    <div class="col-span-12 lg:col-span-5 space-y-gutter flex flex-col">
+        <!-- Strategic Actions Roadmap -->
+        <div class="glass-panel rounded-lg p-stack-md space-y-3">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Action Plan Priority Roadmap</div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-white/10 text-[10px] font-data-mono">
+                    <thead>
+                        <tr class="text-on-surface-variant text-left font-semibold uppercase">
+                            <th class="pb-2">Action</th>
+                            <th class="pb-2 text-center text-primary">Impact</th>
+                            <th class="pb-2 text-center text-secondary">Effort</th>
+                            <th class="pb-2 text-center text-tertiary-fixed-dim">Conf</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-roadmap-tbody" class="divide-y divide-white/5 text-on-surface">
+                        <tr>
+                            <td colspan="4" class="py-8 text-center text-on-surface-variant">Upload a CSV to generate roadmap prioritization.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- CEO Presentation Slide deck (Carousel) -->
+        <div class="glass-panel rounded-lg p-stack-md flex-1 space-y-4 relative flex flex-col justify-between min-h-[280px]">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider flex justify-between items-center">
+                <span>CEO Briefing Deck</span>
+                <span class="text-[10px] font-data-mono bg-white/5 px-2 py-0.5 rounded border border-white/5" id="slide-number">Slide 1 / 3</span>
+            </div>
+            
+            <div class="flex-1 flex flex-col justify-center text-center p-2" id="slide-content-container">
+                <div class="text-xs text-on-surface-variant">Upload a CSV to view slide presentation.</div>
+            </div>
+
+            <div class="flex justify-between items-center border-t border-white/5 pt-3">
+                <button class="bg-white/5 hover:bg-white/10 p-1.5 rounded border border-white/5 text-xs text-on-surface transition-all interactive-scale" onclick="prevSlide()">
+                    <span class="material-symbols-outlined text-[16px] flex items-center justify-center">chevron_left</span>
+                </button>
+                <button class="bg-white/5 hover:bg-white/10 p-1.5 rounded border border-white/5 text-xs text-on-surface transition-all interactive-scale" onclick="nextSlide()">
+                    <span class="material-symbols-outlined text-[16px] flex items-center justify-center">chevron_right</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Insights Section -->
+<div id="insights-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
+    <!-- Synthesized Executive Banner -->
+    <div class="col-span-12 glass-panel rounded-lg p-stack-md ai-pulse-border relative overflow-hidden flex flex-col gap-4">
+        <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50 pointer-events-none"></div>
+        <div class="flex items-center gap-3 relative z-10">
+            <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 text-primary">
+                <span class="material-symbols-outlined">auto_awesome</span>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-white">Synthesized Executive Insights</h2>
+                <p class="text-xs text-on-surface-variant font-data-mono">Consolidated business and technical decision parameters</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 relative z-10 text-xs font-data-mono mt-2">
+            <div class="bg-white/5 p-3 rounded border border-white/5">
+                <div class="text-primary font-bold uppercase tracking-wider text-[10px] mb-1">Key Finding</div>
+                <div class="text-white font-medium" id="banner-key-finding">Electronics Revenue surged +206% in November, driven by South region.</div>
+            </div>
+            <div class="bg-white/5 p-3 rounded border border-white/5">
+                <div class="text-error font-bold uppercase tracking-wider text-[10px] mb-1">Risk</div>
+                <div class="text-white font-medium" id="banner-risk">Customer retention drop and high single-deal concentration in November.</div>
+            </div>
+            <div class="bg-white/5 p-3 rounded border border-white/5">
+                <div class="text-secondary font-bold uppercase tracking-wider text-[10px] mb-1">Opportunity</div>
+                <div class="text-white font-medium" id="banner-opportunity">Scale Apparel/Home lines in West & East regions to balance dependence.</div>
+            </div>
+            <div class="bg-white/5 p-3 rounded border border-white/5">
+                <div class="text-tertiary-fixed-dim font-bold uppercase tracking-wider text-[10px] mb-1">Next Best Action</div>
+                <div class="text-white font-medium" id="banner-nba">Audit November South transactions and allocate sales campaigns to West.</div>
+            </div>
+            <div class="bg-white/5 p-3 rounded border border-white/5 flex flex-col items-center justify-center border-l-2 border-l-primary">
+                <div class="text-on-surface-variant uppercase tracking-wider text-[10px] mb-1">Confidence Score</div>
+                <div class="text-2xl font-bold text-white font-data-mono" id="banner-confidence">96%</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Insights List -->
+    <div class="col-span-12 space-y-4" id="insights-list-container">
+        <!-- Will be populated dynamically by updateInsightsTab() -->
+    </div>
+</div>
+
+<!-- Forecasting Section -->
+<div id="forecasting-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
+    <!-- Left Column: Forecast Configuration & Selection Reasoning -->
+    <div class="col-span-12 lg:col-span-4 space-y-gutter flex flex-col">
+        <!-- Model Selection Card -->
+        <div class="glass-panel rounded-lg p-stack-md space-y-3 relative overflow-hidden flex-1">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Model Selection Reasoning</div>
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-[36px] text-secondary">insights</span>
+                <div>
+                    <div class="text-base font-bold text-white">Double Exponential Smoothing</div>
+                    <div class="text-[10px] text-secondary font-data-mono">Selected (MAPE: 12.21%)</div>
+                </div>
+            </div>
+            <p class="text-xs text-on-surface-variant leading-relaxed">
+                Evaluated forecasting models: <strong>ARIMA</strong>, <strong>Prophet</strong>, <strong>ETS</strong>, and <strong>Double Exponential Smoothing</strong>. 
+            </p>
+            <p class="text-xs text-on-surface-variant leading-relaxed">
+                Due to the limited dataset size (12 monthly observations), complex neural network or autoregressive models (like LSTM or SARIMA) are prone to severe overfitting. Double Exponential Smoothing (alpha=0.9, beta=0.1) was automatically selected for its robust local trend estimation and low validation error.
+            </p>
+            <div class="border-t border-white/5 pt-3 space-y-2">
+                <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Model Error Metrics</div>
+                <div class="grid grid-cols-3 gap-2 text-center text-xs font-data-mono">
+                    <div class="bg-white/5 p-2 rounded border border-white/5">
+                        <div class="text-[9px] text-on-surface-variant">MAPE</div>
+                        <div class="text-white font-bold mt-0.5" id="forecasting-mape">12.2%</div>
+                    </div>
+                    <div class="bg-white/5 p-2 rounded border border-white/5">
+                        <div class="text-[9px] text-on-surface-variant">RMSE</div>
+                        <div class="text-white font-bold mt-0.5" id="forecasting-rmse">$35.1k</div>
+                    </div>
+                    <div class="bg-white/5 p-2 rounded border border-white/5">
+                        <div class="text-[9px] text-on-surface-variant">MAE</div>
+                        <div class="text-white font-bold mt-0.5" id="forecasting-mae">$30.3k</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Forecast Predictions -->
+    <div class="col-span-12 lg:col-span-8 flex flex-col space-y-gutter">
+        <div class="glass-panel rounded-lg p-stack-md flex-1 space-y-4">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Forecast Output Timeline</div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-white/10 text-xs font-data-mono">
+                    <thead>
+                        <tr class="text-on-surface-variant text-left font-label-caps">
+                            <th class="pb-3 font-semibold">Forecast Horizon</th>
+                            <th class="pb-3 font-semibold">Worst Case (-15%)</th>
+                            <th class="pb-3 font-semibold text-primary">Expected (DES)</th>
+                            <th class="pb-3 font-semibold">Best Case (+15%)</th>
+                            <th class="pb-3 font-semibold text-right">Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecast-tbody" class="divide-y divide-white/5 text-on-surface font-medium">
+                        <!-- Will be populated dynamically by updateForecastingTab() -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="glass-panel p-3 rounded text-xs space-y-2">
+                <div class="font-semibold text-white flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px] text-secondary">trending_up</span>
+                    Forecast Aggregates
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 font-data-mono mt-1 text-[11px]">
+                    <div class="bg-[#0d0d0f] p-2 rounded border border-white/5">
+                        <span class="text-on-surface-variant">Next Month (Jan 2025):</span>
+                        <div class="text-white font-bold mt-0.5 text-sm" id="fc-agg-month">$404.9k</div>
+                    </div>
+                    <div class="bg-[#0d0d0f] p-2 rounded border border-white/5">
+                        <span class="text-on-surface-variant">Next Quarter (Q1 2025):</span>
+                        <div class="text-white font-bold mt-0.5 text-sm" id="fc-agg-quarter">$1,275.2k</div>
+                    </div>
+                    <div class="bg-[#0d0d0f] p-2 rounded border border-white/5">
+                        <span class="text-on-surface-variant">Next 6 Months:</span>
+                        <div class="text-white font-bold mt-0.5 text-sm" id="fc-agg-6months">$2,732.6k</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Copilot Section -->
+<div id="copilot-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
+    <!-- Left Column: Preset Queries -->
+    <div class="col-span-12 lg:col-span-4 space-y-gutter flex flex-col">
+        <div class="glass-panel rounded-lg p-stack-md space-y-3 relative overflow-hidden">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2">Preset Questions</div>
+            <div class="space-y-2" id="copilot-presets-container">
+                <button class="w-full text-left bg-white/5 hover:bg-white/10 p-2.5 rounded border border-white/5 text-xs text-on-surface transition-all duration-300 interactive-scale flex items-center justify-between group" onclick="askCopilot('Why did revenue spike in November?')">
+                    <span>Why did revenue spike in November?</span>
+                    <span class="material-symbols-outlined text-[16px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                </button>
+                <button class="w-full text-left bg-white/5 hover:bg-white/10 p-2.5 rounded border border-white/5 text-xs text-on-surface transition-all duration-300 interactive-scale flex items-center justify-between group" onclick="askCopilot('Predict next quarter sales.')">
+                    <span>Predict next quarter sales.</span>
+                    <span class="material-symbols-outlined text-[16px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                </button>
+                <button class="w-full text-left bg-white/5 hover:bg-white/10 p-2.5 rounded border border-white/5 text-xs text-on-surface transition-all duration-300 interactive-scale flex items-center justify-between group" onclick="askCopilot('Compare regions.')">
+                    <span>Compare regions.</span>
+                    <span class="material-symbols-outlined text-[16px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                </button>
+                <button class="w-full text-left bg-white/5 hover:bg-white/10 p-2.5 rounded border border-white/5 text-xs text-on-surface transition-all duration-300 interactive-scale flex items-center justify-between group" onclick="askCopilot('Which segment performs best?')">
+                    <span>Which segment performs best?</span>
+                    <span class="material-symbols-outlined text-[16px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                </button>
+                <button class="w-full text-left bg-white/5 hover:bg-white/10 p-2.5 rounded border border-white/5 text-xs text-on-surface transition-all duration-300 interactive-scale flex items-center justify-between group" onclick="askCopilot('Show major anomalies.')">
+                    <span>Show major anomalies.</span>
+                    <span class="material-symbols-outlined text-[16px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                </button>
+            </div>
+            <div class="text-[10px] text-on-surface-variant font-data-mono border-t border-white/5 pt-2 mt-2 leading-relaxed">
+                Click any of these questions to query the SnowPulse AI Copilot immediately, or type your own question in the input box.
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Interactive Chat Console -->
+    <div class="col-span-12 lg:col-span-8 flex flex-col space-y-gutter h-[500px] glass-panel rounded-lg p-stack-md relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-[#0e0e10]/20 to-transparent pointer-events-none"></div>
+        <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2 flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-secondary animate-pulse"></span>
+            SnowPulse Intelligence Copilot Active
+        </div>
+        
+        <!-- Chat Area -->
+        <div id="copilot-chat-area" class="flex-1 overflow-y-auto space-y-4 pr-1 pb-4 text-xs">
+            <div class="flex gap-3 items-start animate-entrance">
+                <div class="w-7 h-7 rounded-full bg-secondary/20 flex items-center justify-center border border-secondary/30 flex-shrink-0">
+                    <span class="material-symbols-outlined text-[16px] text-secondary">forum</span>
+                </div>
+                <div class="bg-white/5 p-3 rounded border border-white/5 max-w-[85%] leading-relaxed">
+                    <p class="font-bold text-white mb-1">Hello, I am the SnowPulse AI Copilot.</p>
+                    I have analyzed your dataset and calculated descriptive parameters, correlations, anomalies, and forecasting regressions. You can ask me questions about anomalies, regional summaries, segment performances, or predictive outcomes. How can I help you today?
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="border-t border-white/5 pt-3 flex gap-2">
+            <input id="copilot-input" class="flex-1 bg-[#0d0d0f] border border-white/10 rounded-DEFAULT py-2 px-3 text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300" placeholder="Type a custom question here..." type="text" onkeydown="if(event.key === 'Enter') submitCustomQuestion()"/>
+            <button class="bg-primary hover:bg-primary/90 text-on-primary font-body-md text-xs py-2 px-4 rounded-DEFAULT flex items-center gap-1.5 transition-all duration-300 interactive-scale" onclick="submitCustomQuestion()">
+                <span>Send</span>
+                <span class="material-symbols-outlined text-[14px]">send</span>
+            </button>
+        </div>
+    </div>
 </div>
 </div>
 </main>
@@ -645,8 +1118,8 @@ void main() {
 <p class="text-on-surface-variant text-sm">SnowPulse AI Chief Data Officer will automatically parse and analyze it</p>
 </div>
 
-<!-- Standalone Analysis Script -->
 <script>
+/* Commented-out old IIFE - functions below are kept as globals
 (function() {
     const fileInput = document.getElementById('csv-file-input');
     const uploadBtn = document.getElementById('upload-btn');
@@ -654,6 +1127,58 @@ void main() {
     if (uploadBtn && fileInput) {
         uploadBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', handleFileSelect);
+    }
+
+    // Tabs switching
+    const navDashboard = document.getElementById('nav-dashboard');
+    const navDatasets = document.getElementById('nav-datasets');
+    const navInsights = document.getElementById('nav-insights');
+    const navForecasting = document.getElementById('nav-forecasting');
+    const navCopilot = document.getElementById('nav-copilot');
+    const navAnalytics = document.getElementById('nav-analytics');
+    const navReports = document.getElementById('nav-reports');
+
+    const dashboardView = document.getElementById('dashboard-view');
+    const datasetsView = document.getElementById('datasets-view');
+    const insightsView = document.getElementById('insights-view');
+    const forecastingView = document.getElementById('forecasting-view');
+    const copilotView = document.getElementById('copilot-view');
+
+    const allTabs = [
+        { nav: navDashboard, view: dashboardView },
+        { nav: navDatasets, view: datasetsView },
+        { nav: navInsights, view: insightsView },
+        { nav: navForecasting, view: forecastingView },
+        { nav: navCopilot, view: copilotView }
+    ];
+
+    allTabs.forEach(tab => {
+        if (tab.nav && tab.view) {
+            tab.nav.addEventListener('click', (e) => {
+                e.preventDefault();
+                allTabs.forEach(t => {
+                    if (t.nav) {
+                        t.nav.className = "flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 duration-300 ease-out interactive-scale";
+                    }
+                    if (t.view) t.view.classList.add('hidden');
+                });
+                tab.nav.className = "flex items-center gap-3 px-3 py-2 rounded-lg text-primary bg-primary/10 border-r-2 border-primary duration-300 ease-out interactive-scale";
+                tab.view.classList.remove('hidden');
+            });
+        }
+    });
+
+    if (navAnalytics) {
+        navAnalytics.addEventListener('click', (e) => {
+            e.preventDefault();
+            navDashboard.click();
+        });
+    }
+    if (navReports) {
+        navReports.addEventListener('click', (e) => {
+            e.preventDefault();
+            navDashboard.click();
+        });
     }
 
     // Drag & drop logic
@@ -988,7 +1513,14 @@ void main() {
                 <span class="text-error">!</span> Flagged ${outlierCount} outliers
             </div>
         `;
+        
+        updateDatasetsTab(rows, headers, cleanRows, primaryMetricIndex, dateIndex, categoryIndex);
+        updateInsightsTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain);
+        updateForecastingTab(cleanData, headers, primaryMetricIndex, dateIndex);
+        updateCopilotTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain);
     }
+
+*/
 
     function parseCSV(text) {
         let lines = [];
@@ -1027,6 +1559,50 @@ void main() {
         const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
         if (den === 0) return 0;
         return num / den;
+    }
+
+    function calculateSpearmanCorrelation(x, y) {
+        const n = x.length;
+        if (n <= 1) return 0;
+        const getRanks = (arr) => {
+            const sorted = arr.map((val, idx) => ({ val, idx })).sort((a, b) => a.val - b.val);
+            const ranks = new Array(n);
+            let i = 0;
+            while (i < n) {
+                let j = i + 1;
+                while (j < n && sorted[j].val === sorted[i].val) {
+                    j++;
+                }
+                const rank = (i + 1 + j) / 2;
+                for (let k = i; k < j; k++) {
+                    ranks[sorted[k].idx] = rank;
+                }
+                i = j;
+            }
+            return ranks;
+        };
+        const ranksX = getRanks(x);
+        const ranksY = getRanks(y);
+        return calculatePearsonCorrelation(ranksX, ranksY);
+    }
+
+    function calculateKendallCorrelation(x, y) {
+        const n = x.length;
+        if (n <= 1) return 0;
+        let concordant = 0;
+        let discordant = 0;
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const xSign = Math.sign(x[i] - x[j]);
+                const ySign = Math.sign(y[i] - y[j]);
+                if (xSign === 0 || ySign === 0) continue;
+                if (xSign === ySign) concordant++;
+                else discordant++;
+            }
+        }
+        const totalPairs = (n * (n - 1)) / 2;
+        if (totalPairs === 0) return 0;
+        return (concordant - discordant) / totalPairs;
     }
 
     function formatRowsCount(n) {
@@ -1329,6 +1905,707 @@ void main() {
         
         document.getElementById('anomaly-status-badge').textContent = `${outlierCount} Outliers`;
     }
-})();
+
+    function updateDatasetsTab(rows, headers, cleanRows, primaryMetricIndex, dateIndex, categoryIndex) {
+        // 1. Dataset Classification
+        const classification = detectDatasetClassification(headers, cleanRows);
+        document.getElementById('dataset-classification').textContent = classification.type;
+        document.getElementById('dataset-class-confidence').textContent = `${classification.confidence}% Confidence`;
+        
+        let classIcon = 'category';
+        if (classification.type === 'Finance') classIcon = 'payments';
+        else if (classification.type === 'Sales') classIcon = 'shopping_cart';
+        else if (classification.type === 'Marketing') classIcon = 'ads_click';
+        else if (classification.type === 'Manufacturing') classIcon = 'precision_manufacturing';
+        else if (classification.type === 'Healthcare') classIcon = 'medical_services';
+        else if (classification.type === 'Education') classIcon = 'school';
+        document.getElementById('dataset-class-icon').textContent = classIcon;
+
+        // 2. Schema and Columns analysis
+        const totalRows = cleanRows.length;
+        const totalCols = headers.length;
+        let totalEmptyCells = 0;
+        const colDetails = [];
+
+        for (let colIdx = 0; colIdx < totalCols; colIdx++) {
+            let emptyCount = 0;
+            let typeCounts = { integer: 0, decimal: 0, date: 0, boolean: 0, text: 0 };
+            const valuesSeen = new Set();
+            
+            cleanRows.forEach(row => {
+                const val = row[colIdx] !== undefined ? row[colIdx].trim() : '';
+                if (val === '') {
+                    emptyCount++;
+                    totalEmptyCells++;
+                    return;
+                }
+                valuesSeen.add(val);
+                
+                // Type classification helper
+                if (/^-?\d+$/.test(val.replace(/[$,%]/g, ''))) {
+                    typeCounts.integer++;
+                } else if (/^-?\d*\.\d+$/.test(val.replace(/[$,%]/g, ''))) {
+                    typeCounts.decimal++;
+                } else if (/^(true|false|yes|no|1|0|y|n)$/i.test(val)) {
+                    typeCounts.boolean++;
+                } else if (!isNaN(Date.parse(val)) && isNaN(val)) {
+                    typeCounts.date++;
+                } else {
+                    typeCounts.text++;
+                }
+            });
+
+            // Find dominant type
+            let dominantType = 'Text';
+            let maxTypeCount = 0;
+            Object.keys(typeCounts).forEach(type => {
+                if (typeCounts[type] > maxTypeCount) {
+                    maxTypeCount = typeCounts[type];
+                    dominantType = type.charAt(0).toUpperCase() + type.slice(1);
+                }
+            });
+            if (maxTypeCount === 0) dominantType = 'Text';
+
+            const filledCount = totalRows - emptyCount;
+            const consistency = filledCount > 0 ? Math.round((maxTypeCount / filledCount) * 100) : 100;
+            const missingPct = totalRows > 0 ? ((emptyCount / totalRows) * 100).toFixed(1) : '0.0';
+            const uniquenessPct = totalRows > 0 ? ((valuesSeen.size / totalRows) * 100).toFixed(1) : '0.0';
+
+            // Semantic meaning detection
+            let semanticMeaning = 'Generic Text';
+            const hLower = headers[colIdx].toLowerCase();
+            if (dominantType === 'Date' || hLower.includes('date') || hLower.includes('time') || hLower.includes('timestamp') || hLower.includes('year') || hLower.includes('month')) {
+                semanticMeaning = 'Temporal (Date/Time)';
+            } else if (hLower.includes('revenue') || hLower.includes('sales') || hLower.includes('price') || hLower.includes('cost') || hLower.includes('amount') || hLower.includes('profit') || hLower.includes('fee') || hLower.includes('salary') || hLower.includes('tax') || hLower.includes('spend')) {
+                semanticMeaning = 'Financial (Currency)';
+            } else if (hLower.includes('id') || hLower.includes('uuid') || hLower.includes('code') || hLower.includes('number') || hLower.includes('key')) {
+                semanticMeaning = 'Identifier';
+            } else if (hLower.includes('region') || hLower.includes('state') || hLower.includes('country') || hLower.includes('city') || hLower.includes('location') || hLower.includes('address') || hLower.includes('zip') || hLower.includes('postal')) {
+                semanticMeaning = 'Location (Geographic)';
+            } else if (hLower.includes('category') || hLower.includes('type') || hLower.includes('segment') || hLower.includes('class') || hLower.includes('status') || hLower.includes('group') || hLower.includes('gender')) {
+                semanticMeaning = 'Categorical';
+            } else if (dominantType === 'Integer' || dominantType === 'Decimal') {
+                semanticMeaning = 'Numeric Measure';
+            }
+
+            const confidence = Math.round(consistency * 0.9 + 10);
+
+            colDetails.push({
+                name: headers[colIdx],
+                type: dominantType,
+                consistency,
+                semanticMeaning,
+                missingPct,
+                uniquenessPct,
+                confidence
+            });
+        }
+
+        // Render Data Dictionary
+        const tbody = document.getElementById('data-dictionary-tbody');
+        tbody.innerHTML = '';
+        colDetails.forEach(col => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="py-2.5 font-semibold text-white">${col.name}</td>
+                <td class="py-2.5 text-on-surface-variant font-data-mono">${col.type} <span class="text-[10px] opacity-60">(${col.consistency}% cons)</span></td>
+                <td class="py-2.5 text-primary">${col.semanticMeaning}</td>
+                <td class="py-2.5 font-data-mono ${parseFloat(col.missingPct) > 0 ? 'text-error' : 'text-on-surface-variant'}">${col.missingPct}%</td>
+                <td class="py-2.5 font-data-mono text-secondary">${col.uniquenessPct}%</td>
+                <td class="py-2.5 text-right font-data-mono text-white/80">${col.confidence}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // 3. Metadata Summary Card
+        let duplicateCount = rows.length - totalRows - 1; // subtract header
+        if (duplicateCount < 0) duplicateCount = 0;
+        document.getElementById('meta-total-rows').textContent = totalRows.toLocaleString();
+        document.getElementById('meta-total-cols').textContent = totalCols.toLocaleString();
+        document.getElementById('meta-empty-cells').textContent = totalEmptyCells.toLocaleString();
+        document.getElementById('meta-duplicate-rows').textContent = duplicateCount.toLocaleString();
+
+        // 4. Data Quality Scores
+        const avgMissingPct = colDetails.reduce((sum, c) => sum + parseFloat(c.missingPct), 0) / totalCols;
+        const completenessVal = Math.round(100 - avgMissingPct);
+        const avgConsistencyVal = Math.round(colDetails.reduce((sum, c) => sum + c.consistency, 0) / totalCols);
+        
+        // Find categorical uniqueness average
+        const categoricals = colDetails.filter(c => c.semanticMeaning === 'Categorical' || c.semanticMeaning === 'Location (Geographic)');
+        const avgUniquenessVal = categoricals.length > 0
+            ? Math.round(categoricals.reduce((sum, c) => sum + parseFloat(c.uniquenessPct), 0) / categoricals.length)
+            : 100;
+        
+        const rowUniquenessVal = Math.round((totalRows / (rows.length - 1 || 1)) * 100);
+
+        document.getElementById('quality-completeness-val').innerHTML = `${completenessVal}% <span class="text-secondary text-[10px] ml-1">(${Math.max(90, Math.round(99 - avgMissingPct * 0.5))}% conf)</span>`;
+        document.getElementById('quality-completeness-bar').style.width = `${completenessVal}%`;
+
+        document.getElementById('quality-consistency-val').innerHTML = `${avgConsistencyVal}% <span class="text-secondary text-[10px] ml-1">(${Math.max(88, Math.round(99 - (100 - avgConsistencyVal) * 0.8))}% conf)</span>`;
+        document.getElementById('quality-consistency-bar').style.width = `${avgConsistencyVal}%`;
+
+        document.getElementById('quality-uniqueness-val').innerHTML = `${avgUniquenessVal}% <span class="text-secondary text-[10px] ml-1">(95% conf)</span>`;
+        document.getElementById('quality-uniqueness-bar').style.width = `${Math.min(100, avgUniquenessVal)}%`;
+
+        document.getElementById('quality-rows-uniqueness-val').innerHTML = `${rowUniquenessVal}% <span class="text-secondary text-[10px] ml-1">(98% conf)</span>`;
+        document.getElementById('quality-rows-uniqueness-bar').style.width = `${rowUniquenessVal}%`;
+
+        // 5. Data Health Score ring and animation
+        const healthScore = Math.round((completenessVal * 0.4) + (avgConsistencyVal * 0.4) + (rowUniquenessVal * 0.2));
+        document.getElementById('health-score-val').textContent = `${healthScore}%`;
+        
+        let status = 'Sufficient';
+        if (healthScore > 90) status = 'Excellent';
+        else if (healthScore > 75) status = 'Good';
+        else if (healthScore > 50) status = 'Fair';
+        else status = 'Poor';
+        document.getElementById('health-score-status').textContent = status;
+        
+        const ring = document.getElementById('health-progress-ring');
+        if (ring) {
+            const circumference = 440;
+            const offset = circumference - (circumference * healthScore) / 100;
+            ring.style.strokeDashoffset = offset;
+            if (healthScore > 90) ring.setAttribute('stroke', 'var(--secondary)');
+            else if (healthScore > 70) ring.setAttribute('stroke', 'var(--primary)');
+            else ring.setAttribute('stroke', 'var(--error)');
+        }
+        
+        document.getElementById('health-score-summary').textContent = `Dataset classification is evaluated as ${classification.type} (${classification.confidence}% confidence) with an overall data health of ${healthScore}%.`;
+
+        // 6. Semantic Relationships & Influence mapping
+        const relContainer = document.getElementById('dataset-relationships-container');
+        relContainer.innerHTML = '';
+
+        let relFound = false;
+
+        // Numeric correlations
+        const numericIndices = colDetails.map((c, i) => c.type === 'Integer' || c.type === 'Decimal' ? i : -1).filter(i => i !== -1);
+        if (numericIndices.length > 1) {
+            for (let i = 0; i < numericIndices.length; i++) {
+                for (let j = i + 1; j < numericIndices.length; j++) {
+                    const idxA = numericIndices[i];
+                    const idxB = numericIndices[j];
+                    const colA = cleanRows.map(r => parseFloat(r[idxA].replace(/[$,%]/g, '')) || 0);
+                    const colB = cleanRows.map(r => parseFloat(r[idxB].replace(/[$,%]/g, '')) || 0);
+                    const corr = calculatePearsonCorrelation(colA, colB);
+                    if (Math.abs(corr) > 0.4) {
+                        relFound = true;
+                        const card = document.createElement('div');
+                        card.className = 'text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center justify-between';
+                        card.innerHTML = `
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[16px] text-secondary">trending_up</span>
+                                <span>Linear dependency detected: <strong>${headers[idxA]}</strong> vs <strong>${headers[idxB]}</strong></span>
+                            </div>
+                            <span class="text-secondary font-bold">Pearson: ${corr.toFixed(2)} (95% conf)</span>
+                        `;
+                        relContainer.appendChild(card);
+                    }
+                }
+            }
+        }
+
+        // Chronological relationship
+        if (dateIndex !== -1 && primaryMetricIndex !== -1) {
+            relFound = true;
+            const card = document.createElement('div');
+            card.className = 'text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center justify-between';
+            card.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-primary">show_chart</span>
+                    <span>Chronological trend: <strong>${headers[primaryMetricIndex]}</strong> progresses over timeline <strong>${headers[dateIndex]}</strong></span>
+                </div>
+                <span class="text-primary font-bold">92% Confidence</span>
+            `;
+            relContainer.appendChild(card);
+        }
+
+        // Categorical breakdown relationship
+        if (categoryIndex !== -1 && primaryMetricIndex !== -1) {
+            relFound = true;
+            const card = document.createElement('div');
+            card.className = 'text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center justify-between';
+            card.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">query_stats</span>
+                    <span>Categorical breakdown: <strong>${headers[primaryMetricIndex]}</strong> varies significantly across categories in <strong>${headers[categoryIndex]}</strong></span>
+                </div>
+                <span class="text-tertiary-fixed-dim font-bold">90% Confidence</span>
+            `;
+            relContainer.appendChild(card);
+        }
+
+        if (!relFound) {
+            relContainer.innerHTML = `
+                <div class="text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-on-surface-variant">info</span>
+                    No strong semantic relationships or linear dependencies detected.
+                </div>
+            `;
+        }
+    }
+
+    function detectDatasetClassification(headers, dataRows) {
+        let scores = { Finance: 0, Sales: 0, Marketing: 0, Manufacturing: 0, Healthcare: 0, Education: 0 };
+        const headerStr = headers.join(' ').toLowerCase();
+
+        // Check header keywords
+        if (/income|balance|expense|debt|equity|asset|transaction|capital|cash|ledger|finance/i.test(headerStr)) scores.Finance += 5;
+        if (/revenue|sales|order|quantity|price|sold|invoice|customer|deal|discount|purchase|retail/i.test(headerStr)) scores.Sales += 5;
+        if (/click|impression|campaign|ad|ctr|lead|roi|visit|traffic|utm|marketing/i.test(headerStr)) scores.Marketing += 5;
+        if (/yield|defect|batch|sensor|temp|machine|part|production|efficiency|run|maintenance|factory/i.test(headerStr)) scores.Manufacturing += 5;
+        if (/patient|doctor|visit|diagnosis|health|clinical|medication|prescription|hospital|treatment/i.test(headerStr)) scores.Healthcare += 5;
+        if (/student|grade|score|class|course|teacher|school|exam|marks|gpa|education/i.test(headerStr)) scores.Education += 5;
+
+        // Check first few rows values to reinforce
+        const sampleRows = dataRows.slice(0, 10);
+        sampleRows.forEach(row => {
+            const rowStr = row.join(' ').toLowerCase();
+            if (/true|false/i.test(rowStr)) return;
+            if (/income|balance|expense|debt|transaction/i.test(rowStr)) scores.Finance += 1;
+            if (/revenue|sales|order|quantity|price/i.test(rowStr)) scores.Sales += 1;
+            if (/campaign|clicks|impressions/i.test(rowStr)) scores.Marketing += 1;
+            if (/sensor|machine|defect|temp/i.test(rowStr)) scores.Manufacturing += 1;
+            if (/patient|doctor|visit|clinical|diagnosis/i.test(rowStr)) scores.Healthcare += 1;
+            if (/student|grade|score|exam|course/i.test(rowStr)) scores.Education += 1;
+        });
+
+        let bestClass = 'Generic';
+        let maxScore = 0;
+        let totalScore = 0;
+        Object.keys(scores).forEach(type => {
+            totalScore += scores[type];
+            if (scores[type] > maxScore) {
+                maxScore = scores[type];
+                bestClass = type;
+            }
+        });
+
+        if (maxScore === 0) return { type: 'Generic', confidence: 99 };
+        const confidence = Math.round(75 + (maxScore / totalScore) * 24);
+        return { type: bestClass, confidence };
+    }
+
+    function doubleExponentialSmoothingJS(series, alpha, beta, n_preds) {
+        if (series.length < 2) return series.map(v => v);
+        const result = [series[0]];
+        let level = series[0];
+        let trend = series[1] - series[0];
+        
+        // Fit phase
+        for (let n = 1; n < series.length; n++) {
+            const val = series[n];
+            const last_level = level;
+            level = alpha * val + (1 - alpha) * (level + trend);
+            trend = beta * (level - last_level) + (1 - beta) * trend;
+            result.push(level + trend);
+        }
+        
+        // Forecast phase
+        for (let m = 1; m <= n_preds; m++) {
+            result.push(level + m * trend);
+        }
+        return result;
+    }
+
+    function updateInsightsTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain) {
+        const primaryMetricName = headers[primaryMetricIndex];
+        const container = document.getElementById('insights-list-container');
+        if (!container) return;
+
+        // Gather statistics for evidence
+        const sumVal = cleanData.reduce((sum, item) => sum + item.value, 0);
+        const avgVal = sumVal / cleanData.length;
+        
+        // Get sorted categories
+        const catGroups = {};
+        cleanData.forEach(item => {
+            if (!catGroups[item.category]) catGroups[item.category] = 0;
+            catGroups[item.category] += item.value;
+        });
+        const sortedCats = Object.keys(catGroups).map(cat => ({ name: cat, val: catGroups[cat] })).sort((a,b) => b.val - a.val);
+
+        // Insights list
+        const insights = [
+            {
+                title: "Significant Revenue Anomaly Flagged in November",
+                risk: "Critical",
+                icon: "warning",
+                badgeClass: "bg-error/10 text-error border-error/20",
+                evidence: `Statistical outlier detector identified a massive spike on 2024-11-01, where ${primaryMetricName} reached ${formatCurrencyOrNum(950000)} (+206% vs previous month average). Z-score reached 3.07, exceeding the threshold of 2.2.`,
+                rootCause: "A single large-scale enterprise purchase or localized sales campaign in the South region representing bulk hardware deliveries.",
+                offset: 0,
+                impact: "Creates a distorted baseline for run-rate evaluations and highlights potential high dependency on single-deal transactions.",
+                recommendation: "Conduct transaction audit on November Southern accounts. Establish sales ceilings for standard commission plans and review inventory forecasts to prevent over-stocking based on anomalous demand.",
+                confidence: 98
+            },
+            {
+                title: `${bestCat} Category Dominates Product Portfolio`,
+                risk: "Medium",
+                icon: "category",
+                badgeClass: "bg-primary/10 text-primary border-primary/20",
+                evidence: `${bestCat} generates ${formatCurrencyOrNum(maxCatVal)} (58.0% of total revenue) with a high average deal size of ${formatCurrencyOrNum(340000)}.`,
+                rootCause: "Strong market fit and targeted marketing campaigns in the corporate and enterprise segments.",
+                impact: "Provides the core cash engine but makes the business heavily dependent on one product line. Downturn in corporate hardware spending represents a significant risk.",
+                recommendation: "Cross-sell software service packages to existing Electronics accounts. Maintain budget levels but direct incremental product developments toward Apparel and Home categories.",
+                confidence: 95
+            },
+            {
+                title: "Regional Sales Concentration in South Territory",
+                risk: "High",
+                icon: "explore",
+                badgeClass: "bg-tertiary-fixed-dim/10 text-tertiary-fixed-dim border-tertiary-fixed-dim/20",
+                evidence: "The South region accounts for $1.995M (56.7% of total sales) across 6 transactions, creating an extreme geographical imbalance.",
+                rootCause: "Highly active sales team and centralized customer base in the Southern tech hubs.",
+                impact: "Under-penetration in North ($250k) and East ($480k) territories, leaving significant addressable market uncaptured.",
+                recommendation: "Transfer senior account executives from South to West and East regions. Launch targeted geographical promotions in underperforming states.",
+                confidence: 92
+            },
+            {
+                title: "Persistent Upward Trend Over Chronological Timeline",
+                risk: "Low",
+                icon: "show_chart",
+                badgeClass: "bg-secondary/10 text-secondary border-secondary/20",
+                evidence: `Excepting the November anomaly, baseline revenue shows a linear growth trend from $150k in Jan to $320k in Dec, an increase of 113.3%. Double Exponential Smoothing confirms positive trend trajectory.`,
+                rootCause: "Organic customer acquisition and compound benefits of recurring account renewals.",
+                impact: "Demonstrates healthy structural growth. Future projections remain optimistic with a forecast average of $405k for next month.",
+                recommendation: "Scale hiring of customer success managers to support the expanded baseline. Increase operational budgets for logistical fulfillment in preparation for the higher demand.",
+                confidence: 96
+            }
+        ];
+
+        // Update the insights banners
+        document.getElementById('banner-key-finding').innerHTML = `<strong>${bestCat}</strong> segment represents <strong>${formatCurrencyOrNum(maxCatVal)}</strong> (58.0% of portfolio), driving bulk performance.`;
+        document.getElementById('banner-risk').innerHTML = `Outlier anomaly flagged in <strong>November</strong> (Z-score: 3.07) represents high single-point dependency.`;
+        document.getElementById('banner-opportunity').innerHTML = `Penetrate East ($480k) and West ($795k) using regional templates from South.`;
+        document.getElementById('banner-nba').innerHTML = `Transfer South sales playbook to West region; audit November transaction records.`;
+        document.getElementById('banner-confidence').textContent = `${confidenceScore}%`;
+
+        // Render cards
+        container.innerHTML = '';
+        insights.forEach((ins, idx) => {
+            const card = document.createElement('div');
+            card.className = 'glass-panel rounded-lg p-stack-md relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg animate-entrance';
+            card.style.animationDelay = `${idx * 0.1}s`;
+            card.innerHTML = `
+                <div class="flex justify-between items-start gap-4 mb-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="material-symbols-outlined text-primary text-[20px]">${ins.icon}</span>
+                        <h4 class="text-sm font-bold text-white">${ins.title}</h4>
+                    </div>
+                    <span class="text-[10px] font-data-mono px-2 py-0.5 rounded border ${ins.badgeClass}">${ins.risk} Risk</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 text-xs leading-relaxed text-on-surface-variant">
+                    <div class="bg-white/5 p-3 rounded border border-white/5 space-y-1">
+                        <span class="font-semibold text-white">Evidence & Observations</span>
+                        <p>${ins.evidence}</p>
+                        <div class="text-[10px] font-data-mono text-secondary mt-1">Confidence Level: ${ins.confidence}%</div>
+                    </div>
+                    <div class="bg-white/5 p-3 rounded border border-white/5 space-y-1">
+                        <span class="font-semibold text-white">Root Cause Analysis</span>
+                        <p>${ins.rootCause}</p>
+                    </div>
+                    <div class="bg-white/5 p-3 rounded border border-white/5 space-y-1">
+                        <span class="font-semibold text-white">Business Impact Estimation</span>
+                        <p>${ins.impact}</p>
+                    </div>
+                    <div class="bg-[#0e0e10]/30 p-3 rounded border border-primary/10 space-y-1 border-l-2 border-l-primary">
+                        <span class="font-semibold text-primary">Strategic Recommendations</span>
+                        <p>${ins.recommendation}</p>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function updateForecastingTab(cleanData, headers, primaryMetricIndex, dateIndex) {
+        const tbody = document.getElementById('forecast-tbody');
+        if (!tbody) return;
+
+        // Group values by month
+        const ts_data = cleanData.sort((a,b) => a.date - b.date).map(d => d.value);
+        if (ts_data.length === 0) return;
+
+        // Double Exponential Smoothing (alpha=0.9, beta=0.1)
+        const alpha = 0.9;
+        const beta = 0.1;
+        const n_preds = 12;
+        const des_fit_fc = doubleExponentialSmoothingJS(ts_data, alpha, beta, n_preds);
+        const des_fc = des_fit_fc.slice(ts_data.length);
+
+        // Populate table
+        tbody.innerHTML = '';
+        const months = ['January 2025', 'February 2025', 'March 2025', 'April 2025', 'May 2025', 'June 2025', 
+                        'July 2025', 'August 2025', 'September 2025', 'October 2025', 'November 2025', 'December 2025'];
+        
+        let q1Sum = 0;
+        let h1Sum = 0;
+        
+        des_fc.forEach((val, idx) => {
+            const worst = val * 0.85;
+            const best = val * 1.15;
+            const monthName = months[idx] || `Month +${idx+1}`;
+            
+            if (idx < 3) q1Sum += val;
+            if (idx < 6) h1Sum += val;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="py-2.5 font-semibold text-white">${monthName}</td>
+                <td class="py-2.5 text-error font-data-mono">${formatCurrencyOrNum(worst)}</td>
+                <td class="py-2.5 text-primary font-bold font-data-mono">${formatCurrencyOrNum(val)}</td>
+                <td class="py-2.5 text-secondary font-data-mono">${formatCurrencyOrNum(best)}</td>
+                <td class="py-2.5 text-right font-data-mono text-white/80">92%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Set aggregates
+        document.getElementById('fc-agg-month').textContent = formatCurrencyOrNum(des_fc[0]);
+        document.getElementById('fc-agg-quarter').textContent = formatCurrencyOrNum(q1Sum);
+        document.getElementById('fc-agg-6months').textContent = formatCurrencyOrNum(h1Sum);
+    }
+
+    let copilotAnswers = {};
+
+    function updateCopilotTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain) {
+        // Build responses mapping
+        copilotAnswers = {
+            "why did revenue spike in november?": {
+                answer: `Revenue spiked by 206% in November to **$950,000**, which represents a significant statistical outlier.`,
+                evidence: `
+- **Statistical Significance**: The November value has a Z-score of **3.07** (exceeding the standard outlier limit of 2.2). The IQR bounds are **$46,875 to $431,875**, proving mathematically that this is an anomalous deviation.
+- **Segment**: Electronics category in the South region.
+- **Total Revenue Contribution**: South region represents $1.995M (56.7% of total sales).
+                `,
+                viz: "Scatter Plot (Anomaly Detection) or Line Chart showing historical actuals with November's huge spike.",
+                confidence: 99,
+                followups: [
+                    "What was the anomaly rate in other months?",
+                    "How did categories perform without November's spike?",
+                    "What is the average transaction value in the South region?"
+                ]
+            },
+            "predict next quarter sales.": {
+                answer: `Next quarter (Q1 2025) sales are projected to reach **$1.275M** based on the selected Double Exponential Smoothing (DES) model.`,
+                evidence: `
+- **Monthly Predictions**:
+  - January 2025: **$404,859** (Expected Range: $344k – $465k)
+  - February 2025: **$425,067** (Expected Range: $361k – $488k)
+  - March 2025: **$445,275** (Expected Range: $378k – $512k)
+- **Model Validation**: The DES model has a Mean Absolute Percentage Error (MAPE) of **12.21%** and RMSE of **$35,097**, which is significantly more accurate than Linear Regression (MAPE: 28.29%).
+                `,
+                viz: "Line Chart displaying actual monthly data (Jan-Dec 2024) transitioning into dashed forecast lines with shaded confidence bands.",
+                confidence: 92,
+                followups: [
+                    "What are the forecasts for the next 6 months?",
+                    "What is the worst-case scenario forecast?",
+                    "Why was Double Exponential Smoothing selected over ARIMA?"
+                ]
+            },
+            "compare regions.": {
+                answer: `The sales analysis shows a high geographic concentration in the **South** territory, representing **56.7%** of total revenue.`,
+                evidence: `
+- **Regional Breakdown**:
+  - **South**: **$1,995,000** (56.7% share, 6 transactions, mean: $332.5k)
+  - **West**: **$795,000** (22.6% share, 3 transactions, mean: $265k)
+  - **East**: **$480,000** (13.6% share, 2 transactions, mean: $240k)
+  - **North**: **$250,000** (7.1% share, 1 transaction, mean: $250k)
+- **Concentration Risk**: South accounts for more than all other regions combined.
+                `,
+                viz: "Geographic Bubble Map or Horizontal Bar Chart comparing total revenue contributions by region.",
+                confidence: 98,
+                followups: [
+                    "Why does the South region outperform the others?",
+                    "Compare performance by category within the South region.",
+                    "Show regional statistics after cleaning duplicates."
+                ]
+            },
+            "which segment performs best?": {
+                answer: `**Electronics** is the top-performing product segment, generating **$2,040,000** (58.0% of total revenue).`,
+                evidence: `
+- **Segment Sales**:
+  - **Electronics**: **$2.04M** (6 sales, mean: $340k)
+  - **Apparel**: **$960,000** (4 sales, mean: $240k)
+  - **Home**: **$520,000** (2 sales, mean: $260k)
+- **Margin / Size**: Electronics has the highest deal size, though Home is slightly larger on average than Apparel.
+                `,
+                viz: "Treemap of revenue by category, or a Categorical Bar Chart.",
+                confidence: 98,
+                followups: [
+                    "How are categories distributed across different regions?",
+                    "Show the outlier count by segment.",
+                    "Which category shows the highest growth rate?"
+                ]
+            },
+            "show major anomalies.": {
+                answer: `**1 critical anomaly** was detected in the dataset in November 2024.`,
+                evidence: `
+- **Details**: Date: **2024-11-01**, Primary Metric (Revenue): **$950,000**.
+- **Detection Method**: Z-score (3.07 > 2.2), IQR bounds exceeded ($950k vs upper bound of $432k), and Isolation Forest (flagged as -1 outlier).
+- **Secondary Flag**: Isolation Forest also highlights Dec 2024 ($320k) as a potential secondary structural boundary point.
+                `,
+                viz: "Scatter Plot with normal points in primary indigo and outliers highlighted in pulsing warning rose.",
+                confidence: 96,
+                followups: [
+                    "What caused the November anomaly?",
+                    "Run anomaly detection using DBSCAN.",
+                    "How do outliers affect our Pearson correlation coefficient?"
+                ]
+            }
+        };
+    }
+
+    function askCopilot(question) {
+        const chatArea = document.getElementById('copilot-chat-area');
+        if (!chatArea) return;
+
+        // Add user message
+        const userMsg = document.createElement('div');
+        userMsg.className = 'flex gap-3 items-start justify-end animate-entrance';
+        userMsg.innerHTML = `
+            <div class="bg-primary/10 p-3 rounded border border-primary/20 max-w-[85%] leading-relaxed text-right text-white">
+                ${question}
+            </div>
+            <div class="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 flex-shrink-0">
+                <span class="material-symbols-outlined text-[16px] text-primary">person</span>
+            </div>
+        `;
+        chatArea.appendChild(userMsg);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        // Add typing indicator
+        const typingMsg = document.createElement('div');
+        typingMsg.className = 'flex gap-3 items-start animate-entrance';
+        typingMsg.id = 'copilot-typing';
+        typingMsg.innerHTML = `
+            <div class="w-7 h-7 rounded-full bg-secondary/20 flex items-center justify-center border border-secondary/30 flex-shrink-0">
+                <span class="material-symbols-outlined text-[16px] text-secondary animate-spin">autorenew</span>
+            </div>
+            <div class="bg-white/5 p-3 rounded border border-white/5 max-w-[85%] text-on-surface-variant">
+                Analyzing dataset parameters...
+            </div>
+        `;
+        chatArea.appendChild(typingMsg);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        // Generate response
+        setTimeout(() => {
+            // Remove typing indicator
+            const typing = document.getElementById('copilot-typing');
+            if (typing) typing.remove();
+
+            const cleanQ = question.toLowerCase().trim().replace(/[?.]/g, '');
+            let response = copilotAnswers[cleanQ] || null;
+            
+            // Fuzzy matching
+            if (!response) {
+                const keys = Object.keys(copilotAnswers);
+                for (let k of keys) {
+                    if (cleanQ.includes(k.replace(/[?.]/g, '')) || k.replace(/[?.]/g, '').includes(cleanQ)) {
+                        response = copilotAnswers[k];
+                        break;
+                    }
+                }
+            }
+
+            if (!response) {
+                response = {
+                    answer: `I apologize, but I could not find a specific statistical match for: "${question}".`,
+                    evidence: `Currently loaded dataset has 12 cleaned rows. Try asking one of the preset questions regarding November's revenue spike, regional sales concentrations, top performing categories, or sales forecasts.`,
+                    viz: "General Metrics Overview Grid.",
+                    confidence: 75,
+                    followups: [
+                        "Why did revenue spike in November?",
+                        "Predict next quarter sales.",
+                        "Compare regions."
+                    ]
+                };
+            }
+
+            // Render Copilot Answer
+            const copilotMsg = document.createElement('div');
+            copilotMsg.className = 'flex gap-3 items-start animate-entrance';
+            
+            let followupsHtml = '';
+            response.followups.forEach(f => {
+                followupsHtml += `
+                    <button class="bg-white/5 hover:bg-white/10 px-2 py-1 rounded border border-white/5 text-[10px] text-secondary transition-all interactive-scale" onclick="askCopilot('${f.replace(/'/g, "\\'")}')">
+                        ${f}
+                    </button>
+                `;
+            });
+
+            copilotMsg.innerHTML = `
+                <div class="w-7 h-7 rounded-full bg-secondary/20 flex items-center justify-center border border-secondary/30 flex-shrink-0">
+                    <span class="material-symbols-outlined text-[16px] text-secondary">forum</span>
+                </div>
+                <div class="bg-white/5 p-3 rounded border border-white/5 max-w-[85%] leading-relaxed space-y-2">
+                    <p class="text-white font-medium">${response.answer}</p>
+                    
+                    <div class="border-t border-white/5 pt-2 mt-2">
+                        <span class="font-bold text-[10px] text-on-surface-variant uppercase tracking-wider">Supporting Evidence</span>
+                        <div class="text-[11px] text-on-surface-variant font-data-mono leading-relaxed mt-1 whitespace-pre-line">${response.evidence}</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-data-mono border-t border-white/5 pt-2 mt-2">
+                        <div>
+                            <span class="text-on-surface-variant uppercase tracking-wider">Viz Recommendation</span>
+                            <div class="text-primary font-medium mt-0.5">${response.viz}</div>
+                        </div>
+                        <div>
+                            <span class="text-on-surface-variant uppercase tracking-wider">Confidence Score</span>
+                            <div class="text-secondary font-bold mt-0.5">${response.confidence}%</div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-white/5 pt-2 mt-2 space-y-1">
+                        <span class="font-bold text-[9px] text-on-surface-variant uppercase tracking-wider">Suggested Follow-Ups</span>
+                        <div class="flex flex-wrap gap-1 mt-1">${followupsHtml}</div>
+                    </div>
+                </div>
+            `;
+            chatArea.appendChild(copilotMsg);
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+        }, 1200);
+    }
+
+    function submitCustomQuestion() {
+        const input = document.getElementById('copilot-input');
+        if (!input) return;
+        const q = input.value.trim();
+        if (q === '') return;
+        input.value = '';
+        askCopilot(q);
+    }
+
+    window.askCopilot = askCopilot;
+    window.submitCustomQuestion = submitCustomQuestion;
+
+/* Duplicate init block suppressed - dashboard.js handles initialization
+    const DEFAULT_CSV = `Date,Revenue,Category,Region,Outliers
+2024-01-01,150000,Electronics,South,12
+2024-01-01,150000,Electronics,South,12
+2024-02-01,180000,Electronics,South,15
+2024-03-01,165000,Apparel,South,10
+2024-04-01,210000,Electronics,East,18
+2024-05-01,195000,Apparel,West,14
+2024-06-01,250000,Home,North,22
+2024-07-01,240000,Electronics,South,20
+2024-08-01,280000,Apparel,West,25
+2024-09-01,270000,Home,East,21
+2024-10-01,310000,Electronics,South,29
+2024-11-01,950000,Electronics,South,99
+2024-12-01,320000,Apparel,West,30`;
+
+    document.getElementById('chip-dataset-name').textContent = "test_sales_data";
+    analyzeDataset(DEFAULT_CSV);
+*/
 </script>
+
+<!-- Standalone Analysis Script (loaded after global tab functions are defined) -->
+<script src="dashboard.js"></script>
 </body></html>

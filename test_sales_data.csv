@@ -1,0 +1,14 @@
+Date,Revenue,Category,Region,Outliers
+2024-01-01,150000,Electronics,South,12
+2024-01-01,150000,Electronics,South,12
+2024-02-01,180000,Electronics,South,15
+2024-03-01,165000,Apparel,South,10
+2024-04-01,210000,Electronics,East,18
+2024-05-01,195000,Apparel,West,14
+2024-06-01,250000,Home,North,22
+2024-07-01,240000,Electronics,South,20
+2024-08-01,280000,Apparel,West,25
+2024-09-01,270000,Home,East,21
+2024-10-01,310000,Electronics,South,29
+2024-11-01,950000,Electronics,South,99
+2024-12-01,320000,Apparel,West,30

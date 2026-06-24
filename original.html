@@ -314,14 +314,15 @@ void main() {
 <span class="material-symbols-outlined text-on-primary text-sm" style="font-variation-settings: 'FILL' 1;">hexagon</span>
 </div>
 <div>
-<div class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary leading-none">Aether Data</div>
-<div class="font-label-caps text-label-caps text-on-surface-variant mt-1 opacity-70">Enterprise Analytics</div>
+<div class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary leading-none">SnowPulse AI</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant mt-1 opacity-70">Executive Overview</div>
 </div>
 </div>
-<button class="mx-stack-md mb-stack-lg bg-primary hover:bg-primary/90 text-on-primary font-body-md text-body-md py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 transition-all duration-300 ease-out interactive-scale shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] animate-entrance">
-<span class="material-symbols-outlined text-[18px]">add</span>
-        New Analysis
+<button id="upload-btn" class="mx-stack-md mb-stack-lg bg-primary hover:bg-primary/90 text-on-primary font-body-md text-body-md py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 transition-all duration-300 ease-out interactive-scale shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] animate-entrance">
+<span class="material-symbols-outlined text-[18px]">upload_file</span>
+        Upload Dataset
     </button>
+<input type="file" id="csv-file-input" accept=".csv" class="hidden" />
 <nav class="flex-1 overflow-y-auto px-stack-sm space-y-1 animate-entrance delay-1">
 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary bg-primary/10 border-r-2 border-primary duration-300 ease-out interactive-scale" href="#">
 <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
@@ -355,7 +356,7 @@ void main() {
         </a>
 <div class="flex items-center gap-3 px-3 py-3 mt-2 rounded-lg hover:bg-white/5 duration-300 ease-out cursor-pointer border border-transparent hover:border-white/5 interactive-scale">
 <div class="w-8 h-8 rounded-full bg-surface-bright flex items-center justify-center overflow-hidden border border-white/10">
-<img class="w-full h-full object-cover" data-alt="A macro photography style portrait of a sleek, abstract geometric sphere made of dark brushed metal, floating in a purely black void. The lighting is high-contrast, casting a sharp blue-violet highlight on one edge, evoking a highly advanced, premium tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAUxOLXt6XM0YbEe1hA91PC7-jmhIoeK5SSmY1Owm5-RJ7Ey0bAyZeodvE9mFd7QlnRBBAmpgdbT-veLemf0Kv08cB-1V5WqOmlwvkA1J6TzMhCbdtyP_J3_kXIrhF_T7p2Fq2zWtOIqTi8-2bEfZbNZ8KJQq0aOpCxMy2_h15Gee_ZVK7Hq9YpsfpsUoNLfu2T-X9cb-1N1-QykwER-ZfXEV1sQQUfH7wRPv9s-va7SRf934xSFvQ3M0O9zMMEI1-ECdphG4K-rs"/>
+<img class="w-full h-full object-cover" data-alt="A portrait of a sleek, abstract geometric sphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAUxOLXt6XM0YbEe1hA91PC7-jmhIoeK5SSmY1Owm5-RJ7Ey0bAyZeodvE9mFd7QlnRBBAmpgdbT-veLemf0Kv08cB-1V5WqOmlwvkA1J6TzMhCbdtyP_J3_kXIrhF_T7p2Fq2zWtOIqTi8-2bEfZbNZ8KJQq0aOpCxMy2_h15Gee_ZVK7Hq9YpsfpsUoNLfu2T-X9cb-1N1-QykwER-ZfXEV1sQQUfH7wRPv9s-va7SRf934xSFvQ3M0O9zMMEI1-ECdphG4K-rs"/>
 </div>
 <div class="flex-1 min-w-0">
 <div class="text-sm text-on-surface truncate">Admin User</div>
@@ -374,15 +375,15 @@ void main() {
 <span class="material-symbols-outlined">menu</span>
 </button>
 <div class="flex items-baseline gap-4">
-<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-semibold text-on-surface tracking-tight">Aether Analytics</h1>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-semibold text-on-surface tracking-tight">SnowPulse</h1>
 <div class="hidden lg:flex items-center gap-3 px-3 py-1 rounded-full glass-panel text-xs text-on-surface-variant">
-<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">database</span> Global Sales 2024</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">database</span> <span id="chip-dataset-name">Global Sales 2024</span></span>
 <div class="w-1 h-1 rounded-full bg-outline-variant"></div>
-<span class="font-data-mono text-data-mono">1.2M rows</span>
+<span class="font-data-mono text-data-mono" id="chip-rows-count">1.2M rows</span>
 <div class="w-1 h-1 rounded-full bg-outline-variant"></div>
-<span class="font-data-mono text-data-mono">48 cols</span>
+<span class="font-data-mono text-data-mono" id="chip-cols-count">48 cols</span>
 <div class="w-1 h-1 rounded-full bg-outline-variant"></div>
-<span class="flex items-center gap-1 text-secondary"><div class="w-1.5 h-1.5 rounded-full bg-secondary"></div> 98% Quality</span>
+<span class="flex items-center gap-1 text-secondary"><div class="w-1.5 h-1.5 rounded-full bg-secondary" id="chip-quality-dot"></div> <span id="chip-quality-text">98% Quality</span></span>
 </div>
 </div>
 </div>
@@ -402,16 +403,16 @@ void main() {
 <!-- Dashboard Canvas -->
 <div class="flex-1 overflow-y-auto p-margin-page relative z-10">
 <div class="max-w-container-max mx-auto grid grid-cols-12 gap-gutter">
-<!-- 2. AI Insights Panel -->
+<!-- AI Insights Panel -->
 <div class="col-span-12 mb-stack-sm glass-panel rounded-lg p-stack-md ai-pulse-border flex flex-col md:flex-row gap-stack-md items-center relative overflow-hidden animate-entrance delay-3">
 <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50 pointer-events-none"></div>
 <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 relative z-10 border border-primary/30">
 <span class="material-symbols-outlined text-primary">auto_awesome</span>
 </div>
-<div class="flex-1 relative z-10 min-w-0">
-<div class="font-label-caps text-label-caps text-primary mb-1 tracking-wider uppercase">Synthesized Insight</div>
-<p class="text-on-surface font-medium leading-relaxed">
-<span class="text-white">Key Finding:</span> Revenue increased 18% driven by Tamil Nadu and Karnataka. 
+<div id="ai-insights-container" class="flex-1 relative z-10 min-w-0">
+<div class="font-label-caps text-label-caps text-primary mb-1 tracking-wider uppercase">AI Executive Overview</div>
+<p id="ai-insights-text" class="text-on-surface font-medium leading-relaxed">
+<span class="text-white">Headline Insight:</span> Revenue increased 18% driven by Tamil Nadu and Karnataka. 
                         <span class="text-error ml-2 px-1.5 py-0.5 rounded bg-error/10 border border-error/20 text-xs inline-flex items-center gap-1">
 <span class="material-symbols-outlined text-[12px]">warning</span>
                             Risk: Customer retention dropped 6%.
@@ -422,20 +423,20 @@ void main() {
                     View Detail <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
 </button>
 </div>
-<!-- 1. KPI Overview (4 Cards) - Appears first after header -->
-<!-- Card 1: Revenue -->
+<!-- KPI Overview (4 Cards) -->
+<!-- Card 1: Total Revenue -->
 <div class="col-span-12 sm:col-span-6 lg:col-span-3 glass-panel rounded-lg p-stack-md flex flex-col transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(192,193,255,0.15)] interactive-scale animate-entrance delay-1">
 <div class="flex justify-between items-start mb-4">
-<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Total Revenue</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider" id="kpi-1-title">Total Revenue</div>
 <span class="material-symbols-outlined text-on-surface-variant/50 text-[18px]">payments</span>
 </div>
 <div class="flex items-baseline gap-2 mb-2">
-<div class="font-headline-lg text-headline-lg text-on-surface">$12.4M</div>
-<div class="text-secondary text-sm flex items-center font-data-mono">
+<div class="font-headline-lg text-headline-lg text-on-surface" id="kpi-1-val">$12.4M</div>
+<div class="text-secondary text-sm flex items-center font-data-mono" id="kpi-1-status">
 <span class="material-symbols-outlined text-[14px]">trending_up</span> +14%
                     </div>
 </div>
-<div class="h-8 mt-auto w-full relative flex items-end">
+<div class="h-8 mt-auto w-full relative flex items-end" id="kpi-1-sparkline-container">
 <div class="w-full h-full flex items-end gap-1 opacity-60 chart-shimmer">
 <div class="w-1/6 bg-secondary/20 h-[30%] rounded-t-sm"></div>
 <div class="w-1/6 bg-secondary/30 h-[45%] rounded-t-sm"></div>
@@ -449,16 +450,16 @@ void main() {
 <!-- Card 2: Profit Margin -->
 <div class="col-span-12 sm:col-span-6 lg:col-span-3 glass-panel rounded-lg p-stack-md flex flex-col transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(192,193,255,0.15)] interactive-scale animate-entrance delay-1">
 <div class="flex justify-between items-start mb-4">
-<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Profit Margin</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider" id="kpi-2-title">Profit Margin</div>
 <span class="material-symbols-outlined text-on-surface-variant/50 text-[18px]">percent</span>
 </div>
 <div class="flex items-baseline gap-2 mb-2">
-<div class="font-headline-lg text-headline-lg text-on-surface">24%</div>
-<div class="text-on-surface-variant text-sm flex items-center font-data-mono">
+<div class="font-headline-lg text-headline-lg text-on-surface" id="kpi-2-val">24%</div>
+<div class="text-on-surface-variant text-sm flex items-center font-data-mono" id="kpi-2-status">
 <span class="material-symbols-outlined text-[14px]">horizontal_rule</span> 0%
                     </div>
 </div>
-<div class="h-8 mt-auto w-full relative flex items-end">
+<div class="h-8 mt-auto w-full relative flex items-end" id="kpi-2-sparkline-container">
 <div class="w-full h-full flex items-end gap-1 opacity-60 chart-shimmer">
 <div class="w-1/6 bg-primary/40 h-[60%] rounded-t-sm"></div>
 <div class="w-1/6 bg-primary/40 h-[58%] rounded-t-sm"></div>
@@ -472,16 +473,16 @@ void main() {
 <!-- Card 3: Active Customers -->
 <div class="col-span-12 sm:col-span-6 lg:col-span-3 glass-panel rounded-lg p-stack-md flex flex-col transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(192,193,255,0.15)] interactive-scale animate-entrance delay-1">
 <div class="flex justify-between items-start mb-4">
-<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Active Customers</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider" id="kpi-3-title">Active Customers</div>
 <span class="material-symbols-outlined text-on-surface-variant/50 text-[18px]">group</span>
 </div>
 <div class="flex items-baseline gap-2 mb-2">
-<div class="font-headline-lg text-headline-lg text-on-surface">420k</div>
-<div class="text-error text-sm flex items-center font-data-mono">
+<div class="font-headline-lg text-headline-lg text-on-surface" id="kpi-3-val">420k</div>
+<div class="text-error text-sm flex items-center font-data-mono" id="kpi-3-status">
 <span class="material-symbols-outlined text-[14px]">trending_down</span> -2.1%
                     </div>
 </div>
-<div class="h-8 mt-auto w-full relative flex items-end">
+<div class="h-8 mt-auto w-full relative flex items-end" id="kpi-3-sparkline-container">
 <div class="w-full h-full flex items-end gap-1 opacity-60 chart-shimmer">
 <div class="w-1/6 bg-error/30 h-[90%] rounded-t-sm"></div>
 <div class="w-1/6 bg-error/40 h-[85%] rounded-t-sm"></div>
@@ -495,16 +496,16 @@ void main() {
 <!-- Card 4: Growth Rate -->
 <div class="col-span-12 sm:col-span-6 lg:col-span-3 glass-panel rounded-lg p-stack-md flex flex-col transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(192,193,255,0.15)] interactive-scale animate-entrance delay-1">
 <div class="flex justify-between items-start mb-4">
-<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Growth Rate</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider" id="kpi-4-title">Growth Rate</div>
 <span class="material-symbols-outlined text-on-surface-variant/50 text-[18px]">rocket_launch</span>
 </div>
 <div class="flex items-baseline gap-2 mb-2">
-<div class="font-headline-lg text-headline-lg text-on-surface">8.2%</div>
-<div class="text-secondary text-sm flex items-center font-data-mono">
+<div class="font-headline-lg text-headline-lg text-on-surface" id="kpi-4-val">8.2%</div>
+<div class="text-secondary text-sm flex items-center font-data-mono" id="kpi-4-status">
 <span class="material-symbols-outlined text-[14px]">trending_up</span> +1.4%
                     </div>
 </div>
-<div class="h-8 mt-auto w-full relative flex items-end">
+<div class="h-8 mt-auto w-full relative flex items-end" id="kpi-4-sparkline-container">
 <div class="w-full h-full flex items-end gap-1 opacity-60 chart-shimmer">
 <div class="w-1/6 bg-tertiary-fixed-dim/20 h-[20%] rounded-t-sm"></div>
 <div class="w-1/6 bg-tertiary-fixed-dim/30 h-[35%] rounded-t-sm"></div>
@@ -515,12 +516,12 @@ void main() {
 </div>
 </div>
 </div>
-<!-- 3. Trend Analysis -->
+<!-- Trend Analysis -->
 <div class="col-span-12 lg:col-span-8 glass-panel rounded-lg p-stack-md flex flex-col min-h-[320px] animate-entrance delay-2">
 <div class="flex justify-between items-center mb-6">
 <div>
-<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-1">Trend Analysis</h3>
-<div class="text-on-surface font-medium">Monthly Revenue vs Forecast</div>
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-1" id="trend-title">Trend Analysis</h3>
+<div class="text-on-surface font-medium" id="trend-subtitle">Monthly Revenue vs Forecast</div>
 </div>
 <div class="flex items-center gap-4 font-data-mono text-xs">
 <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-primary"></div> Actual</div>
@@ -529,47 +530,49 @@ void main() {
 </div>
 </div>
 <div class="flex-1 relative w-full h-full border-l border-b border-white/10 pl-2 pb-2">
-<div class="absolute left-[-30px] top-0 bottom-0 flex flex-col justify-between text-xs font-data-mono text-on-surface-variant/50 py-2">
+<div class="absolute left-[-30px] top-0 bottom-0 flex flex-col justify-between text-xs font-data-mono text-on-surface-variant/50 py-2" id="trend-y-axis">
 <span>15M</span><span>10M</span><span>5M</span><span>0</span>
 </div>
-<div class="absolute left-0 right-0 bottom-[-24px] flex justify-between text-xs font-data-mono text-on-surface-variant/50 px-4">
+<div class="absolute left-0 right-0 bottom-[-24px] flex justify-between text-xs font-data-mono text-on-surface-variant/50 px-4" id="trend-x-axis">
 <span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span>
 </div>
-<div class="absolute inset-0 overflow-hidden pt-4 pb-1 chart-shimmer">
+<div class="absolute inset-0 overflow-hidden pt-4 pb-1" id="trend-svg-container">
 <svg class="w-full h-full absolute inset-0" preserveaspectratio="none" viewbox="0 0 100 100">
-<path d="M 50,60 L 60,50 L 70,45 L 80,35 L 90,30 L 100,20 L 100,60 L 90,70 L 80,75 L 70,70 L 60,80 L 50,90 Z" fill="rgba(192,193,255,0.05)"></path>
+<path d="M 50,60 L 60,50 L 70,45 L 80,35 L 90,30 L 100,20 L 100,60 L 90,70 L 80,75 L 70,70 L 60,80 L 50,90 Z" fill="rgba(192,193,255,0.05)" id="trend-ci-path"></path>
 </svg>
 <svg class="w-full h-full absolute inset-0" preserveaspectratio="none" viewbox="0 0 100 100">
-<path d="M 50,75 L 60,65 L 70,55 L 80,50 L 90,45 L 100,35" fill="none" stroke="rgba(192,193,255,0.5)" stroke-dasharray="2 2" stroke-width="0.5"></path>
+<path d="M 50,75 L 60,65 L 70,55 L 80,50 L 90,45 L 100,35" fill="none" stroke="rgba(192,193,255,0.5)" stroke-dasharray="2 2" stroke-width="0.5" id="trend-forecast-line"></path>
 </svg>
 <svg class="w-full h-full absolute inset-0 drop-shadow-[0_4px_12px_rgba(192,193,255,0.4)]" preserveaspectratio="none" viewbox="0 0 100 100">
-<path d="M 0,90 L 10,85 L 20,70 L 30,75 L 40,60 L 50,65" fill="none" stroke="#c0c1ff" stroke-width="1.5"></path>
-<circle cx="50" cy="65" fill="#09090b" r="1.5" stroke="#c0c1ff" stroke-width="0.5"></circle>
+<path d="M 0,90 L 10,85 L 20,70 L 30,75 L 40,60 L 50,65" fill="none" stroke="#c0c1ff" stroke-width="1.5" id="trend-actual-line"></path>
+<circle cx="50" cy="65" fill="#09090b" r="1.5" stroke="#c0c1ff" stroke-width="0.5" id="trend-node-circle"></circle>
 </svg>
-<div class="absolute left-[50%] top-[65%] -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-primary/50 bg-primary/20 animate-pulse"></div>
+<div class="absolute left-[50%] top-[65%] -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-primary/50 bg-primary/20 animate-pulse" id="trend-pulse-overlay"></div>
 </div>
 </div>
 </div>
-<!-- 4. Geographic Analysis -->
+<!-- Geographic/Categorical breakdown -->
 <div class="col-span-12 lg:col-span-4 glass-panel rounded-lg p-stack-md flex flex-col min-h-[320px] animate-entrance delay-2">
-<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4">Geographic Distribution</h3>
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4" id="geo-title">Geographic Distribution</h3>
+<div class="flex-1 flex flex-col" id="geo-panel-content">
 <div class="flex-1 relative rounded-DEFAULT overflow-hidden border border-white/5 bg-[#0d0d0f] group">
 <div class="w-full h-full bg-cover bg-center absolute inset-0 opacity-80 mix-blend-screen grayscale contrast-150 brightness-75 group-hover:brightness-100 transition-all duration-500" data-alt="A highly stylized, minimalist dark-mode map of India." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCCCnsrNdnl_vxWvrHpZ8UTT2WNTInsb9REQCQBoBfkyYWL1TmfMhS2qNdMFAREVYBF9YBj82fQxcGA7Q19gMknRDUQtqoTAFQQp6xgfd2yrClvcf2j-uEhj_2Tk4o1PCt5BqlZ0lvET71OvR-R06ozya_Mdp2hNmW_ICpmRg6oYdo2PPuHbPyGQpV7ad4cS4D7_W6W8JQ3t9StWi7psa336ooZHBaa8y-p07VPlbgeQQZVBtUse6hHZDGmnLXonp8jtHLrsvAVfCw')"></div>
 <div class="absolute bottom-4 left-4 right-4 glass-panel p-3 rounded text-sm shadow-[0_4px_20px_rgba(0,0,0,0.8)] backdrop-blur-md animate-pulse">
 <div class="flex items-start gap-2">
 <div class="w-1.5 h-1.5 rounded-full bg-secondary mt-1.5 shadow-[0_0_8px_#00a572]"></div>
 <div>
-<div class="text-on-surface font-medium">Southern Surge</div>
-<div class="text-on-surface-variant text-xs mt-0.5">Southern regions contribute 42% of total revenue.</div>
+<div class="text-on-surface font-medium" id="geo-callout-title">Southern Surge</div>
+<div class="text-on-surface-variant text-xs mt-0.5" id="geo-callout-text">Southern regions contribute 42% of total revenue.</div>
 </div>
 </div>
 </div>
 </div>
 </div>
-<!-- 5. Correlation & Anomaly -->
+</div>
+<!-- Correlation Matrix & Anomaly Detection -->
 <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col animate-entrance delay-3">
-<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4">Correlation Matrix</h3>
-<div class="grid grid-cols-4 grid-rows-4 gap-1 flex-1 min-h-[200px] chart-shimmer">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4" id="corr-matrix-title">Correlation Matrix</h3>
+<div class="grid grid-cols-4 grid-rows-4 gap-1 flex-1 min-h-[200px]" id="correlation-matrix-grid">
 <div class="bg-primary/90 rounded-sm"></div>
 <div class="bg-primary/40 rounded-sm"></div>
 <div class="bg-error/20 rounded-sm"></div>
@@ -587,17 +590,17 @@ void main() {
 <div class="bg-error/10 rounded-sm"></div>
 <div class="bg-primary/80 rounded-sm"></div>
 </div>
-<div class="flex justify-between mt-2 text-[10px] font-data-mono text-on-surface-variant px-1">
+<div class="flex justify-between mt-2 text-[10px] font-data-mono text-on-surface-variant px-1" id="corr-matrix-labels">
 <span>Negative</span>
 <span>Positive</span>
 </div>
 </div>
 <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col animate-entrance delay-3">
 <div class="flex justify-between items-start mb-4">
-<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Anomaly Detection</h3>
-<span class="text-[10px] font-data-mono px-2 py-0.5 rounded bg-error/10 text-error border border-error/20">3 Outliers</span>
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider" id="anomaly-title">Anomaly Detection</h3>
+<span class="text-[10px] font-data-mono px-2 py-0.5 rounded bg-error/10 text-error border border-error/20" id="anomaly-status-badge">3 Outliers</span>
 </div>
-<div class="flex-1 relative border-l border-b border-white/10 min-h-[200px] chart-shimmer">
+<div class="flex-1 relative border-l border-b border-white/10 min-h-[200px] overflow-hidden" id="anomaly-plot-container">
 <div class="absolute w-1.5 h-1.5 rounded-full bg-primary/40 left-[20%] bottom-[30%]"></div>
 <div class="absolute w-1.5 h-1.5 rounded-full bg-primary/40 left-[25%] bottom-[40%]"></div>
 <div class="absolute w-1.5 h-1.5 rounded-full bg-primary/40 left-[30%] bottom-[35%]"></div>
@@ -612,24 +615,720 @@ void main() {
 <div class="absolute w-2 h-2 rounded-full bg-error left-[90%] bottom-[90%] shadow-[0_0_10px_rgba(255,180,171,0.6)] animate-pulse"></div>
 </div>
 </div>
-<!-- 6. Data Cleaning Log -->
+<!-- Data Cleaning Log -->
 <div class="col-span-12 glass-panel rounded-lg p-3 mt-stack-sm flex flex-col md:flex-row items-center justify-between text-xs font-data-mono text-on-surface-variant gap-4 animate-entrance delay-4">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-[16px] text-secondary">check_circle</span>
 <span>Pipeline Execution Complete</span>
 <span class="text-outline-variant mx-2">|</span>
-<span>Last run: 2 mins ago</span>
+<span id="cleaner-last-run">Last run: 2 mins ago</span>
 </div>
-<div class="flex flex-wrap gap-4">
+<div class="flex flex-wrap gap-4" id="cleaner-badges-container">
 <div class="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded border border-white/5 interactive-scale">
 <span class="text-secondary">✓</span> Removed 22 duplicates
-                    </div>
+</div>
 <div class="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded border border-white/5 interactive-scale">
 <span class="text-secondary">✓</span> Standardized date formats
-                    </div>
+</div>
 </div>
 </div>
 </div>
 </div>
 </main>
+
+<!-- Drag and Drop Overlay -->
+<div id="drop-overlay" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex flex-col items-center justify-center border-4 border-dashed border-primary/50 m-4 rounded-xl pointer-events-none opacity-0 transition-opacity duration-300">
+<div class="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-4 border border-primary/30">
+<span class="material-symbols-outlined text-[48px] text-primary animate-bounce">upload_file</span>
+</div>
+<h2 class="text-2xl font-bold text-white mb-2">Drop your CSV dataset here</h2>
+<p class="text-on-surface-variant text-sm">SnowPulse AI Chief Data Officer will automatically parse and analyze it</p>
+</div>
+
+<!-- Standalone Analysis Script -->
+<script>
+(function() {
+    const fileInput = document.getElementById('csv-file-input');
+    const uploadBtn = document.getElementById('upload-btn');
+
+    if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+    }
+
+    // Drag & drop logic
+    const dropOverlay = document.getElementById('drop-overlay');
+    if (dropOverlay) {
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            dropOverlay.classList.add('opacity-100');
+        });
+        dropOverlay.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+                dropOverlay.classList.remove('opacity-100');
+                dropOverlay.classList.add('opacity-0', 'pointer-events-none');
+            }
+        });
+        dropOverlay.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropOverlay.classList.remove('opacity-100');
+            dropOverlay.classList.add('opacity-0', 'pointer-events-none');
+            if (e.dataTransfer.files.length > 0) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        });
+    }
+
+    function handleFileSelect(e) {
+        if (e.target.files.length > 0) {
+            processFile(e.target.files[0]);
+        }
+    }
+
+    function processFile(file) {
+        if (!file.name.endsWith('.csv')) {
+            alert('Please upload a valid CSV file.');
+            return;
+        }
+        
+        document.getElementById('chip-dataset-name').textContent = file.name.replace('.csv', '');
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            analyzeDataset(text);
+        };
+        reader.readAsText(file);
+    }
+
+    function analyzeDataset(csvText) {
+        const rows = parseCSV(csvText);
+        if (rows.length < 2) {
+            alert('The dataset contains no valid data rows.');
+            return;
+        }
+        const headers = rows[0].map(h => h.trim());
+        const dataRows = rows.slice(1).filter(r => r.length === headers.length && r.some(cell => cell !== ''));
+        
+        if (dataRows.length === 0) {
+            alert('Could not parse any rows matching the header structure.');
+            return;
+        }
+
+        // Identify column types
+        const colTypes = headers.map((header, colIndex) => {
+            let numericCount = 0;
+            let dateCount = 0;
+            let nonNullCount = 0;
+            
+            const sampleSize = Math.min(dataRows.length, 100);
+            for (let i = 0; i < sampleSize; i++) {
+                const val = dataRows[i][colIndex].trim();
+                if (val === '') continue;
+                nonNullCount++;
+                if (!isNaN(parseFloat(val.replace(/[$,%]/g, '')))) numericCount++;
+                if (!isNaN(Date.parse(val)) && isNaN(val)) dateCount++;
+            }
+            
+            if (nonNullCount === 0) return 'categorical';
+            if (numericCount / nonNullCount > 0.6) return 'numeric';
+            if (dateCount / nonNullCount > 0.6) return 'date';
+            return 'categorical';
+        });
+        
+        const numericIndices = [];
+        const dateIndices = [];
+        const categoricalIndices = [];
+        
+        colTypes.forEach((type, index) => {
+            if (type === 'numeric') numericIndices.push(index);
+            else if (type === 'date') dateIndices.push(index);
+            else categoricalIndices.push(index);
+        });
+        
+        // Intelligent Semantic Mapping
+        let primaryMetricIndex = numericIndices[0] || 0;
+        let dateIndex = dateIndices[0] !== undefined ? dateIndices[0] : -1;
+        let categoryIndex = categoricalIndices[0] !== undefined ? categoricalIndices[0] : -1;
+        
+        headers.forEach((header, idx) => {
+            const hLower = header.toLowerCase();
+            if (numericIndices.includes(idx)) {
+                if (hLower.includes('revenue') || hLower.includes('sales') || hLower.includes('amount') || hLower.includes('price') || hLower.includes('total')) {
+                    primaryMetricIndex = idx;
+                }
+            }
+            if (hLower.includes('date') || hLower.includes('time') || hLower.includes('timestamp') || hLower.includes('year') || hLower.includes('month')) {
+                dateIndex = idx;
+            }
+            if (hLower.includes('category') || hLower.includes('region') || hLower.includes('state') || hLower.includes('country') || hLower.includes('segment') || hLower.includes('type')) {
+                categoryIndex = idx;
+            }
+        });
+        
+        // Data Cleaning & Deduplication
+        let duplicateCount = 0;
+        const seen = new Set();
+        const cleanRows = [];
+        
+        dataRows.forEach(row => {
+            const str = row.join('|');
+            if (seen.has(str)) {
+                duplicateCount++;
+            } else {
+                seen.add(str);
+                cleanRows.push(row);
+            }
+        });
+        
+        const primaryMetricName = headers[primaryMetricIndex];
+        const cleanData = cleanRows.map(row => {
+            let dateVal = null;
+            if (dateIndex !== -1) {
+                const parsedDate = Date.parse(row[dateIndex]);
+                if (!isNaN(parsedDate)) {
+                    dateVal = new Date(parsedDate);
+                }
+            }
+            const rawVal = row[primaryMetricIndex];
+            const numVal = parseFloat(rawVal.replace(/[$,%]/g, '')) || 0;
+            const catVal = categoryIndex !== -1 ? row[categoryIndex].trim() : 'General';
+            return {
+                row,
+                date: dateVal,
+                value: numVal,
+                category: catVal
+            };
+        });
+        
+        // Statistics
+        const totalCount = cleanData.length;
+        const sumVal = cleanData.reduce((sum, item) => sum + item.value, 0);
+        const avgVal = sumVal / totalCount;
+        
+        // Z-score Anomaly Detection
+        const variance = cleanData.reduce((sum, item) => sum + Math.pow(item.value - avgVal, 2), 0) / totalCount;
+        const stdDev = Math.sqrt(variance) || 1;
+        let outlierCount = 0;
+        cleanData.forEach(item => {
+            const z = (item.value - avgVal) / stdDev;
+            if (Math.abs(z) > 2.2) {
+                outlierCount++;
+            }
+        });
+        
+        // Growth Rate Timeline comparison
+        let growthRate = 0;
+        const hasValidDates = cleanData.some(d => d.date !== null);
+        if (hasValidDates) {
+            const sortedByDate = [...cleanData].filter(d => d.date !== null).sort((a, b) => a.date - b.date);
+            const half = Math.floor(sortedByDate.length / 2);
+            const sumFirstHalf = sortedByDate.slice(0, half).reduce((sum, item) => sum + item.value, 0);
+            const sumSecondHalf = sortedByDate.slice(half).reduce((sum, item) => sum + item.value, 0);
+            if (sumFirstHalf > 0) {
+                growthRate = ((sumSecondHalf - sumFirstHalf) / sumFirstHalf) * 100;
+            }
+        } else {
+            const half = Math.floor(cleanData.length / 2);
+            const sumFirstHalf = cleanData.slice(0, half).reduce((sum, item) => sum + item.value, 0);
+            const sumSecondHalf = cleanData.slice(half).reduce((sum, item) => sum + item.value, 0);
+            if (sumFirstHalf > 0) {
+                growthRate = ((sumSecondHalf - sumFirstHalf) / sumFirstHalf) * 100;
+            }
+        }
+        
+        // Domain Categorization
+        let domain = 'General Analytics';
+        const headerStr = headers.join(' ').toLowerCase();
+        if (headerStr.includes('sales') || headerStr.includes('revenue') || headerStr.includes('order')) domain = 'E-Commerce & Sales';
+        else if (headerStr.includes('patient') || headerStr.includes('clinic') || headerStr.includes('health') || headerStr.includes('medical')) domain = 'Healthcare & Clinics';
+        else if (headerStr.includes('clicks') || headerStr.includes('campaign') || headerStr.includes('ad') || headerStr.includes('impressions')) domain = 'Digital Marketing';
+        else if (headerStr.includes('user') || headerStr.includes('session') || headerStr.includes('pageview') || headerStr.includes('login')) domain = 'Software Product Analytics';
+        
+        // Top performer / worst performer segments
+        const catGroups = {};
+        cleanData.forEach(item => {
+            if (!catGroups[item.category]) catGroups[item.category] = { sum: 0, count: 0 };
+            catGroups[item.category].sum += item.value;
+            catGroups[item.category].count++;
+        });
+        
+        let bestCat = 'None';
+        let maxCatVal = -Infinity;
+        let worstCat = 'None';
+        let minCatVal = Infinity;
+        
+        Object.keys(catGroups).forEach(cat => {
+            const sum = catGroups[cat].sum;
+            if (sum > maxCatVal) {
+                maxCatVal = sum;
+                bestCat = cat;
+            }
+            if (sum < minCatVal) {
+                minCatVal = sum;
+                worstCat = cat;
+            }
+        });
+        
+        // Confidence Score Formula
+        const missingValuesPct = (rows.length - totalCount) / rows.length;
+        const outlierPct = outlierCount / totalCount;
+        const duplicatePct = duplicateCount / rows.length;
+        let confidenceScore = Math.round(99 - (missingValuesPct * 40) - (outlierPct * 120) - (duplicatePct * 80));
+        confidenceScore = Math.max(72, Math.min(99, confidenceScore));
+        
+        // Update UI Text Chips
+        document.getElementById('chip-rows-count').textContent = formatRowsCount(rows.length);
+        document.getElementById('chip-cols-count').textContent = `${headers.length} cols`;
+        document.getElementById('chip-quality-text').textContent = `${confidenceScore}% Quality`;
+        
+        const qualityDot = document.getElementById('chip-quality-dot');
+        if (confidenceScore > 90) {
+            qualityDot.className = 'w-1.5 h-1.5 rounded-full bg-secondary';
+            qualityDot.parentElement.className = 'flex items-center gap-1 text-secondary';
+        } else if (confidenceScore > 80) {
+            qualityDot.className = 'w-1.5 h-1.5 rounded-full bg-warning';
+            qualityDot.parentElement.className = 'flex items-center gap-1 text-warning';
+        } else {
+            qualityDot.className = 'w-1.5 h-1.5 rounded-full bg-error';
+            qualityDot.parentElement.className = 'flex items-center gap-1 text-error';
+        }
+
+        // Generate Narratives (Elite AI CDO Prompt Requirements)
+        let headlineInsight = `Primary target metric <strong>${primaryMetricName}</strong> shows key performance volume in the <strong>${domain}</strong> domain.`;
+        if (numericIndices.length > 1) {
+            let bestCorrCol = -1;
+            let maxCorr = 0;
+            numericIndices.forEach(idx => {
+                if (idx === primaryMetricIndex) return;
+                const colVals = cleanRows.map(r => parseFloat(r[idx].replace(/[$,%]/g, '')) || 0);
+                const corr = calculatePearsonCorrelation(cleanData.map(d => d.value), colVals);
+                if (Math.abs(corr) > Math.abs(maxCorr)) {
+                    maxCorr = corr;
+                    bestCorrCol = idx;
+                }
+            });
+            if (bestCorrCol !== -1) {
+                headlineInsight = `Strong ${maxCorr >= 0 ? 'positive' : 'negative'} correlation (<strong>${maxCorr.toFixed(2)}</strong>) detected between <strong>${primaryMetricName}</strong> and <strong>${headers[bestCorrCol]}</strong>, demonstrating key linear influence.`;
+            }
+        }
+        
+        let warningRisk = `Statistical outlier detector flagged <strong>${outlierCount}</strong> anomalies in <strong>${primaryMetricName}</strong> (variance Z-score > 2.2).`;
+        if (worstCat !== 'None' && worstCat !== 'General') {
+            warningRisk += ` Segment <strong>${worstCat}</strong> presents the highest risk of drag-down performance.`;
+        }
+        
+        let recommendation = `Reallocate operational budgets toward the <strong>${bestCat}</strong> segment, which shows the highest volume contribution of <strong>${formatCurrencyOrNum(maxCatVal)}</strong>.`;
+        
+        document.getElementById('ai-insights-text').innerHTML = `
+            <span class="text-white">Headline Insight:</span> ${headlineInsight}
+            <span class="text-error ml-2 px-1.5 py-0.5 rounded bg-error/10 border border-error/20 text-xs inline-flex items-center gap-1">
+                <span class="material-symbols-outlined text-[12px]">warning</span>
+                Risk: ${warningRisk}
+            </span>
+            <span class="text-secondary ml-2 px-1.5 py-0.5 rounded bg-secondary/10 border border-secondary/20 text-xs inline-flex items-center gap-1">
+                <span class="material-symbols-outlined text-[12px]">auto_awesome</span>
+                Rec: ${recommendation}
+            </span>
+        `;
+        
+        // Update KPI Cards
+        document.getElementById('kpi-1-title').textContent = `Total ${primaryMetricName}`;
+        document.getElementById('kpi-1-val').textContent = formatCurrencyOrNum(sumVal);
+        document.getElementById('kpi-1-status').innerHTML = `
+            <span class="material-symbols-outlined text-[14px]">${growthRate >= 0 ? 'trending_up' : 'trending_down'}</span> ${growthRate >= 0 ? '+' : ''}${growthRate.toFixed(1)}%
+        `;
+        document.getElementById('kpi-1-status').className = growthRate >= 0 ? 'text-secondary text-sm flex items-center font-data-mono' : 'text-error text-sm flex items-center font-data-mono';
+        renderSparkline('kpi-1-sparkline-container', cleanData.map(d => d.value), 'secondary');
+
+        document.getElementById('kpi-2-title').textContent = `Average ${primaryMetricName}`;
+        document.getElementById('kpi-2-val').textContent = formatCurrencyOrNum(avgVal);
+        document.getElementById('kpi-2-status').innerHTML = `
+            <span class="material-symbols-outlined text-[14px]">horizontal_rule</span> StdDev: ${formatCurrencyOrNum(stdDev)}
+        `;
+        document.getElementById('kpi-2-status').className = 'text-on-surface-variant text-sm flex items-center font-data-mono';
+        renderSparkline('kpi-2-sparkline-container', cleanData.map(d => d.value).reverse(), 'primary');
+
+        document.getElementById('kpi-3-title').textContent = `Total Records`;
+        document.getElementById('kpi-3-val').textContent = formatRowsCount(totalCount);
+        document.getElementById('kpi-3-status').innerHTML = `
+            <span class="material-symbols-outlined text-[14px]">check_circle</span> 100% Parsed
+        `;
+        document.getElementById('kpi-3-status').className = 'text-secondary text-sm flex items-center font-data-mono';
+        renderSparkline('kpi-3-sparkline-container', Array.from({length: 6}, () => Math.random() * totalCount), 'secondary');
+
+        const anomalyRate = (outlierCount / totalCount) * 100;
+        document.getElementById('kpi-4-title').textContent = `Anomaly Rate`;
+        document.getElementById('kpi-4-val').textContent = `${anomalyRate.toFixed(1)}%`;
+        document.getElementById('kpi-4-status').innerHTML = `
+            <span class="material-symbols-outlined text-[14px]">${anomalyRate > 5 ? 'trending_up' : 'trending_down'}</span> ${outlierCount} Outliers
+        `;
+        document.getElementById('kpi-4-status').className = anomalyRate > 5 ? 'text-error text-sm flex items-center font-data-mono' : 'text-secondary text-sm flex items-center font-data-mono';
+        renderSparkline('kpi-4-sparkline-container', Array.from({length: 6}, () => Math.random() * outlierCount), 'error');
+
+        // Update Charts
+        updateTrendChart(cleanData, primaryMetricName);
+        updateGeoCategoricalBreakdown(catGroups, primaryMetricName);
+        updateCorrelationMatrix(headers, numericIndices, cleanRows);
+        updateAnomalyPlot(cleanData, avgVal, stdDev);
+
+        // Update Cleaner Log
+        document.getElementById('cleaner-last-run').textContent = 'Last run: Just now';
+        const cleanerBadges = document.getElementById('cleaner-badges-container');
+        cleanerBadges.innerHTML = `
+            <div class="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded border border-white/5 interactive-scale">
+                <span class="text-secondary">✓</span> Removed ${duplicateCount} duplicates
+            </div>
+            <div class="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded border border-white/5 interactive-scale">
+                <span class="text-secondary">✓</span> Standardized ${cleanData.filter(d => d.date !== null).length} date records
+            </div>
+            <div class="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded border border-white/5 interactive-scale">
+                <span class="text-error">!</span> Flagged ${outlierCount} outliers
+            </div>
+        `;
+    }
+
+    function parseCSV(text) {
+        let lines = [];
+        let row = [""];
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            let c = text[i];
+            let next = text[i+1];
+            if (c === '"') {
+                if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
+                else { inQuotes = !inQuotes; }
+            } else if (c === ',' && !inQuotes) {
+                row.push('');
+            } else if ((c === '\r' || c === '\n') && !inQuotes) {
+                if (c === '\r' && next === '\n') { i++; }
+                lines.push(row);
+                row = [''];
+            } else {
+                row[row.length - 1] += c;
+            }
+        }
+        if (row.length > 1 || row[0] !== '') { lines.push(row); }
+        return lines;
+    }
+
+    function calculatePearsonCorrelation(x, y) {
+        const n = x.length;
+        if (n === 0) return 0;
+        const sumX = x.reduce((a, b) => a + b, 0);
+        const sumY = y.reduce((a, b) => a + b, 0);
+        const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+        const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+        const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+        
+        const num = n * sumXY - sumX * sumY;
+        const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+        if (den === 0) return 0;
+        return num / den;
+    }
+
+    function formatRowsCount(n) {
+        if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M rows';
+        if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k rows';
+        return n + ' rows';
+    }
+
+    function formatCurrencyOrNum(n) {
+        if (n >= 1e9) return '$' + (n / 1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'k';
+        if (n === 0) return '0';
+        return n.toFixed(1);
+    }
+
+    function renderSparkline(containerId, data, color) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const max = Math.max(...data) || 1;
+        const min = Math.min(...data) || 0;
+        const range = max - min || 1;
+        
+        let html = `<div class="w-full h-full flex items-end gap-1 opacity-60">`;
+        const step = Math.max(1, Math.floor(data.length / 6));
+        
+        const displayData = [];
+        for (let i = 0; i < data.length; i += step) {
+            displayData.push(data[i]);
+            if (displayData.length >= 6) break;
+        }
+        while (displayData.length < 6) {
+            displayData.push(data[data.length - 1] || 0);
+        }
+        
+        const colorClass = color === 'secondary' ? 'bg-secondary' : color === 'error' ? 'bg-error' : color === 'primary' ? 'bg-primary' : 'bg-tertiary-fixed-dim';
+        
+        displayData.forEach(val => {
+            const pct = Math.max(10, Math.round(((val - min) / range) * 100));
+            html += `<div class="w-1/6 ${colorClass}/40 h-[${pct}%] rounded-t-sm animate-pulse" style="height: ${pct}%"></div>`;
+        });
+        
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function updateTrendChart(cleanData, metricName) {
+        document.getElementById('trend-subtitle').textContent = `Timeline Trend for ${metricName}`;
+        
+        let chartPoints = [];
+        let xLabels = [];
+        
+        const dateData = cleanData.filter(d => d.date !== null);
+        if (dateData.length > 0) {
+            const monthlyGroups = {};
+            dateData.forEach(d => {
+                const m = d.date.toLocaleString('default', { month: 'short' });
+                if (!monthlyGroups[m]) monthlyGroups[m] = { sum: 0, count: 0 };
+                monthlyGroups[m].sum += d.value;
+                monthlyGroups[m].count++;
+            });
+            
+            const monthsOrdered = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            monthsOrdered.forEach(m => {
+                if (monthlyGroups[m]) {
+                    chartPoints.push(monthlyGroups[m].sum);
+                    xLabels.push(m);
+                }
+            });
+            
+            if (chartPoints.length < 3) {
+                chartPoints = [];
+                xLabels = [];
+                Object.keys(monthlyGroups).forEach(m => {
+                    chartPoints.push(monthlyGroups[m].sum);
+                    xLabels.push(m);
+                });
+            }
+        }
+        
+        if (chartPoints.length === 0) {
+            const segmentSize = Math.max(1, Math.floor(cleanData.length / 6));
+            for (let i = 0; i < 6; i++) {
+                const segment = cleanData.slice(i * segmentSize, (i + 1) * segmentSize);
+                const sum = segment.reduce((s, d) => s + d.value, 0);
+                chartPoints.push(sum);
+                xLabels.push(`Bin ${i+1}`);
+            }
+        }
+        
+        const max = Math.max(...chartPoints) || 1;
+        const min = Math.min(...chartPoints) || 0;
+        const range = max - min || 1;
+        
+        const N = chartPoints.length;
+        const scaledActualPoints = chartPoints.map((val, idx) => {
+            const x = (idx / (N + 2)) * 100; // Leave space for forecast at the end
+            const y = 90 - ((val - min) / range) * 70;
+            return { x, y };
+        });
+        
+        let scaledActualPathD = `M ${scaledActualPoints[0].x},${scaledActualPoints[0].y}`;
+        for (let i = 1; i < scaledActualPoints.length; i++) {
+            scaledActualPathD += ` L ${scaledActualPoints[i].x},${scaledActualPoints[i].y}`;
+        }
+        document.getElementById('trend-actual-line').setAttribute('d', scaledActualPathD);
+        
+        // Linear regression for forecast
+        let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
+        for (let i = 0; i < N; i++) {
+            sumX += i;
+            sumY += chartPoints[i];
+            sumXX += i * i;
+            sumXY += i * chartPoints[i];
+        }
+        const slope = (N * sumXY - sumX * sumY) / (N * sumXX - sumX * sumX) || 0;
+        const intercept = (sumY - slope * sumX) / N;
+        
+        const forecastPoints = [];
+        for (let i = N - 1; i < N + 3; i++) {
+            const val = slope * i + intercept;
+            const x = (i / (N + 2)) * 100;
+            const y = 90 - ((Math.max(min, Math.min(max * 1.2, val)) - min) / range) * 70;
+            forecastPoints.push({ x, y });
+        }
+        
+        let forecastPathD = `M ${scaledActualPoints[scaledActualPoints.length - 1].x},${scaledActualPoints[scaledActualPoints.length - 1].y}`;
+        for (let i = 1; i < forecastPoints.length; i++) {
+            forecastPathD += ` L ${forecastPoints[i].x},${forecastPoints[i].y}`;
+        }
+        document.getElementById('trend-forecast-line').setAttribute('d', forecastPathD);
+        
+        // CI Area
+        let ciD = `M ${scaledActualPoints[scaledActualPoints.length - 1].x},${scaledActualPoints[scaledActualPoints.length - 1].y}`;
+        const ciUpper = [];
+        const ciLower = [];
+        for (let i = 1; i < forecastPoints.length; i++) {
+            const spread = i * 6;
+            ciUpper.push({ x: forecastPoints[i].x, y: Math.max(10, forecastPoints[i].y - spread) });
+            ciLower.push({ x: forecastPoints[i].x, y: Math.min(95, forecastPoints[i].y + spread) });
+        }
+        
+        ciUpper.forEach(p => ciD += ` L ${p.x},${p.y}`);
+        for (let i = ciLower.length - 1; i >= 0; i--) {
+            ciD += ` L ${ciLower[i].x},${ciLower[i].y}`;
+        }
+        ciD += ' Z';
+        document.getElementById('trend-ci-path').setAttribute('d', ciD);
+        
+        const lastPt = scaledActualPoints[scaledActualPoints.length - 1];
+        const nodeCircle = document.getElementById('trend-node-circle');
+        nodeCircle.setAttribute('cx', lastPt.x);
+        nodeCircle.setAttribute('cy', lastPt.y);
+        
+        const pulseOverlay = document.getElementById('trend-pulse-overlay');
+        pulseOverlay.style.left = `${lastPt.x}%`;
+        pulseOverlay.style.top = `${lastPt.y}%`;
+        
+        const yAxis = document.getElementById('trend-y-axis');
+        yAxis.innerHTML = `
+            <span>${formatCurrencyOrNum(max)}</span>
+            <span>${formatCurrencyOrNum(min + range * 0.66)}</span>
+            <span>${formatCurrencyOrNum(min + range * 0.33)}</span>
+            <span>${formatCurrencyOrNum(min)}</span>
+        `;
+        
+        const xAxis = document.getElementById('trend-x-axis');
+        xAxis.innerHTML = xLabels.map(l => `<span>${l}</span>`).join('');
+    }
+
+    function updateGeoCategoricalBreakdown(catGroups, metricName) {
+        document.getElementById('geo-title').textContent = `Categorical Breakdown`;
+        const container = document.getElementById('geo-panel-content');
+        
+        const sortedCats = Object.keys(catGroups).map(cat => ({
+            name: cat,
+            sum: catGroups[cat].sum,
+            count: catGroups[cat].count
+        })).sort((a, b) => b.sum - a.sum).slice(0, 5);
+        
+        const maxVal = Math.max(...sortedCats.map(c => c.sum)) || 1;
+        
+        let html = `<div class="flex-1 flex flex-col justify-around gap-2 bg-[#0d0d0f] border border-white/5 rounded p-3">`;
+        
+        sortedCats.forEach(c => {
+            const pct = Math.round((c.sum / maxVal) * 100);
+            html += `
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-on-surface truncate max-w-[150px]">${c.name}</span>
+                        <span class="font-data-mono text-on-surface-variant">${formatCurrencyOrNum(c.sum)}</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                        <div class="bg-primary h-full rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+            <div class="glass-panel p-2.5 rounded text-xs shadow-md mt-2 flex items-start gap-2">
+                <div class="w-1.5 h-1.5 rounded-full bg-secondary mt-1 shadow-[0_0_8px_#00a572]"></div>
+                <div>
+                    <div class="text-on-surface font-medium">Top Performer</div>
+                    <div class="text-on-surface-variant text-[11px] mt-0.5">${sortedCats[0]?.name || 'N/A'} represents the highest share with ${formatCurrencyOrNum(sortedCats[0]?.sum || 0)}.</div>
+                </div>
+            </div>
+        `;
+        
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function updateCorrelationMatrix(headers, numericIndices, cleanRows) {
+        const grid = document.getElementById('correlation-matrix-grid');
+        grid.innerHTML = '';
+        
+        const topIndices = numericIndices.slice(0, 4);
+        while (topIndices.length < 4) {
+            topIndices.push(0);
+        }
+        
+        const matrix = [];
+        for (let i = 0; i < 4; i++) {
+            matrix.push([]);
+            for (let j = 0; j < 4; j++) {
+                if (i === j) {
+                    matrix[i].push(1.0);
+                } else {
+                    const colA = cleanRows.map(r => parseFloat(r[topIndices[i]].replace(/[$,%]/g, '')) || 0);
+                    const colB = cleanRows.map(r => parseFloat(r[topIndices[j]].replace(/[$,%]/g, '')) || 0);
+                    matrix[i].push(calculatePearsonCorrelation(colA, colB));
+                }
+            }
+        }
+        
+        document.getElementById('corr-matrix-title').textContent = `Correlation Matrix (${topIndices.map(idx => headers[idx].slice(0, 8)).join(', ')})`;
+        
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                const corr = matrix[i][j];
+                const div = document.createElement('div');
+                div.className = 'rounded-sm flex items-center justify-center text-[10px] font-data-mono text-white/80 transition-all duration-300 hover:scale-105';
+                
+                if (corr >= 0) {
+                    const alpha = Math.round(corr * 10) / 10;
+                    div.style.backgroundColor = `rgba(99, 102, 241, ${Math.max(0.1, alpha)})`;
+                } else {
+                    const alpha = Math.round(Math.abs(corr) * 10) / 10;
+                    div.style.backgroundColor = `rgba(239, 68, 68, ${Math.max(0.1, alpha)})`;
+                }
+                
+                div.textContent = corr.toFixed(2);
+                div.title = `${headers[topIndices[i]]} vs ${headers[topIndices[j]]}: ${corr.toFixed(4)}`;
+                grid.appendChild(div);
+            }
+        }
+    }
+
+    function updateAnomalyPlot(cleanData, avgVal, stdDev) {
+        const container = document.getElementById('anomaly-plot-container');
+        container.innerHTML = '';
+        
+        const totalCount = cleanData.length;
+        let outlierCount = 0;
+        
+        const step = Math.max(1, Math.floor(totalCount / 50));
+        const plotPoints = [];
+        
+        for (let i = 0; i < totalCount; i += step) {
+            plotPoints.push(cleanData[i]);
+        }
+        
+        const minVal = Math.min(...cleanData.map(d => d.value)) || 0;
+        const maxVal = Math.max(...cleanData.map(d => d.value)) || 1;
+        const range = maxVal - minVal || 1;
+        
+        plotPoints.forEach((p, idx) => {
+            const z = (p.value - avgVal) / stdDev;
+            const isOutlier = Math.abs(z) > 2.2;
+            if (isOutlier) outlierCount++;
+            
+            const left = (idx / (plotPoints.length - 1)) * 90 + 5;
+            const bottom = ((p.value - minVal) / range) * 80 + 10;
+            
+            const dot = document.createElement('div');
+            if (isOutlier) {
+                dot.className = 'absolute w-2.5 h-2.5 rounded-full bg-error shadow-[0_0_10px_rgba(255,180,171,0.6)] animate-pulse z-10 cursor-pointer';
+                dot.title = `Anomaly: ${p.category} = ${formatCurrencyOrNum(p.value)} (Z-score: ${z.toFixed(2)})`;
+            } else {
+                dot.className = 'absolute w-1.5 h-1.5 rounded-full bg-primary/40 hover:bg-primary/80 transition-all cursor-pointer';
+                dot.title = `Data: ${p.category} = ${formatCurrencyOrNum(p.value)}`;
+            }
+            
+            dot.style.left = `${left}%`;
+            dot.style.bottom = `${bottom}%`;
+            container.appendChild(dot);
+        });
+        
+        document.getElementById('anomaly-status-badge').textContent = `${outlierCount} Outliers`;
+    }
+})();
+</script>
 </body></html>

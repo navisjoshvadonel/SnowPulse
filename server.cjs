@@ -16,7 +16,6 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-    // Decode URI component to handle spaces or special characters in filenames
     let safeUrl = decodeURIComponent(req.url);
     let filePath = '.' + (safeUrl === '/' ? '/original.html' : safeUrl);
 

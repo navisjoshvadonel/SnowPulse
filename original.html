@@ -637,153 +637,343 @@ void main() {
 </div>
 </div>
 </div>
+</div>
 <!-- Datasets Section -->
 <div id="datasets-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
-    <!-- Left Column: Classification, Health & Quality (4 cols) -->
-    <div class="col-span-12 lg:col-span-4 space-y-gutter flex flex-col">
-        <!-- Classification Badge -->
-        <div class="glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
-            <div>
-                <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2">Classification</div>
+    <!-- Top Row: DNA & Classification (6 cols) & Health Center (6 cols) -->
+    <!-- 1. Dataset DNA & Complexity Classification -->
+    <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
+        <div>
+            <div class="flex justify-between items-center mb-4">
+                <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Panel 01: Dataset DNA & Identity</div>
+                <span class="text-[10px] font-data-mono px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20" id="dataset-class-confidence">95% Confidence</span>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
                 <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-[36px] text-primary" id="dataset-class-icon">category</span>
+                    <div class="w-12 h-12 rounded bg-primary/10 flex items-center justify-center border border-primary/20">
+                        <span class="material-symbols-outlined text-[30px] text-primary" id="dataset-class-icon">category</span>
+                    </div>
                     <div>
-                        <div class="text-xl font-bold text-white" id="dataset-classification">Generic</div>
-                        <div class="text-xs text-secondary font-data-mono" id="dataset-class-confidence">95% Confidence</div>
+                        <div class="text-xs text-on-surface-variant">Domain Classification</div>
+                        <div class="text-lg font-bold text-white leading-tight" id="dataset-classification">Generic</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded bg-error/10 flex items-center justify-center border border-error/20">
+                        <span class="material-symbols-outlined text-[30px] text-error">gavel</span>
+                    </div>
+                    <div>
+                        <div class="text-xs text-on-surface-variant">Business Criticality</div>
+                        <div class="text-lg font-bold text-white leading-tight" id="dataset-criticality">Medium</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded bg-secondary/10 flex items-center justify-center border border-secondary/20">
+                        <span class="material-symbols-outlined text-[30px] text-secondary">widgets</span>
+                    </div>
+                    <div>
+                        <div class="text-xs text-on-surface-variant">Structural Complexity</div>
+                        <div class="text-lg font-bold text-white leading-tight" id="dataset-complexity">Moderate</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded bg-tertiary/10 flex items-center justify-center border border-tertiary/20">
+                        <span class="material-symbols-outlined text-[30px] text-tertiary-fixed-dim">verified</span>
+                    </div>
+                    <div>
+                        <div class="text-xs text-on-surface-variant">Maturity Level</div>
+                        <div class="text-lg font-bold text-white leading-tight" id="dataset-maturity">65%</div>
                     </div>
                 </div>
             </div>
         </div>
+        <div class="grid grid-cols-4 gap-2 text-xs font-data-mono border-t border-white/5 pt-4 mt-4">
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                <div class="text-on-surface-variant text-[9px] uppercase">Rows</div>
+                <div class="text-white font-bold mt-1" id="meta-total-rows">0</div>
+            </div>
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                <div class="text-on-surface-variant text-[9px] uppercase">Columns</div>
+                <div class="text-white font-bold mt-1" id="meta-total-cols">0</div>
+            </div>
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                <div class="text-on-surface-variant text-[9px] uppercase">Empty Cells</div>
+                <div class="text-white font-bold mt-1" id="meta-empty-cells">0</div>
+            </div>
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                <div class="text-on-surface-variant text-[9px] uppercase">Duplicates</div>
+                <div class="text-white font-bold mt-1" id="meta-duplicate-rows">0</div>
+            </div>
+        </div>
+    </div>
 
-        <!-- Data Health Score Circle -->
-        <div class="glass-panel rounded-lg p-stack-md flex flex-col items-center justify-center relative overflow-hidden">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4 w-full text-left">Overall Health Score</div>
-            <div class="relative w-40 h-40 flex items-center justify-center">
-                <!-- SVG Circle Progress -->
+    <!-- 2. Data Health Center & Readiness Meter -->
+    <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2">Panel 02: Health Center & Analytics Readiness</div>
+        <div class="flex flex-col md:flex-row items-center gap-6">
+            <!-- Large Health Score Circle -->
+            <div class="relative w-36 h-36 flex items-center justify-center flex-shrink-0">
                 <svg class="w-full h-full transform -rotate-90">
-                    <circle cx="80" cy="80" r="70" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="transparent"/>
-                    <circle id="health-progress-ring" cx="80" cy="80" r="70" stroke="var(--primary)" stroke-width="8" fill="transparent"
-                            stroke-dasharray="440" stroke-dashoffset="440" stroke-linecap="round" class="transition-all duration-1000 ease-out"/>
+                    <circle cx="72" cy="72" r="62" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="transparent"/>
+                    <circle id="health-progress-ring" cx="72" cy="72" r="62" stroke="var(--primary)" stroke-width="8" fill="transparent"
+                            stroke-dasharray="390" stroke-dashoffset="390" stroke-linecap="round" class="transition-all duration-1000 ease-out"/>
                 </svg>
                 <div class="absolute flex flex-col items-center justify-center">
                     <span class="text-3xl font-bold text-white font-data-mono" id="health-score-val">0%</span>
-                    <span class="text-[10px] text-on-surface-variant uppercase tracking-wider font-label-caps" id="health-score-status">Calculating</span>
+                    <span class="text-[9px] text-on-surface-variant uppercase tracking-wider font-label-caps" id="health-score-status">Calculating</span>
                 </div>
             </div>
-            <div class="mt-4 text-xs text-on-surface-variant text-center max-w-[250px]" id="health-score-summary">
-                Data quality metrics are evaluated dynamically on load.
-            </div>
-        </div>
-
-        <!-- Data Quality Score Breakdown -->
-        <div class="glass-panel rounded-lg p-stack-md space-y-4">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Quality Score Breakdown</div>
-            
-            <!-- Completeness -->
-            <div class="space-y-1">
-                <div class="flex justify-between text-xs">
-                    <span class="text-on-surface-variant">Completeness</span>
-                    <span class="font-data-mono text-white" id="quality-completeness-val">0% <span class="text-secondary text-[10px] ml-1">(99% conf)</span></span>
+            <!-- Readiness Breakdown -->
+            <div class="flex-1 w-full space-y-2 text-xs">
+                <!-- Analytics Readiness -->
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-on-surface-variant">Descriptive Analytics Readiness</span>
+                        <span class="font-data-mono text-white" id="readiness-analytics">0%</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                        <div id="readiness-analytics-bar" class="bg-primary h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
                 </div>
-                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                    <div id="quality-completeness-bar" class="bg-primary h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                <!-- Forecasting Readiness -->
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-on-surface-variant">Forecasting & Time-Series Readiness</span>
+                        <span class="font-data-mono text-white" id="readiness-forecasting">0%</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                        <div id="readiness-forecasting-bar" class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Consistency -->
-            <div class="space-y-1">
-                <div class="flex justify-between text-xs">
-                    <span class="text-on-surface-variant">Consistency</span>
-                    <span class="font-data-mono text-white" id="quality-consistency-val">0% <span class="text-secondary text-[10px] ml-1">(96% conf)</span></span>
+                <!-- ML Readiness -->
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-on-surface-variant">Predictive ML / Modeling Readiness</span>
+                        <span class="font-data-mono text-white" id="readiness-ml">0%</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                        <div id="readiness-ml-bar" class="bg-tertiary-fixed-dim h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
                 </div>
-                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                    <div id="quality-consistency-bar" class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <!-- Uniqueness -->
-            <div class="space-y-1">
-                <div class="flex justify-between text-xs">
-                    <span class="text-on-surface-variant">Uniqueness</span>
-                    <span class="font-data-mono text-white" id="quality-uniqueness-val">0% <span class="text-secondary text-[10px] ml-1">(95% conf)</span></span>
-                </div>
-                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                    <div id="quality-uniqueness-bar" class="bg-tertiary-fixed-dim h-full rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <!-- Duplication -->
-            <div class="space-y-1">
-                <div class="flex justify-between text-xs">
-                    <span class="text-on-surface-variant">Uniqueness (Rows)</span>
-                    <span class="font-data-mono text-white" id="quality-rows-uniqueness-val">0% <span class="text-secondary text-[10px] ml-1">(98% conf)</span></span>
-                </div>
-                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                    <div id="quality-rows-uniqueness-bar" class="bg-error h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                <!-- Executive Reporting Readiness -->
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-on-surface-variant">Executive BI & Reporting Readiness</span>
+                        <span class="font-data-mono text-white" id="readiness-reporting">0%</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                        <div id="readiness-reporting-bar" class="bg-surface-tint h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
         </div>
+        <div class="mt-3 text-xs text-on-surface-variant bg-white/5 p-2 rounded border border-white/5" id="health-score-summary">
+            Data quality parameters are evaluated dynamically on load.
+        </div>
+    </div>
 
-        <!-- Metadata Summary -->
-        <div class="glass-panel rounded-lg p-stack-md space-y-3">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Metadata Summary</div>
-            <div class="grid grid-cols-2 gap-2 text-xs font-data-mono">
-                <div class="bg-white/5 p-2 rounded border border-white/5">
-                    <div class="text-on-surface-variant text-[10px]">Total Rows</div>
-                    <div class="text-white font-bold mt-1" id="meta-total-rows">0</div>
+    <!-- Second Row: Quality Radar (6 cols) & ERD Graph (6 cols) -->
+    <!-- 3. Data Quality Intelligence & Radar Chart -->
+    <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div>
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2">Panel 03: Data Quality Intelligence Radar</div>
+            <div class="flex flex-col md:flex-row items-center gap-6">
+                <!-- Radar SVG Container -->
+                <div class="relative w-40 h-40 flex items-center justify-center flex-shrink-0" id="quality-radar-container">
+                    <!-- Dynamic SVG Radar Chart populated by JS -->
+                    <svg width="160" height="160" viewBox="0 0 200 200" id="quality-radar-svg" class="w-full h-full text-on-surface-variant">
+                        <!-- Grid Lines -->
+                        <polygon points="100,20 180,80 150,165 50,165 20,80" stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none"/>
+                        <polygon points="100,60 140,90 125,132 75,132 60,90" stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none"/>
+                        <!-- Axes lines -->
+                        <line x1="100" y1="100" x2="100" y2="20" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="180" y2="80" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="150" y2="165" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="50" y2="165" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <line x1="100" y1="100" x2="20" y2="80" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <!-- Axis Labels -->
+                        <text x="100" y="15" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Comp</text>
+                        <text x="190" y="83" text-anchor="start" font-size="9" fill="rgba(255,255,255,0.5)">Cons</text>
+                        <text x="155" y="178" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Uniq</text>
+                        <text x="45" y="178" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)">Vald</text>
+                        <text x="10" y="83" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.5)">Accu</text>
+                        <!-- Dynamic Polygon will be inserted here -->
+                        <polygon id="radar-polygon" points="100,100 100,100 100,100 100,100 100,100" fill="rgba(78, 222, 163, 0.2)" stroke="#4edea3" stroke-width="2" class="transition-all duration-1000"/>
+                    </svg>
                 </div>
-                <div class="bg-white/5 p-2 rounded border border-white/5">
-                    <div class="text-on-surface-variant text-[10px]">Total Columns</div>
-                    <div class="text-white font-bold mt-1" id="meta-total-cols">0</div>
-                </div>
-                <div class="bg-white/5 p-2 rounded border border-white/5">
-                    <div class="text-on-surface-variant text-[10px]">Empty Cells</div>
-                    <div class="text-white font-bold mt-1" id="meta-empty-cells">0</div>
-                </div>
-                <div class="bg-white/5 p-2 rounded border border-white/5">
-                    <div class="text-on-surface-variant text-[10px]">Duplicates</div>
-                    <div class="text-white font-bold mt-1" id="meta-duplicate-rows">0</div>
+                <!-- Quality Scores List -->
+                <div class="flex-1 w-full grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div>
+                        <div class="text-on-surface-variant flex justify-between">
+                            <span>Completeness</span>
+                            <span class="font-data-mono text-white" id="quality-completeness-val">0%</span>
+                        </div>
+                        <div class="text-[9px] text-secondary">No missing rows/keys</div>
+                    </div>
+                    <div>
+                        <div class="text-on-surface-variant flex justify-between">
+                            <span>Consistency</span>
+                            <span class="font-data-mono text-white" id="quality-consistency-val">0%</span>
+                        </div>
+                        <div class="text-[9px] text-primary">Type compliance</div>
+                    </div>
+                    <div>
+                        <div class="text-on-surface-variant flex justify-between">
+                            <span>Uniqueness (Cols)</span>
+                            <span class="font-data-mono text-white" id="quality-uniqueness-val">0%</span>
+                        </div>
+                        <div class="text-[9px] text-tertiary">Entropy cardinality</div>
+                    </div>
+                    <div>
+                        <div class="text-on-surface-variant flex justify-between">
+                            <span>Uniqueness (Rows)</span>
+                            <span class="font-data-mono text-white" id="quality-rows-uniqueness-val">0%</span>
+                        </div>
+                        <div class="text-[9px] text-error">Duplicate count index</div>
+                    </div>
+                    <div class="col-span-2 border-t border-white/5 pt-2">
+                        <div class="text-on-surface-variant flex justify-between">
+                            <span>Statistical Accuracy Rating</span>
+                            <span class="font-data-mono text-white" id="quality-accuracy-val">100%</span>
+                        </div>
+                        <div class="text-[9px] text-surface-tint">Outlier variance calculation bounds</div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Right Column: Schema, Data Dictionary, Relationships (8 cols) -->
-    <div class="col-span-12 lg:col-span-8 space-y-gutter flex flex-col">
-        <!-- Schema & Data Dictionary Card -->
-        <div class="glass-panel rounded-lg p-stack-md flex-1 flex flex-col relative overflow-hidden">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-4">Data Dictionary & Schema Details</div>
-            
-            <div class="flex-1 overflow-x-auto min-w-full">
+    <!-- 4. Entity Relationship Discovery Graph -->
+    <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div>
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2">Panel 04: Entity Relationship Discovery Map</div>
+            <div class="relative w-full h-[180px] bg-[#0d0d0f] border border-white/5 rounded-lg overflow-hidden flex items-center justify-center" id="erd-container">
+                <svg width="100%" height="100%" id="erd-svg" class="text-white">
+                    <!-- Will be dynamically populated by JS with PK, FK, measures, dates nodes and links -->
+                </svg>
+            </div>
+        </div>
+        <div class="flex justify-around text-[10px] font-data-mono text-on-surface-variant border-t border-white/5 pt-2 mt-2">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-error border border-error/40 inline-block"></span> Primary Key</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-primary border border-primary/40 inline-block"></span> Temporal/Date</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-secondary border border-secondary/40 inline-block"></span> Measure KPI</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-tertiary border border-tertiary/40 inline-block"></span> Dimension</span>
+        </div>
+    </div>
+
+    <!-- Third Row: AI Column Explanations & Semantic Layer (Full Width - 12 cols) -->
+    <!-- 5. AI Column Explanations & Semantic Layer -->
+    <div class="col-span-12 glass-panel rounded-lg p-stack-md flex flex-col relative overflow-hidden">
+        <div class="flex justify-between items-center mb-4">
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Panel 05: AI Column Explanations & Semantic Dictionary</div>
+            <span class="text-xs text-on-surface-variant font-data-mono">Auto-enriched from sample profile and statistical properties</span>
+        </div>
+        
+        <div class="overflow-x-auto max-h-[350px] overflow-y-auto pr-1">
+            <table class="min-w-full divide-y divide-white/10 text-xs text-left">
+                <thead>
+                    <tr class="text-on-surface-variant font-label-caps">
+                        <th class="pb-3 font-semibold">Column & Alias</th>
+                        <th class="pb-3 font-semibold">Programmatic & Semantic Type</th>
+                        <th class="pb-3 font-semibold text-center">Missing %</th>
+                        <th class="pb-3 font-semibold text-center">Uniqueness %</th>
+                        <th class="pb-3 font-semibold">AI Business Definition</th>
+                        <th class="pb-3 font-semibold">Detected Bounds / Range</th>
+                        <th class="pb-3 font-semibold text-right">Importance</th>
+                    </tr>
+                </thead>
+                <tbody id="data-dictionary-tbody" class="divide-y divide-white/5 text-on-surface font-data-mono font-medium">
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-on-surface-variant">Please upload a CSV dataset to generate the Data Dictionary.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Fourth Row: Data Stories (6 cols) & Prep Assistant (6 cols) -->
+    <!-- 6. AI Data Stories & Observations -->
+    <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div>
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px] text-primary">auto_awesome</span>
+                Panel 06: Autonomous AI Data Stories & Critical Observations
+            </div>
+            <div class="space-y-3" id="data-stories-container">
+                <div class="text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-primary">info</span>
+                    Upload a CSV to extract structural business data stories and observation tracks automatically.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. Data Prep Assistant & Cleansing Advisor -->
+    <div class="col-span-12 lg:col-span-6 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div>
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px] text-secondary">build_circle</span>
+                Panel 07: Data Preparation Assistant & Cleaning Pipeline Backlog
+            </div>
+            <div class="space-y-3" id="prep-assistant-container">
+                <div class="text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-secondary">info</span>
+                    Prioritized pipeline cleaning tasks will be listed here dynamically.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fifth Row: KPIs (4 cols), Descriptive Stats (4 cols) & Governance Shield (4 cols) -->
+    <!-- 8. Auto KPI Detection -->
+    <div class="col-span-12 lg:col-span-4 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div>
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-3">Panel 08: Auto KPI Detection & Business Metric Mapping</div>
+            <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-white/10 text-xs">
                     <thead>
-                        <tr class="text-on-surface-variant text-left font-label-caps">
-                            <th class="pb-3 font-semibold">Column</th>
-                            <th class="pb-3 font-semibold">Detected Type</th>
-                            <th class="pb-3 font-semibold">Semantic Meaning</th>
-                            <th class="pb-3 font-semibold">Missing %</th>
-                            <th class="pb-3 font-semibold">Uniqueness</th>
-                            <th class="pb-3 font-semibold text-right">Confidence</th>
+                        <tr class="text-on-surface-variant text-left font-label-caps font-semibold">
+                            <th class="pb-2">Metric Candidate</th>
+                            <th class="pb-2 text-center">Predictive Value</th>
+                            <th class="pb-2 text-right">Value Rating</th>
                         </tr>
                     </thead>
-                    <tbody id="data-dictionary-tbody" class="divide-y divide-white/5 text-on-surface font-data-mono font-medium">
+                    <tbody id="kpi-detection-tbody" class="divide-y divide-white/5 font-data-mono font-medium text-white">
                         <tr>
-                            <td colspan="6" class="py-8 text-center text-on-surface-variant">Please upload a CSV dataset to generate the Data Dictionary.</td>
+                            <td colspan="3" class="py-8 text-center text-on-surface-variant">Upload CSV to rank metrics.</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
+    </div>
 
-        <!-- Semantic Relationships Card -->
-        <div class="glass-panel rounded-lg p-stack-md relative overflow-hidden animate-entrance delay-2">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-3">Semantic Relationships & Influence Map</div>
-            <div class="space-y-3" id="dataset-relationships-container">
-                <div class="text-xs text-on-surface-variant font-data-mono bg-white/5 p-3 rounded border border-white/5 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[16px] text-primary">info</span>
-                    Relationships will be analyzed automatically based on correlation indices, dates, and types.
-                </div>
+    <!-- 9. Descriptive Stats & Distribution Summary -->
+    <div class="col-span-12 lg:col-span-4 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div>
+            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-2">Panel 09: Target Metric Stats & Distribution Profile</div>
+            <div class="grid grid-cols-2 gap-2 text-[10px] font-data-mono" id="datasets-descriptive-stats-grid">
+                <!-- Descriptive stats populated by JS -->
+            </div>
+            <!-- Histogram Area -->
+            <div class="mt-3 relative w-full h-[90px] bg-[#0d0d0f]/60 border border-white/5 rounded p-1">
+                <svg width="100%" height="100%" id="datasets-histogram-svg">
+                    <!-- Populated by JS -->
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- 10. Data Governance & PII Shield -->
+    <div class="col-span-12 lg:col-span-4 glass-panel rounded-lg p-stack-md flex flex-col justify-between relative overflow-hidden">
+        <div>
+            <div class="flex justify-between items-center mb-3">
+                <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Panel 10: Governance & Security PII Shield</div>
+                <span class="text-[9px] font-bold font-data-mono px-2 py-0.5 rounded border text-secondary bg-secondary/15 border-secondary/20" id="governance-class-badge">PUBLIC</span>
+            </div>
+            <div class="space-y-2 text-xs font-data-mono" id="governance-pii-container">
+                <div class="text-on-surface-variant text-center py-6">Upload CSV to audit security classifications.</div>
             </div>
         </div>
     </div>
@@ -791,57 +981,227 @@ void main() {
 
 <!-- Analytics Section -->
 <div id="analytics-view" class="hidden col-span-12 grid grid-cols-12 gap-gutter animate-entrance">
-    <!-- Left Column: Descriptive Stats (4 cols) -->
-    <div class="col-span-12 lg:col-span-4 space-y-gutter flex flex-col">
-        <div class="glass-panel rounded-lg p-stack-md flex-1 space-y-4">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Descriptive Stats & Distribution</div>
-            <div class="space-y-3" id="analytics-descriptive-stats">
-                <div class="text-xs text-on-surface-variant">Upload a CSV to view descriptive statistical indicators.</div>
+    <!-- Row 1: Trend Intelligence (7 cols) & Forecast & Risk (5 cols) -->
+    
+    <!-- Panel 1: Trend Intelligence -->
+    <div class="col-span-12 lg:col-span-7 flex flex-col space-y-gutter">
+        <div class="glass-panel rounded-lg p-stack-md flex-1 flex flex-col justify-between space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider font-headline-caps">Panel 01 — Trend Intelligence</h3>
+                    <p class="text-[10px] text-on-surface-variant font-data-mono">Overall business trend and historical indicators</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold font-data-mono px-2 py-0.5 rounded border text-primary bg-primary/10 border-primary/20" id="trend-confidence-badge">94% Confidence</span>
+                    <span class="text-xs font-bold font-data-mono px-2.5 py-1 rounded bg-secondary/20 text-secondary border border-secondary/30" id="trend-score-badge">Trend: 82/100</span>
+                </div>
+            </div>
+            
+            <!-- Trend main metrics -->
+            <div class="grid grid-cols-3 gap-2">
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                    <div class="text-[9px] text-on-surface-variant uppercase font-data-mono">Growth Rate</div>
+                    <div class="text-xs font-bold text-white mt-1" id="trend-growth-val">+15.4%</div>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                    <div class="text-[9px] text-on-surface-variant uppercase font-data-mono">Top Segment</div>
+                    <div class="text-xs font-bold text-secondary truncate mt-1" id="trend-top-seg" title="Segment A">Segment A</div>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                    <div class="text-[9px] text-on-surface-variant uppercase font-data-mono">Worst Segment</div>
+                    <div class="text-xs font-bold text-error truncate mt-1" id="trend-worst-seg" title="Segment C">Segment C</div>
+                </div>
+            </div>
+            
+            <!-- SVG Trend Chart with insights directly drawn -->
+            <div class="relative w-full h-[220px] bg-[#09090b]/40 rounded border border-white/5 flex flex-col justify-between overflow-hidden my-2">
+                <svg id="trend-intel-svg" class="w-full h-full p-4" viewBox="0 0 500 200" preserveAspectRatio="none">
+                    <!-- Dynamic rendering here -->
+                </svg>
+            </div>
+            
+            <!-- Trend details & summaries -->
+            <div class="space-y-2 mt-2">
+                <div class="bg-[#0e0e10]/30 p-3 rounded border border-primary/10 text-xs text-on-surface-variant leading-relaxed border-l-2 border-l-primary">
+                    <span class="font-bold text-white uppercase text-[9px] block mb-1">Executive Trend Summary</span>
+                    <p id="trend-exec-summary">Loading executive summary...</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-secondary/5 p-2.5 rounded border border-secondary/10">
+                        <span class="font-bold text-secondary uppercase text-[9px] block mb-1">Growth Drivers</span>
+                        <ul class="list-disc pl-3 text-on-surface-variant space-y-0.5" id="trend-growth-drivers">
+                            <li>Loading growth factors...</li>
+                        </ul>
+                    </div>
+                    <div class="bg-error/5 p-2.5 rounded border border-error/10">
+                        <span class="font-bold text-error uppercase text-[9px] block mb-1">Decline Drivers</span>
+                        <ul class="list-disc pl-3 text-on-surface-variant space-y-0.5" id="trend-decline-drivers">
+                            <li>Loading risk factors...</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <!-- Right Column: Correlation & Anomalies (8 cols) -->
-    <div class="col-span-12 lg:col-span-8 space-y-gutter flex flex-col">
-        <div class="glass-panel rounded-lg p-stack-md space-y-4">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold">Statistical Correlation Coefficients</div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-white/10 text-xs">
-                    <thead>
-                        <tr class="text-on-surface-variant text-left font-label-caps font-semibold">
-                            <th class="pb-3">Variables</th>
-                            <th class="pb-3 text-center text-primary">Pearson (Linear)</th>
-                            <th class="pb-3 text-center text-secondary">Spearman (Rank)</th>
-                            <th class="pb-3 text-center text-tertiary-fixed-dim">Kendall (Tau)</th>
-                            <th class="pb-3 text-right">Significance</th>
-                        </tr>
-                    </thead>
-                    <tbody id="analytics-correlation-tbody" class="divide-y divide-white/5 text-on-surface font-data-mono font-medium">
-                        <tr>
-                            <td colspan="5" class="py-8 text-center text-on-surface-variant">Please upload a CSV dataset to calculate correlations.</td>
-                        </tr>
-                    </tbody>
-                </table>
+    
+    <!-- Panel 3: Forecast & Risk -->
+    <div class="col-span-12 lg:col-span-5 flex flex-col space-y-gutter">
+        <div class="glass-panel rounded-lg p-stack-md flex-1 flex flex-col justify-between space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider font-headline-caps">Panel 03 — Forecast & Risk</h3>
+                    <p class="text-[10px] text-on-surface-variant font-data-mono">Time-series forecasting and scenario risk modeling</p>
+                </div>
+                <span class="text-[9px] font-bold font-data-mono px-2 py-0.5 rounded border text-tertiary-fixed-dim bg-tertiary-fixed-dim/10 border-tertiary-fixed-dim/20" id="forecast-model-badge">Auto Forecast</span>
+            </div>
+            
+            <!-- SVG Forecast Chart with Confidence Shading -->
+            <div class="relative w-full h-[180px] bg-[#09090b]/40 rounded border border-white/5 flex flex-col justify-between overflow-hidden my-2">
+                <svg id="forecast-risk-svg" class="w-full h-full p-4" viewBox="0 0 400 160" preserveAspectRatio="none">
+                    <!-- Forecast SVG paths -->
+                </svg>
+            </div>
+            
+            <!-- Best, Expected, Worst scenario chips -->
+            <div class="grid grid-cols-3 gap-1 text-[10px]">
+                <div class="bg-[#0b1712]/40 p-2 rounded border border-secondary/15 text-center">
+                    <span class="text-secondary font-semibold uppercase block text-[8px]">Best Case</span>
+                    <span class="font-bold text-white" id="forecast-best-val">--</span>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-center">
+                    <span class="text-primary font-semibold uppercase block text-[8px]">Expected</span>
+                    <span class="font-bold text-white" id="forecast-expected-val">--</span>
+                </div>
+                <div class="bg-[#1a0f12]/40 p-2 rounded border border-error/15 text-center">
+                    <span class="text-error font-semibold uppercase block text-[8px]">Worst Case</span>
+                    <span class="font-bold text-white" id="forecast-worst-val">--</span>
+                </div>
+            </div>
+            
+            <!-- Horizon Forecast values -->
+            <div class="grid grid-cols-2 gap-2 text-xs font-data-mono mt-1">
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <span class="text-on-surface-variant text-[9px] uppercase">Next Month Project</span>
+                    <div class="text-white font-bold mt-0.5" id="forecast-month-val">--</div>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <span class="text-on-surface-variant text-[9px] uppercase">Next Quarter Project</span>
+                    <div class="text-white font-bold mt-0.5" id="forecast-quarter-val">--</div>
+                </div>
+            </div>
+            
+            <!-- Risks & Opportunities Warnings -->
+            <div class="bg-[#241315]/40 border border-error/20 rounded p-2.5 flex gap-2.5 items-start mt-2">
+                <span class="material-symbols-outlined text-error text-base">warning</span>
+                <div class="text-xs">
+                    <span class="font-bold text-white block">Detected Forecasting Risks</span>
+                    <p class="text-on-surface-variant mt-0.5" id="forecast-risks-desc">Upload data to audit future stability risks.</p>
+                </div>
             </div>
         </div>
-        <div class="glass-panel rounded-lg p-stack-md space-y-4">
-            <div class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold">Anomaly & Outlier Log</div>
-            <div class="overflow-x-auto max-h-[300px] overflow-y-auto">
-                <table class="min-w-full divide-y divide-white/10 text-xs">
-                    <thead>
-                        <tr class="text-on-surface-variant text-left font-label-caps font-semibold">
-                            <th class="pb-3">Record ID / Date</th>
-                            <th class="pb-3">Value</th>
-                            <th class="pb-3">Z-Score / Deviation</th>
-                            <th class="pb-3">Severity</th>
-                            <th class="pb-3 text-right">Actionable Mitigation</th>
-                        </tr>
-                    </thead>
-                    <tbody id="analytics-anomalies-tbody" class="divide-y divide-white/5 text-on-surface font-data-mono font-medium">
-                        <tr>
-                            <td colspan="5" class="py-8 text-center text-on-surface-variant">Please upload a CSV dataset to run anomaly audits.</td>
-                        </tr>
-                    </tbody>
-                </table>
+    </div>
+    
+    <!-- Row 2: Root Cause (6 cols) & Recommendations (6 cols) -->
+    
+    <!-- Panel 2: Root Cause Intelligence -->
+    <div class="col-span-12 lg:col-span-6 flex flex-col space-y-gutter">
+        <div class="glass-panel rounded-lg p-stack-md flex-1 flex flex-col justify-between space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider font-headline-caps">Panel 02 — Root Cause Intelligence</h3>
+                    <p class="text-[10px] text-on-surface-variant font-data-mono">Key drivers, driver trees, and impact mapping</p>
+                </div>
+                <span class="text-[10px] font-bold font-data-mono px-2 py-0.5 rounded border text-secondary bg-secondary/10 border-secondary/20" id="root-cause-impact-badge">Impact: High</span>
+            </div>
+            
+            <!-- SVG Driver Tree -->
+            <div class="relative w-full h-[150px] bg-[#09090b]/40 rounded border border-white/5 flex flex-col justify-between overflow-hidden my-1">
+                <svg id="root-cause-tree-svg" class="w-full h-full p-2" viewBox="0 0 450 140" preserveAspectRatio="none">
+                    <!-- procedural SVG tree links and nodes -->
+                </svg>
+            </div>
+            
+            <!-- Driver Tree explanation & correlation Highlights -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-white/5 p-2.5 rounded border border-white/5 overflow-y-auto max-h-[140px]">
+                    <span class="font-bold text-white uppercase text-[9px] block mb-1">Correlation Highlights</span>
+                    <ul class="space-y-1.5 text-[10px] font-data-mono text-on-surface-variant" id="root-cause-correlation-list">
+                        <li>Loading correlations...</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-[#0e0e10]/30 p-2.5 rounded border border-white/5 overflow-y-auto max-h-[140px] flex flex-col justify-between">
+                    <div>
+                        <span class="font-bold text-white uppercase text-[9px] block mb-1">Top Business Driver</span>
+                        <div class="font-bold text-sm text-secondary truncate" id="top-driver-title">--</div>
+                    </div>
+                    <div class="text-[10px] text-on-surface-variant mt-1.5" id="top-driver-evidence">
+                        Upload dataset to run attribution analysis.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Root Cause Cards -->
+            <div class="space-y-2">
+                <span class="font-bold text-white uppercase text-[9px] block">Ranked Drivers Attribution (Cause & Evidence)</span>
+                <div class="grid grid-cols-2 gap-2 text-xs" id="root-cause-cards-container">
+                    <!-- Cards will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel 4: AI Recommendations -->
+    <div class="col-span-12 lg:col-span-6 flex flex-col space-y-gutter">
+        <div class="glass-panel rounded-lg p-stack-md flex-1 flex flex-col justify-between space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider font-headline-caps">Panel 04 — AI Recommendations</h3>
+                    <p class="text-[10px] text-on-surface-variant font-data-mono">Actionable opportunities ranked by impact and effort</p>
+                </div>
+                <span class="text-[10px] font-bold font-data-mono px-2 py-0.5 rounded border text-primary bg-primary/10 border-primary/20">Action Matrix</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3 items-center">
+                <!-- 2x2 Priority Matrix (CSS Grid / SVG plot) -->
+                <div class="relative w-full h-[180px] bg-[#09090b]/40 rounded border border-white/5 overflow-hidden flex flex-col">
+                    <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 border border-white/5 divide-x divide-y divide-white/5 pointer-events-none">
+                        <div class="p-1 text-[7px] text-on-surface-variant font-semibold select-none">Strategic (High Imp/High Eff)</div>
+                        <div class="p-1 text-[7px] text-secondary font-semibold text-right select-none">Quick Wins (High Imp/Low Eff)</div>
+                        <div class="p-1 text-[7px] text-on-surface-variant/40 font-semibold flex items-end select-none">Thankless (Low Imp/High Eff)</div>
+                        <div class="p-1 text-[7px] text-on-surface-variant/60 font-semibold flex items-end justify-end select-none">Fill-Ins (Low Imp/Low Eff)</div>
+                    </div>
+                    <!-- SVG scatter nodes representing recommendations -->
+                    <svg id="priority-matrix-svg" class="w-full h-full p-2 absolute inset-0 z-10" viewBox="0 0 200 180">
+                        <!-- procedural plot dots -->
+                    </svg>
+                </div>
+                
+                <!-- Recommendation Summaries (Quick Wins & Strategic Actions) -->
+                <div class="space-y-2">
+                    <div class="bg-[#0b1712]/40 border border-secondary/20 rounded p-2.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                            <span class="font-bold text-white text-[9px] uppercase">Biggest Opportunity</span>
+                        </div>
+                        <p class="text-[10px] text-on-surface-variant mt-1" id="rec-biggest-opp">Upload data to identify opportunities.</p>
+                    </div>
+                    <div class="bg-[#241315]/40 border border-error/20 rounded p-2.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                            <span class="font-bold text-white text-[9px] uppercase">Biggest Risk</span>
+                        </div>
+                        <p class="text-[10px] text-on-surface-variant mt-1" id="rec-biggest-risk">Upload data to discover potential risks.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Prioritized Action checklist -->
+            <div class="space-y-2 flex-1">
+                <span class="font-bold text-white uppercase text-[9px] block">Prioritized Recommendations List</span>
+                <div class="space-y-2 max-h-[160px] overflow-y-auto pr-1" id="rec-list-container">
+                    <!-- Recommendations cards will render here -->
+                </div>
             </div>
         </div>
     </div>
@@ -1107,6 +1467,7 @@ void main() {
     </div>
 </div>
 </div>
+</div>
 </main>
 
 <!-- Drag and Drop Overlay -->
@@ -1140,6 +1501,8 @@ void main() {
 
     const dashboardView = document.getElementById('dashboard-view');
     const datasetsView = document.getElementById('datasets-view');
+    const analyticsView = document.getElementById('analytics-view');
+    const reportsView = document.getElementById('reports-view');
     const insightsView = document.getElementById('insights-view');
     const forecastingView = document.getElementById('forecasting-view');
     const copilotView = document.getElementById('copilot-view');
@@ -1147,6 +1510,8 @@ void main() {
     const allTabs = [
         { nav: navDashboard, view: dashboardView },
         { nav: navDatasets, view: datasetsView },
+        { nav: navAnalytics, view: analyticsView },
+        { nav: navReports, view: reportsView },
         { nav: navInsights, view: insightsView },
         { nav: navForecasting, view: forecastingView },
         { nav: navCopilot, view: copilotView }
@@ -1167,19 +1532,6 @@ void main() {
             });
         }
     });
-
-    if (navAnalytics) {
-        navAnalytics.addEventListener('click', (e) => {
-            e.preventDefault();
-            navDashboard.click();
-        });
-    }
-    if (navReports) {
-        navReports.addEventListener('click', (e) => {
-            e.preventDefault();
-            navDashboard.click();
-        });
-    }
 
     // Drag & drop logic
     const dropOverlay = document.getElementById('drop-overlay');

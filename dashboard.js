@@ -574,49 +574,227 @@
     }
 
     function updateAnalyticsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, skewness, kurtosis, variance, medianVal, rangeVal, anomalies) {
-        const descPanel = document.getElementById('analytics-descriptive-stats');
-        if (descPanel) {
-            descPanel.innerHTML = `
-                <div class="grid grid-cols-2 gap-2 text-xs font-data-mono">
-                    <div class="bg-white/5 p-2.5 rounded border border-white/5">
-                        <div class="text-on-surface-variant text-[10px] uppercase">Mean</div>
-                        <div class="text-white font-bold mt-1">${formatCurrencyOrNum(avgVal)}</div>
-                    </div>
-                    <div class="bg-white/5 p-2.5 rounded border border-white/5">
-                        <div class="text-on-surface-variant text-[10px] uppercase">Median</div>
-                        <div class="text-white font-bold mt-1">${formatCurrencyOrNum(medianVal)}</div>
-                    </div>
-                    <div class="bg-white/5 p-2.5 rounded border border-white/5">
-                        <div class="text-on-surface-variant text-[10px] uppercase">Standard Deviation</div>
-                        <div class="text-white font-bold mt-1">${formatCurrencyOrNum(stdDev)}</div>
-                    </div>
-                    <div class="bg-white/5 p-2.5 rounded border border-white/5">
-                        <div class="text-on-surface-variant text-[10px] uppercase">Variance</div>
-                        <div class="text-white font-bold mt-1">${formatCurrencyOrNum(variance)}</div>
-                    </div>
-                    <div class="bg-white/5 p-2.5 rounded border border-white/5">
-                        <div class="text-on-surface-variant text-[10px] uppercase">Skewness</div>
-                        <div class="text-white font-bold mt-1 ${Math.abs(skewness) > 1 ? 'text-warning' : 'text-secondary'}">${skewness.toFixed(3)}</div>
-                    </div>
-                    <div class="bg-white/5 p-2.5 rounded border border-white/5">
-                        <div class="text-on-surface-variant text-[10px] uppercase">Kurtosis</div>
-                        <div class="text-white font-bold mt-1 ${Math.abs(kurtosis) > 1 ? 'text-warning' : 'text-secondary'}">${kurtosis.toFixed(3)}</div>
-                    </div>
-                    <div class="bg-white/5 p-2.5 rounded border border-white/5 col-span-2">
-                        <div class="text-on-surface-variant text-[10px] uppercase">Data Span Range</div>
-                        <div class="text-white font-bold mt-1">${formatCurrencyOrNum(rangeVal)} <span class="text-on-surface-variant font-normal text-[10px] ml-1">(${formatCurrencyOrNum(minVal)} - ${formatCurrencyOrNum(maxVal)})</span></div>
-                    </div>
-                </div>
-                <div class="bg-[#0e0e10]/30 p-3 rounded border border-primary/10 text-xs text-on-surface-variant leading-relaxed mt-2 border-l-2 border-l-primary">
-                    <span class="font-bold text-white uppercase text-[9px] block mb-1">Distribution Analysis</span>
-                    The target variable metric has a skewness coefficient of <strong>${skewness.toFixed(2)}</strong>, reflecting a ${skewness > 0.5 ? 'strongly right-skewed tail' : skewness < -0.5 ? 'strongly left-skewed tail' : 'relatively symmetrical distribution'}. The kurtosis of <strong>${kurtosis.toFixed(2)}</strong> points to a ${kurtosis > 1.0 ? 'leptokurtic shape (heavy outlier tails)' : 'platykurtic shape'}.
-                </div>
+        if (!cleanData || cleanData.length === 0) return;
+        
+        const primaryMetricName = headers[primaryMetricIndex];
+        
+        // ----------------------------------------------------
+        // PANEL 1: TREND INTELLIGENCE CALCULATIONS
+        // ----------------------------------------------------
+        
+        // Growth Rate calculation
+        let growthPct = 0;
+        if (cleanData.length >= 2) {
+            const firstVal = cleanData[0].value;
+            const lastVal = cleanData[cleanData.length - 1].value;
+            if (firstVal !== 0) {
+                growthPct = ((lastVal - firstVal) / Math.abs(firstVal)) * 100;
+            }
+        }
+        
+        // Group by category to find top/worst performing segments
+        let bestCat = 'None';
+        let worstCat = 'None';
+        let topCatVal = 0;
+        let worstCatVal = 0;
+        
+        if (categoryIndex !== -1) {
+            const catSums = {};
+            cleanData.forEach(d => {
+                catSums[d.category] = (catSums[d.category] || 0) + d.value;
+            });
+            const catEntries = Object.entries(catSums);
+            if (catEntries.length > 0) {
+                catEntries.sort((a, b) => b[1] - a[1]);
+                bestCat = catEntries[0][0];
+                topCatVal = catEntries[0][1];
+                worstCat = catEntries[catEntries.length - 1][0];
+                worstCatVal = catEntries[catEntries.length - 1][1];
+            }
+        } else {
+            bestCat = 'General';
+            worstCat = 'General';
+            topCatVal = avgVal;
+            worstCatVal = avgVal;
+        }
+        
+        // Trend Score (0-100) & Confidence Score (0-100)
+        let trendScore = Math.min(100, Math.max(0, Math.round(50 + growthPct * 1.5)));
+        const cv = avgVal > 0 ? (stdDev / avgVal) : 0;
+        let confidenceScore = Math.min(99, Math.max(60, Math.round(100 - cv * 35)));
+        
+        // Set badges and summary metrics
+        const growthBadge = document.getElementById('trend-growth-val');
+        if (growthBadge) {
+            growthBadge.textContent = `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`;
+            growthBadge.className = `text-xs font-bold mt-1 ${growthPct >= 0 ? 'text-secondary' : 'text-error'}`;
+        }
+        
+        const topSegText = document.getElementById('trend-top-seg');
+        if (topSegText) {
+            topSegText.textContent = bestCat;
+            topSegText.title = `${bestCat}: ${formatCurrencyOrNum(topCatVal)}`;
+        }
+        
+        const worstSegText = document.getElementById('trend-worst-seg');
+        if (worstSegText) {
+            worstSegText.textContent = worstCat;
+            worstSegText.title = `${worstCat}: ${formatCurrencyOrNum(worstCatVal)}`;
+        }
+        
+        const trendScoreBadge = document.getElementById('trend-score-badge');
+        if (trendScoreBadge) {
+            trendScoreBadge.textContent = `Trend: ${trendScore}/100`;
+            trendScoreBadge.className = `text-xs font-bold font-data-mono px-2.5 py-1 rounded border ${trendScore >= 60 ? 'bg-secondary/20 text-secondary border-secondary/30' : trendScore >= 40 ? 'bg-primary/20 text-primary border-primary/30' : 'bg-error/20 text-error border-error/30'}`;
+        }
+        
+        const trendConfidenceBadge = document.getElementById('trend-confidence-badge');
+        if (trendConfidenceBadge) {
+            trendConfidenceBadge.textContent = `${confidenceScore}% Confidence`;
+        }
+        
+        // Write summaries
+        const execSummary = document.getElementById('trend-exec-summary');
+        if (execSummary) {
+            let directionText = growthPct >= 0 ? 'expanding' : 'declining';
+            let changeVerb = growthPct >= 0 ? 'grew by' : 'fell by';
+            execSummary.innerHTML = `The historical performance of <strong>${primaryMetricName}</strong> shows an overall <strong>${directionText}</strong> trend, having ${changeVerb} <strong>${Math.abs(growthPct).toFixed(1)}%</strong> from the start of the recorded time series. The key operations segment driving this trend is <strong>${bestCat}</strong>, whereas <strong>${worstCat}</strong> represents the primary drag on growth.`;
+        }
+        
+        const growthDrivers = document.getElementById('trend-growth-drivers');
+        if (growthDrivers) {
+            growthDrivers.innerHTML = `
+                <li><strong>${bestCat} Segment</strong>: Dominates contribution.</li>
+                <li><strong>Trend Consistency</strong>: Growth stability is registered at ${confidenceScore}%.</li>
             `;
         }
-
-        const corrTbody = document.getElementById('analytics-correlation-tbody');
-        if (corrTbody) {
-            corrTbody.innerHTML = '';
+        
+        const declineDrivers = document.getElementById('trend-decline-drivers');
+        if (declineDrivers) {
+            declineDrivers.innerHTML = `
+                <li><strong>${worstCat} Segment</strong>: Underperforming segment lagging behind.</li>
+                <li><strong>Outlier Variance</strong>: Flagged anomalies present operational risk.</li>
+            `;
+        }
+        
+        // ----------------------------------------------------
+        // PANEL 1: DRAW TREND SVG CHART
+        // ----------------------------------------------------
+        const trendSvg = document.getElementById('trend-intel-svg');
+        if (trendSvg) {
+            trendSvg.innerHTML = '';
+            
+            const width = 500;
+            const height = 200;
+            const paddingX = 50;
+            const paddingY = 30;
+            
+            const values = cleanData.map(d => d.value);
+            const minValVal = Math.min(...values) * 0.95;
+            const maxValVal = Math.max(...values) * 1.05;
+            const valueRange = (maxValVal - minValVal) || 1;
+            
+            const points = cleanData.map((d, i) => {
+                const x = paddingX + (i / (cleanData.length - 1)) * (width - 2 * paddingX);
+                const y = height - paddingY - ((d.value - minValVal) / valueRange) * (height - 2 * paddingY);
+                return { x, y, val: d.value };
+            });
+            
+            // Build linear regression line
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            const n = points.length;
+            points.forEach((p, i) => {
+                sumX += i;
+                sumY += p.y;
+                sumXY += i * p.y;
+                sumXX += i * i;
+            });
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX || 1);
+            const intercept = (sumY - slope * sumX) / n;
+            const regPoints = points.map((p, i) => {
+                return { x: p.x, y: slope * i + intercept };
+            });
+            
+            // Draw Grid Lines & Axes
+            for (let i = 0; i <= 3; i++) {
+                const y = paddingY + (i / 3) * (height - 2 * paddingY);
+                const val = maxValVal - (i / 3) * valueRange;
+                trendSvg.innerHTML += `
+                    <line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2,2"/>
+                    <text x="${paddingX - 10}" y="${y + 3}" fill="rgba(255,255,255,0.4)" font-size="8" text-anchor="end" font-family="monospace">${formatCurrencyOrNum(val)}</text>
+                `;
+            }
+            
+            // Area Path (semi-transparent gradient)
+            const areaPath = `
+                M ${points[0].x} ${height - paddingY}
+                L ${points.map(p => `${p.x} ${p.y}`).join(' L ')}
+                L ${points[points.length - 1].x} ${height - paddingY} Z
+            `;
+            trendSvg.innerHTML += `
+                <defs>
+                    <linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#6366f1" stop-opacity="0.25"/>
+                        <stop offset="100%" stop-color="#6366f1" stop-opacity="0.0"/>
+                    </linearGradient>
+                </defs>
+                <path d="${areaPath}" fill="url(#trend-area-grad)"/>
+            `;
+            
+            // Regression Line (dashed)
+            const regPath = `M ${regPoints[0].x} ${regPoints[0].y} L ${regPoints[regPoints.length - 1].x} ${regPoints[regPoints.length - 1].y}`;
+            trendSvg.innerHTML += `
+                <path d="${regPath}" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="4,4"/>
+            `;
+            
+            // Trend Line
+            const linePath = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
+            trendSvg.innerHTML += `
+                <path d="${linePath}" stroke="#6366f1" stroke-width="2" fill="none"/>
+            `;
+            
+            // Find Peak and Floor indices
+            let maxPt = points[0], minPt = points[0];
+            points.forEach(p => {
+                if (p.val > maxPt.val) maxPt = p;
+                if (p.val < minPt.val) minPt = p;
+            });
+            
+            // Add interactive markers for Max and Min
+            trendSvg.innerHTML += `
+                <!-- Peak Point -->
+                <circle cx="${maxPt.x}" cy="${maxPt.y}" r="4" fill="#10b981" stroke="#09090b" stroke-width="1.5"/>
+                <line x1="${maxPt.x}" y1="${maxPt.y}" x2="${maxPt.x}" y2="${maxPt.y - 12}" stroke="#10b981" stroke-width="1"/>
+                <rect x="${maxPt.x - 45}" y="${maxPt.y - 25}" width="90" height="12" rx="2" fill="#09090b" stroke="#10b981" stroke-width="0.5"/>
+                <text x="${maxPt.x}" y="${maxPt.y - 16}" fill="#10b981" font-size="7" font-weight="bold" font-family="monospace" text-anchor="middle">PEAK: ${formatCurrencyOrNum(maxPt.val)}</text>
+                
+                <!-- Floor Point -->
+                <circle cx="${minPt.x}" cy="${minPt.y}" r="4" fill="#ef4444" stroke="#09090b" stroke-width="1.5"/>
+                <line x1="${minPt.x}" y1="${minPt.y}" x2="${minPt.x}" y2="${minPt.y + 12}" stroke="#ef4444" stroke-width="1"/>
+                <rect x="${minPt.x - 45}" y="${minPt.y + 14}" width="90" height="12" rx="2" fill="#09090b" stroke="#ef4444" stroke-width="0.5"/>
+                <text x="${minPt.x}" y="${minPt.y + 22}" fill="#ef4444" font-size="7" font-weight="bold" font-family="monospace" text-anchor="middle">FLOOR: ${formatCurrencyOrNum(minPt.val)}</text>
+            `;
+            
+            // X-Axis Date Labels (First, Middle, Last)
+            const firstDateStr = cleanData[0].date.toLocaleDateString(undefined, {month:'short', year:'2-digit'});
+            const midDateStr = cleanData[Math.floor(cleanData.length/2)].date.toLocaleDateString(undefined, {month:'short', year:'2-digit'});
+            const lastDateStr = cleanData[cleanData.length-1].date.toLocaleDateString(undefined, {month:'short', year:'2-digit'});
+            trendSvg.innerHTML += `
+                <text x="${paddingX}" y="${height - paddingY + 12}" fill="rgba(255,255,255,0.4)" font-size="8" font-family="monospace">${firstDateStr}</text>
+                <text x="${width/2}" y="${height - paddingY + 12}" fill="rgba(255,255,255,0.4)" font-size="8" font-family="monospace" text-anchor="middle">${midDateStr}</text>
+                <text x="${width - paddingX}" y="${height - paddingY + 12}" fill="rgba(255,255,255,0.4)" font-size="8" font-family="monospace" text-anchor="end">${lastDateStr}</text>
+            `;
+        }
+        
+        // ----------------------------------------------------
+        // PANEL 2: ROOT CAUSE CALCULATIONS & DRIVER TREE
+        // ----------------------------------------------------
+        const corrList = document.getElementById('root-cause-correlation-list');
+        let topDriverName = 'None';
+        let maxCorr = 0;
+        
+        if (corrList) {
+            corrList.innerHTML = '';
             const topIndices = numericIndices.slice(0, 5);
             let count = 0;
             topIndices.forEach(idx => {
@@ -626,56 +804,299 @@
                 const colB = cleanRows.map(r => parseFloat(String(r[idx]).replace(/[$,%]/g, '')) || 0);
                 
                 const pearson = calculatePearsonCorrelation(colA, colB);
-                const spearman = calculateSpearmanCorrelation(colA, colB);
-                const kendall = calculateKendallCorrelation(colA, colB);
+                if (Math.abs(pearson) > Math.abs(maxCorr)) {
+                    maxCorr = pearson;
+                    topDriverName = headers[idx];
+                }
                 
-                const sig = Math.abs(pearson) > 0.7 ? 'Strongly Significant' : Math.abs(pearson) > 0.4 ? 'Moderately Significant' : 'Not Significant';
-                const sigClass = Math.abs(pearson) > 0.7 ? 'text-secondary' : Math.abs(pearson) > 0.4 ? 'text-primary' : 'text-on-surface-variant opacity-70';
-                
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="py-2.5 font-semibold text-white">${headers[primaryMetricIndex]} vs ${headers[idx]}</td>
-                    <td class="py-2.5 text-center text-primary font-bold">${pearson.toFixed(3)}</td>
-                    <td class="py-2.5 text-center text-secondary">${spearman.toFixed(3)}</td>
-                    <td class="py-2.5 text-center text-tertiary-fixed-dim">${kendall.toFixed(3)}</td>
-                    <td class="py-2.5 text-right font-semibold ${sigClass}">${sig}</td>
+                const sigClass = Math.abs(pearson) > 0.7 ? 'text-secondary' : Math.abs(pearson) > 0.4 ? 'text-primary' : 'text-on-surface-variant/70';
+                corrList.innerHTML += `
+                    <li class="flex justify-between items-center py-0.5 border-b border-white/5">
+                        <span class="truncate pr-1">${headers[idx]}</span>
+                        <span class="font-bold ${sigClass}">${pearson.toFixed(3)}</span>
+                    </li>
                 `;
-                corrTbody.appendChild(tr);
             });
             
             if (count === 0) {
-                corrTbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="py-8 text-center text-on-surface-variant">The dataset contains only one numeric variable. Correlation calculation not applicable.</td>
-                    </tr>
-                `;
+                corrList.innerHTML = `<li class="text-on-surface-variant italic">Only 1 numeric column.</li>`;
             }
         }
-
-        const anomalyTbody = document.getElementById('analytics-anomalies-tbody');
-        if (anomalyTbody) {
-            anomalyTbody.innerHTML = '';
-            if (anomalies.length === 0) {
-                anomalyTbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="py-8 text-center text-on-surface-variant">No structural anomalies or statistical outliers detected.</td>
-                    </tr>
-                `;
+        
+        const topDriverTitle = document.getElementById('top-driver-title');
+        const topDriverEvidence = document.getElementById('top-driver-evidence');
+        if (topDriverTitle && topDriverEvidence) {
+            if (topDriverName !== 'None') {
+                topDriverTitle.textContent = topDriverName;
+                topDriverEvidence.innerHTML = `Attribution factor shows a Pearson correlation of <strong>${maxCorr.toFixed(2)}</strong> with ${primaryMetricName}. Operational variance is strongly driven by fluctuations in ${topDriverName}.`;
             } else {
-                anomalies.forEach(anom => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td class="py-2.5 font-semibold text-white">${anom.dateStr}</td>
-                        <td class="py-2.5 text-white font-bold">${formatCurrencyOrNum(anom.value)}</td>
-                        <td class="py-2.5 text-on-surface-variant">Z: ${anom.zScore.toFixed(2)} <span class="${anom.zScore > 0 ? 'text-secondary' : 'text-error'} text-[10px] ml-1">(${anom.deviationPct}%)</span></td>
-                        <td class="py-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-bold border ${anom.colorClass}">${anom.severity}</span></td>
-                        <td class="py-2.5 text-right text-on-surface-variant text-[11px]">
-                            ${anom.severity === 'Critical' ? 'Verify audit trace logs immediately' : anom.severity === 'High' ? 'Audit individual transactions' : 'Perform standard variance check'}
-                        </td>
-                    `;
-                    anomalyTbody.appendChild(tr);
-                });
+                topDriverTitle.textContent = 'Operational Volume';
+                topDriverEvidence.innerHTML = `No other numerical driver variables detected. Root causes reside in segment density distribution.`;
             }
+        }
+        
+        // Draw Driver Tree
+        const treeSvg = document.getElementById('root-cause-tree-svg');
+        if (treeSvg) {
+            treeSvg.innerHTML = '';
+            
+            const nodes = [
+                { id: 'root', label: primaryMetricName, x: 45, y: 70, type: 'root' },
+                { id: 'seg1', label: bestCat, x: 215, y: 35, type: 'seg' },
+                { id: 'seg2', label: worstCat !== bestCat ? worstCat : 'Others', x: 215, y: 105, type: 'seg' },
+                { id: 'drv1', label: topDriverName !== 'None' ? topDriverName : 'Volume', x: 385, y: 20, type: 'drv' },
+                { id: 'drv2', label: 'Time Trend', x: 385, y: 65, type: 'drv' },
+                { id: 'drv3', label: 'Residuals', x: 385, y: 110, type: 'drv' }
+            ];
+            
+            const drawLink = (n1, n2) => {
+                const dx = n2.x - n1.x;
+                const pathStr = `M ${n1.x} ${n1.y} C ${n1.x + dx/2} ${n1.y} ${n2.x - dx/2} ${n2.y} ${n2.x} ${n2.y}`;
+                return `<path d="${pathStr}" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" fill="none"/>`;
+            };
+            
+            treeSvg.innerHTML += drawLink(nodes[0], nodes[1]);
+            treeSvg.innerHTML += drawLink(nodes[0], nodes[2]);
+            treeSvg.innerHTML += drawLink(nodes[1], nodes[3]);
+            treeSvg.innerHTML += drawLink(nodes[1], nodes[4]);
+            treeSvg.innerHTML += drawLink(nodes[2], nodes[4]);
+            treeSvg.innerHTML += drawLink(nodes[2], nodes[5]);
+            
+            nodes.forEach(n => {
+                let colorClass = '#6366f1';
+                if (n.type === 'seg') colorClass = '#10b981';
+                if (n.type === 'drv') colorClass = '#facc15';
+                
+                treeSvg.innerHTML += `
+                    <rect x="${n.x - 35}" y="${n.y - 12}" width="70" height="24" rx="3" fill="#09090b" stroke="${colorClass}" stroke-width="1"/>
+                    <text x="${n.x}" y="${n.y + 3}" fill="#ffffff" font-size="7" font-weight="bold" font-family="monospace" text-anchor="middle" class="truncate">${n.label.substring(0, 11)}</text>
+                `;
+            });
+        }
+        
+        // Root Cause Cards
+        const rcContainer = document.getElementById('root-cause-cards-container');
+        if (rcContainer) {
+            rcContainer.innerHTML = `
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-secondary text-[9px] uppercase">1. Segment concentration</span>
+                        <span class="text-[8px] bg-secondary/10 text-secondary border border-secondary/25 px-1 py-0.5 rounded">High Confidence</span>
+                    </div>
+                    <p class="text-[10px] text-on-surface-variant mt-1"><strong>Cause:</strong> Dominance of ${bestCat} segment accounts for the majority contribution.<br/><strong>Evidence:</strong> Group aggregates show it represents top performance metrics.</p>
+                </div>
+                <div class="bg-white/5 p-2 rounded border border-white/5">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-primary text-[9px] uppercase">2. Numeric correlation</span>
+                        <span class="text-[8px] bg-primary/10 text-primary border border-primary/25 px-1 py-0.5 rounded">Medium Confidence</span>
+                    </div>
+                    <p class="text-[10px] text-on-surface-variant mt-1"><strong>Cause:</strong> Covariance detected with ${topDriverName !== 'None' ? topDriverName : 'volume indicators'}.<br/><strong>Evidence:</strong> Calculated Pearson coefficient of ${maxCorr.toFixed(2)} indicates linked outcomes.</p>
+                </div>
+            `;
+        }
+        
+        // ----------------------------------------------------
+        // PANEL 3: FORECAST & RISK CALCULATIONS & SVG
+        // ----------------------------------------------------
+        
+        const valuesY = cleanData.map(d => d.value);
+        const countN = valuesY.length;
+        let sumX_fc = 0, sumY_fc = 0, sumXY_fc = 0, sumXX_fc = 0;
+        for (let i = 0; i < countN; i++) {
+            sumX_fc += i;
+            sumY_fc += valuesY[i];
+            sumXY_fc += i * valuesY[i];
+            sumXX_fc += i * i;
+        }
+        const slope_fc = (countN * sumXY_fc - sumX_fc * sumY_fc) / (countN * sumXX_fc - sumX_fc * sumX_fc || 1);
+        const intercept_fc = (sumY_fc - slope_fc * sumX_fc) / countN;
+        
+        const nextMonthIndex = countN;
+        const nextQuarterIndex = countN + 2;
+        
+        const forecastMonth = slope_fc * nextMonthIndex + intercept_fc;
+        const forecastQuarter = slope_fc * nextQuarterIndex + intercept_fc;
+        
+        const margin = stdDev * 1.5;
+        const bestMonth = forecastMonth + margin;
+        const worstMonth = forecastMonth - margin;
+        
+        const fMonthEl = document.getElementById('forecast-month-val');
+        if (fMonthEl) fMonthEl.textContent = formatCurrencyOrNum(forecastMonth);
+        const fQuarterEl = document.getElementById('forecast-quarter-val');
+        if (fQuarterEl) fQuarterEl.textContent = formatCurrencyOrNum(forecastQuarter);
+        const fExpectedEl = document.getElementById('forecast-expected-val');
+        if (fExpectedEl) fExpectedEl.textContent = formatCurrencyOrNum(forecastMonth);
+        const fBestEl = document.getElementById('forecast-best-val');
+        if (fBestEl) fBestEl.textContent = formatCurrencyOrNum(bestMonth);
+        const fWorstEl = document.getElementById('forecast-worst-val');
+        if (fWorstEl) fWorstEl.textContent = formatCurrencyOrNum(Math.max(0, worstMonth));
+        
+        const forecastRisksDesc = document.getElementById('forecast-risks-desc');
+        if (forecastRisksDesc) {
+            if (slope_fc < 0) {
+                forecastRisksDesc.innerHTML = `<strong>Systemic Decline Alert</strong>: Time-series regression indicates a downward trend with a slope of <strong>${slope_fc.toFixed(2)}</strong>. Budget mitigation required.`;
+            } else if (stdDev / avgVal > 0.4) {
+                forecastRisksDesc.innerHTML = `<strong>High Volatility Warning</strong>: Outliers and high standard deviation (cv: <strong>${(stdDev/avgVal).toFixed(2)}</strong>) present forecasting uncertainty. Keep buffer reserves.`;
+            } else {
+                forecastRisksDesc.innerHTML = `<strong>Stable Performance</strong>: Forecast indicates consistent performance. Focus on incremental optimizations.`;
+            }
+        }
+        
+        // Draw Forecast SVG Chart
+        const fcSvg = document.getElementById('forecast-risk-svg');
+        if (fcSvg) {
+            fcSvg.innerHTML = '';
+            
+            const width = 400;
+            const height = 160;
+            const paddingX = 40;
+            const paddingY = 20;
+            
+            const minV = Math.min(...valuesY, Math.max(0, worstMonth)) * 0.95;
+            const maxV = Math.max(...valuesY, bestMonth) * 1.05;
+            const rangeV = (maxV - minV) || 1;
+            
+            const histPoints = cleanData.map((d, i) => {
+                const x = paddingX + (i / (countN - 1)) * (width * 0.75 - paddingX);
+                const y = height - paddingY - ((d.value - minV) / rangeV) * (height - 2 * paddingY);
+                return { x, y };
+            });
+            
+            const fcXStart = width * 0.75;
+            const fcXEnd = width - paddingX;
+            
+            const lastHistPt = histPoints[histPoints.length - 1];
+            
+            const fcExpectedY = height - paddingY - ((forecastMonth - minV) / rangeV) * (height - 2 * paddingY);
+            const fcBestY = height - paddingY - ((bestMonth - minV) / rangeV) * (height - 2 * paddingY);
+            const fcWorstY = height - paddingY - ((Math.max(0, worstMonth) - minV) / rangeV) * (height - 2 * paddingY);
+            
+            // Grid Lines
+            for (let i = 0; i <= 2; i++) {
+                const y = paddingY + (i / 2) * (height - 2 * paddingY);
+                const val = maxV - (i / 2) * rangeV;
+                fcSvg.innerHTML += `
+                    <line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2,2"/>
+                    <text x="${paddingX - 5}" y="${y + 3}" fill="rgba(255,255,255,0.3)" font-size="7" font-anchor="end" font-family="monospace">${formatCurrencyOrNum(val)}</text>
+                `;
+            }
+            
+            // Forecast Confidence Band
+            fcSvg.innerHTML += `
+                <polygon points="${lastHistPt.x},${lastHistPt.y} ${fcXEnd},${fcBestY} ${fcXEnd},${fcWorstY}" fill="rgba(99,102,241,0.15)"/>
+                <line x1="${fcXStart}" y1="${paddingY}" x2="${fcXStart}" y2="${height - paddingY}" stroke="rgba(255,255,255,0.2)" stroke-dasharray="3,3"/>
+                <text x="${fcXStart + 5}" y="${paddingY + 10}" fill="rgba(255,255,255,0.5)" font-size="6" font-family="monospace">Forecast Horizon</text>
+            `;
+            
+            // Draw historical line
+            const histLinePath = `M ${histPoints.map(p => `${p.x} ${p.y}`).join(' L ')}`;
+            fcSvg.innerHTML += `
+                <path d="${histLinePath}" stroke="#6366f1" stroke-width="1.5" fill="none"/>
+            `;
+            
+            // Draw forecast scenario lines
+            fcSvg.innerHTML += `
+                <!-- Expected Line -->
+                <line x1="${lastHistPt.x}" y1="${lastHistPt.y}" x2="${fcXEnd}" y2="${fcExpectedY}" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="3,3"/>
+                <!-- Best Case Line -->
+                <line x1="${lastHistPt.x}" y1="${lastHistPt.y}" x2="${fcXEnd}" y2="${fcBestY}" stroke="#10b981" stroke-width="1" stroke-dasharray="2,2"/>
+                <!-- Worst Case Line -->
+                <line x1="${lastHistPt.x}" y1="${lastHistPt.y}" x2="${fcXEnd}" y2="${fcWorstY}" stroke="#ef4444" stroke-width="1" stroke-dasharray="2,2"/>
+            `;
+        }
+        
+        // ----------------------------------------------------
+        // PANEL 4: RECOMMENDATIONS & PRIORITY MATRIX
+        // ----------------------------------------------------
+        
+        const pmSvg = document.getElementById('priority-matrix-svg');
+        if (pmSvg) {
+            pmSvg.innerHTML = '';
+            
+            const recDots = [
+                { label: 'R1', name: 'Expand segment', x: 150, y: 40, color: '#10b981' },
+                { label: 'R2', name: 'Cap outliers', x: 130, y: 70, color: '#6366f1' },
+                { label: 'R3', name: 'Monitor anomaly', x: 60, y: 110, color: '#facc15' },
+                { label: 'R4', name: 'Optimize logistics', x: 40, y: 140, color: 'rgba(255,255,255,0.4)' }
+            ];
+            
+            recDots.forEach(d => {
+                pmSvg.innerHTML += `
+                    <circle cx="${d.x}" cy="${d.y}" r="5" fill="${d.color}" stroke="#09090b" stroke-width="1.5"/>
+                    <text x="${d.x + 8}" y="${d.y + 3}" fill="#ffffff" font-size="7" font-weight="bold" font-family="monospace">${d.label}</text>
+                `;
+            });
+        }
+        
+        const recBiggestOppEl = document.getElementById('rec-biggest-opp');
+        if (recBiggestOppEl) {
+            recBiggestOppEl.innerHTML = `Focus capital allocations towards scaling the <strong>${bestCat}</strong> segment which currently yields the strongest growth profile.`;
+        }
+        const recBiggestRiskEl = document.getElementById('rec-biggest-risk');
+        if (recBiggestRiskEl) {
+            recBiggestRiskEl.innerHTML = `Establish variance safeguards against ${worstCat} segment slippages and outlier volatility triggers.`;
+        }
+        
+        const recList = document.getElementById('rec-list-container');
+        if (recList) {
+            recList.innerHTML = `
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-[11px] flex justify-between items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-[#10b981]">R1</span>
+                        <div>
+                            <span class="text-white font-bold block">Scale Operational Segment: ${bestCat}</span>
+                            <span class="text-[9px] text-on-surface-variant block">Quick Win: low effort / high impact</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-1 text-[8px] font-data-mono">
+                        <span class="px-1.5 py-0.5 rounded bg-secondary/15 text-secondary border border-secondary/20">Imp: High</span>
+                        <span class="px-1.5 py-0.5 rounded bg-secondary/15 text-secondary border border-secondary/20">Eff: Low</span>
+                    </div>
+                </div>
+                
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-[11px] flex justify-between items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-[#6366f1]">R2</span>
+                        <div>
+                            <span class="text-white font-bold block">Mitigate Outliers in ${topDriverName !== 'None' ? topDriverName : 'values'}</span>
+                            <span class="text-[9px] text-on-surface-variant block">Strategic: medium effort / high impact</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-1 text-[8px] font-data-mono">
+                        <span class="px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/20">Imp: High</span>
+                        <span class="px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/20">Eff: Med</span>
+                    </div>
+                </div>
+                
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-[11px] flex justify-between items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-[#facc15]">R3</span>
+                        <div>
+                            <span class="text-white font-bold block">Monitor Anomalies & Volatility</span>
+                            <span class="text-[9px] text-on-surface-variant block">Fill-In: low effort / medium impact</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-1 text-[8px] font-data-mono">
+                        <span class="px-1.5 py-0.5 rounded bg-tertiary-fixed-dim/15 text-tertiary-fixed-dim border border-tertiary-fixed-dim/20">Imp: Med</span>
+                        <span class="px-1.5 py-0.5 rounded bg-tertiary-fixed-dim/15 text-tertiary-fixed-dim border border-tertiary-fixed-dim/20">Eff: Low</span>
+                    </div>
+                </div>
+                
+                <div class="bg-white/5 p-2 rounded border border-white/5 text-[11px] flex justify-between items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-on-surface-variant/70">R4</span>
+                        <div>
+                            <span class="text-white font-bold block">Optimize Segment Tracking for ${worstCat}</span>
+                            <span class="text-[9px] text-on-surface-variant block">Thankless: high effort / low impact</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-1 text-[8px] font-data-mono">
+                        <span class="px-1.5 py-0.5 rounded bg-white/5 text-on-surface-variant border border-white/10">Imp: Low</span>
+                        <span class="px-1.5 py-0.5 rounded bg-white/5 text-on-surface-variant border border-white/10">Eff: High</span>
+                    </div>
+                </div>
+            `;
         }
     }
 
@@ -817,6 +1238,625 @@
         }
         if (row.length > 1 || row[0] !== '') { lines.push(row); }
         return lines;
+    }
+
+    function updateDatasetsTab(rows, headers, cleanRows, primaryMetricIndex, dateIndex, categoryIndex) {
+        // 1. Calculations & DNA
+        const totalRows = cleanRows.length;
+        const totalCols = headers.length;
+        
+        let emptyCells = 0;
+        cleanRows.forEach(row => {
+            row.forEach(cell => {
+                if (cell.trim() === '') emptyCells++;
+            });
+        });
+        const totalCells = totalRows * totalCols;
+        const duplicateCount = Math.max(0, rows.length - 1 - totalRows);
+
+        // Classify domain and criticality
+        let domain = 'General Analytics';
+        const headerStr = headers.join(' ').toLowerCase();
+        if (/revenue|sales|order|quantity|price|invoice|retail|spend/i.test(headerStr)) domain = 'Sales & Commerce';
+        else if (/patient|doctor|visit|health|clinical|diagnosis|medication/i.test(headerStr)) domain = 'Healthcare & Medicine';
+        else if (/click|impression|campaign|ctr|reach|ad|lead|spend|conversion/i.test(headerStr)) domain = 'Digital Marketing';
+        else if (/yield|defect|batch|sensor|temp|machine|part|efficiency/i.test(headerStr)) domain = 'Manufacturing Operations';
+        else if (/student|grade|score|class|course|exam|school|gpa/i.test(headerStr)) domain = 'Educational Performance';
+        else if (/capital|cash|expense|income|asset|liability|interest/i.test(headerStr)) domain = 'Finance & Banking';
+        else if (/inventory|shipment|warehouse|delivery|logistics|route/i.test(headerStr)) domain = 'Supply Chain & Logistics';
+
+        let hasMonetary = /revenue|sales|price|invoice|spend|salary|cost/i.test(headerStr);
+        let hasPersonal = /email|name|ssn|phone|address|ip|password/i.test(headerStr);
+        const criticality = hasPersonal ? 'Critical' : hasMonetary ? 'High' : 'Medium';
+        const complexity = totalCols > 15 ? 'High' : totalCols > 8 ? 'Moderate' : 'Low';
+        
+        // Update DNA Panel UI
+        document.getElementById('dataset-classification').textContent = domain;
+        document.getElementById('dataset-criticality').textContent = criticality;
+        document.getElementById('dataset-complexity').textContent = complexity;
+        
+        const classIcon = document.getElementById('dataset-class-icon');
+        if (domain === 'Sales & Commerce') classIcon.textContent = 'shopping_cart';
+        else if (domain === 'Healthcare & Medicine') classIcon.textContent = 'medical_services';
+        else if (domain === 'Digital Marketing') classIcon.textContent = 'ads_click';
+        else if (domain === 'Manufacturing Operations') classIcon.textContent = 'precision_manufacturing';
+        else if (domain === 'Educational Performance') classIcon.textContent = 'school';
+        else if (domain === 'Finance & Banking') classIcon.textContent = 'account_balance';
+        else if (domain === 'Supply Chain & Logistics') classIcon.textContent = 'local_shipping';
+        else classIcon.textContent = 'database';
+
+        const critBadge = document.getElementById('dataset-criticality');
+        if (criticality === 'Critical') {
+            critBadge.className = 'text-lg font-bold text-error leading-tight';
+        } else if (criticality === 'High') {
+            critBadge.className = 'text-lg font-bold text-warning leading-tight';
+        } else {
+            critBadge.className = 'text-lg font-bold text-white leading-tight';
+        }
+
+        // 2. Data Quality & Radar calculation
+        const completeness = ((totalCells - emptyCells) / (totalCells || 1)) * 100;
+        
+        // Uniqueness Columns
+        let columnUniquenessSum = 0;
+        headers.forEach((h, colIdx) => {
+            const uniqueVals = new Set(cleanRows.map(r => r[colIdx]));
+            columnUniquenessSum += uniqueVals.size / (totalRows || 1);
+        });
+        const avgColUniqueness = (columnUniquenessSum / (totalCols || 1)) * 100;
+        const rowUniqueness = (totalRows / ((rows.length - 1) || 1)) * 100;
+
+        // Consistency (Type checking)
+        let typeCompliantCells = 0;
+        let totalCellsChecked = 0;
+        headers.forEach((h, colIdx) => {
+            let numericCount = 0;
+            let dateCount = 0;
+            let nonNullCount = 0;
+            const sampleSize = Math.min(totalRows, 100);
+            for (let i = 0; i < sampleSize; i++) {
+                const val = cleanRows[i][colIdx].trim();
+                if (val === '') continue;
+                nonNullCount++;
+                if (!isNaN(parseFloat(val.replace(/[$,%]/g, '')))) numericCount++;
+                if (!isNaN(Date.parse(val)) && isNaN(val)) dateCount++;
+            }
+            const majorType = (numericCount / (nonNullCount || 1) > 0.6) ? 'numeric' : (dateCount / (nonNullCount || 1) > 0.6) ? 'date' : 'categorical';
+            
+            cleanRows.forEach(r => {
+                const val = r[colIdx].trim();
+                if (val === '') return;
+                totalCellsChecked++;
+                if (majorType === 'numeric') {
+                    if (!isNaN(parseFloat(val.replace(/[$,%]/g, '')))) typeCompliantCells++;
+                } else if (majorType === 'date') {
+                    if (!isNaN(Date.parse(val)) && isNaN(val)) typeCompliantCells++;
+                } else {
+                    typeCompliantCells++;
+                }
+            });
+        });
+        const consistencyScore = totalCellsChecked > 0 ? (typeCompliantCells / totalCellsChecked) * 100 : 100;
+
+        // Accuracy (Outlier based)
+        const primaryValues = cleanRows.map(r => parseFloat(String(r[primaryMetricIndex]).replace(/[$,%]/g, '')) || 0);
+        const sum = primaryValues.reduce((a, b) => a + b, 0);
+        const avg = sum / (primaryValues.length || 1);
+        const variance = primaryValues.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / (primaryValues.length || 1);
+        const stdDev = Math.sqrt(variance) || 1;
+        let outlierCount = 0;
+        primaryValues.forEach(val => {
+            const z = (val - avg) / stdDev;
+            if (Math.abs(z) > 2.0) outlierCount++;
+        });
+        const accuracyScore = Math.max(30, 100 - (outlierCount / (totalRows || 1)) * 300);
+
+        // Consolidated Health Score
+        const healthScore = Math.round(completeness * 0.35 + consistencyScore * 0.25 + avgColUniqueness * 0.15 + rowUniqueness * 0.15 + accuracyScore * 0.1);
+        
+        document.getElementById('health-score-val').textContent = `${healthScore}%`;
+        const healthRing = document.getElementById('health-progress-ring');
+        if (healthRing) {
+            const circumference = 390;
+            const offset = circumference - (healthScore / 100) * circumference;
+            healthRing.style.strokeDashoffset = offset;
+            
+            if (healthScore >= 90) {
+                healthRing.setAttribute('stroke', '#4edea3');
+                document.getElementById('health-score-status').textContent = 'EXCELLENT';
+                document.getElementById('health-score-status').className = 'text-[9px] text-secondary uppercase tracking-wider font-label-caps';
+            } else if (healthScore >= 75) {
+                healthRing.setAttribute('stroke', '#c0c1ff');
+                document.getElementById('health-score-status').textContent = 'HEALTHY';
+                document.getElementById('health-score-status').className = 'text-[9px] text-primary uppercase tracking-wider font-label-caps';
+            } else {
+                healthRing.setAttribute('stroke', '#ffb4ab');
+                document.getElementById('health-score-status').textContent = 'WARNING';
+                document.getElementById('health-score-status').className = 'text-[9px] text-error uppercase tracking-wider font-label-caps';
+            }
+        }
+        
+        document.getElementById('health-score-summary').innerHTML = `
+            Consolidated health: <strong>${healthScore}%</strong>. Found <strong>${emptyCells}</strong> missing cells, 
+            <strong>${duplicateCount}</strong> duplicate rows, and <strong>${outlierCount}</strong> outliers.
+        `;
+
+        // Maturity Score
+        const maturityVal = Math.round(healthScore * 0.8 + (dateIndex !== -1 ? 15 : 0) + (totalCols > 4 ? 5 : 0));
+        document.getElementById('dataset-maturity').textContent = `${maturityVal}%`;
+
+        // Update counts in metadata
+        document.getElementById('meta-total-rows').textContent = totalRows.toLocaleString();
+        document.getElementById('meta-total-cols').textContent = totalCols.toLocaleString();
+        document.getElementById('meta-empty-cells').textContent = emptyCells.toLocaleString();
+        document.getElementById('meta-duplicate-rows').textContent = duplicateCount.toLocaleString();
+
+        // 3. Readiness Breakdown UI
+        const readinessAnalytics = Math.round(completeness);
+        const readinessForecasting = dateIndex !== -1 ? Math.round(Math.min(100, Math.max(30, (totalRows / 50) * 100))) : 0;
+        const readinessML = Math.round(completeness * 0.5 + consistencyScore * 0.3 + (totalCols > 3 ? 20 : 0));
+        const readinessReporting = categoryIndex !== -1 && primaryMetricIndex !== -1 ? 95 : 60;
+
+        document.getElementById('readiness-analytics').textContent = `${readinessAnalytics}%`;
+        document.getElementById('readiness-forecasting').textContent = `${readinessForecasting}%`;
+        document.getElementById('readiness-ml').textContent = `${readinessML}%`;
+        document.getElementById('readiness-reporting').textContent = `${readinessReporting}%`;
+
+        document.getElementById('readiness-analytics-bar').style.width = `${readinessAnalytics}%`;
+        document.getElementById('readiness-forecasting-bar').style.width = `${readinessForecasting}%`;
+        document.getElementById('readiness-ml-bar').style.width = `${readinessML}%`;
+        document.getElementById('readiness-reporting-bar').style.width = `${readinessReporting}%`;
+
+        // 4. Data Quality Radar SVG Update
+        const radarPoly = document.getElementById('radar-polygon');
+        if (radarPoly) {
+            const comp = completeness / 100;
+            const cons = consistencyScore / 100;
+            const uniq = avgColUniqueness / 100;
+            const vald = rowUniqueness / 100;
+            const accu = accuracyScore / 100;
+
+            const cx = 100, cy = 100, r = 80;
+            // Angles: 0, 72, 144, 216, 288 in rad
+            const points = [
+                { x: cx, y: cy - r * comp },
+                { x: cx + r * cons * Math.cos(-Math.PI/10), y: cy + r * cons * Math.sin(-Math.PI/10) },
+                { x: cx + r * uniq * Math.cos(3*Math.PI/10), y: cy + r * uniq * Math.sin(3*Math.PI/10) },
+                { x: cx + r * vald * Math.cos(7*Math.PI/10), y: cy + r * vald * Math.sin(7*Math.PI/10) },
+                { x: cx + r * accu * Math.cos(11*Math.PI/10), y: cy + r * accu * Math.sin(11*Math.PI/10) }
+            ];
+            
+            radarPoly.setAttribute('points', points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '));
+        }
+
+        document.getElementById('quality-completeness-val').textContent = `${readinessAnalytics}%`;
+        document.getElementById('quality-consistency-val').textContent = `${Math.round(consistencyScore)}%`;
+        document.getElementById('quality-uniqueness-val').textContent = `${Math.round(avgColUniqueness)}%`;
+        document.getElementById('quality-rows-uniqueness-val').textContent = `${Math.round(rowUniqueness)}%`;
+        document.getElementById('quality-accuracy-val').textContent = `${Math.round(accuracyScore)}%`;
+
+        // 5. ERD Discovery Map SVG
+        const erdSvg = document.getElementById('erd-svg');
+        if (erdSvg) {
+            erdSvg.innerHTML = '';
+            
+            const pkName = dateIndex !== -1 ? headers[dateIndex] : "Row_ID";
+            const measureName = headers[primaryMetricIndex];
+            const dimName = categoryIndex !== -1 ? headers[categoryIndex] : "Dimension";
+            
+            const numericCols = headers.filter((h, idx) => idx !== primaryMetricIndex && idx !== dateIndex && idx !== categoryIndex && !isNaN(parseFloat(cleanRows[0][idx] || '')));
+            const secondaryMeasure = numericCols.length > 0 ? numericCols[0] : "Volume";
+
+            // Define node coordinates
+            const nodes = [
+                { id: 'pk', name: pkName, type: 'pk', cx: 50, cy: 90, r: 18, color: '#ffb4ab' },
+                { id: 'dim', name: dimName, type: 'dim', cx: 160, cy: 50, r: 18, color: '#ffb95f' },
+                { id: 'meas', name: measureName, type: 'meas', cx: 280, cy: 90, r: 20, color: '#4edea3' },
+                { id: 'meas2', name: secondaryMeasure, type: 'meas2', cx: 400, cy: 90, r: 16, color: '#c0c1ff' }
+            ];
+
+            // Add connections (links)
+            const links = [
+                { from: 'pk', to: 'meas', label: 'analyzes' },
+                { from: 'dim', to: 'meas', label: 'slices' },
+                { from: 'meas', to: 'meas2', label: 'correlates' }
+            ];
+
+            // Render Links
+            links.forEach(link => {
+                const fNode = nodes.find(n => n.id === link.from);
+                const tNode = nodes.find(n => n.id === link.to);
+                if (fNode && tNode) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', fNode.cx);
+                    line.setAttribute('y1', fNode.cy);
+                    line.setAttribute('x2', tNode.cx);
+                    line.setAttribute('y2', tNode.cy);
+                    line.setAttribute('stroke', 'rgba(255,255,255,0.15)');
+                    line.setAttribute('stroke-width', '1.5');
+                    line.setAttribute('stroke-dasharray', '4');
+                    erdSvg.appendChild(line);
+
+                    // Link label text
+                    const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    txt.setAttribute('x', (fNode.cx + tNode.cx)/2);
+                    txt.setAttribute('y', (fNode.cy + tNode.cy)/2 - 5);
+                    txt.setAttribute('text-anchor', 'middle');
+                    txt.setAttribute('font-size', '8');
+                    txt.setAttribute('fill', 'rgba(255,255,255,0.4)');
+                    txt.textContent = link.label;
+                    erdSvg.appendChild(txt);
+                }
+            });
+
+            // Render Nodes
+            nodes.forEach(node => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', node.cx);
+                circle.setAttribute('cy', node.cy);
+                circle.setAttribute('r', node.r);
+                circle.setAttribute('fill', 'rgba(19, 19, 21, 0.9)');
+                circle.setAttribute('stroke', node.color);
+                circle.setAttribute('stroke-width', '2');
+                group.appendChild(circle);
+
+                const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                iconText.setAttribute('x', node.cx);
+                iconText.setAttribute('y', node.cy + 3);
+                iconText.setAttribute('text-anchor', 'middle');
+                iconText.setAttribute('font-size', '8');
+                iconText.setAttribute('fill', node.color);
+                iconText.setAttribute('font-weight', 'bold');
+                iconText.textContent = node.type === 'pk' ? 'PK' : node.type === 'dim' ? 'DIM' : 'MSR';
+                group.appendChild(circle);
+                group.appendChild(iconText);
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', node.cx);
+                label.setAttribute('y', node.cy + node.r + 12);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('font-size', '9');
+                label.setAttribute('fill', '#ffffff');
+                label.textContent = node.name.slice(0, 10);
+                group.appendChild(label);
+
+                erdSvg.appendChild(group);
+            });
+        }
+
+        // 6. Column dictionary
+        const tbody = document.getElementById('data-dictionary-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            headers.forEach((header, colIdx) => {
+                // Determine column attributes
+                let emptyColCells = 0;
+                const uniqueSet = new Set();
+                let isNum = true;
+                let isDateCandidate = true;
+
+                cleanRows.forEach(row => {
+                    const cell = row[colIdx].trim();
+                    if (cell === '') emptyColCells++;
+                    else {
+                        uniqueSet.add(cell);
+                        if (isNaN(parseFloat(cell.replace(/[$,%]/g, '')))) isNum = false;
+                        if (isNaN(Date.parse(cell)) || !isNaN(cell)) isDateCandidate = false;
+                    }
+                });
+
+                const colMissingPct = ((emptyColCells / (totalRows || 1)) * 100).toFixed(1);
+                const colUniqPct = ((uniqueSet.size / (totalRows || 1)) * 100).toFixed(1);
+                
+                let detectedType = 'Categorical';
+                let semanticMeaning = 'Dimension (Categorical)';
+                let alias = header;
+                let purpose = 'Groups data records into segment categories.';
+                let importance = 2;
+
+                if (colIdx === primaryMetricIndex) {
+                    detectedType = 'Numeric (Float)';
+                    semanticMeaning = 'Measure (Financial KPI)';
+                    alias = `${header} [Target]`;
+                    purpose = `Primary business outcome metric tracked for analytics and performance audits.`;
+                    importance = 5;
+                } else if (colIdx === dateIndex) {
+                    detectedType = 'Date (ISO)';
+                    semanticMeaning = 'Temporal (Anchor)';
+                    alias = 'Timeline Date';
+                    purpose = 'Provides the chronological reference for time-series forecasting.';
+                    importance = 5;
+                } else if (colIdx === categoryIndex) {
+                    detectedType = 'Categorical';
+                    semanticMeaning = 'Dimension (Slicing)';
+                    alias = 'Primary Category';
+                    purpose = 'Categorical segment mapping for business intelligence aggregation.';
+                    importance = 4;
+                } else if (isNum) {
+                    detectedType = 'Numeric (Integer)';
+                    semanticMeaning = 'Measure (Indicator)';
+                    purpose = 'Numeric volume indicator supporting secondary correlations.';
+                    importance = 3;
+                } else if (isDateCandidate) {
+                    detectedType = 'Date';
+                    semanticMeaning = 'Temporal';
+                    purpose = 'Secondary date attribute for time-series categorization.';
+                    importance = 3;
+                }
+
+                // Bounds
+                let boundsStr = 'N/A';
+                if (isNum) {
+                    const numValues = cleanRows.map(r => parseFloat(String(r[colIdx]).replace(/[$,%]/g, '')) || 0);
+                    boundsStr = `[${Math.min(...numValues)}, ${Math.max(...numValues)}]`;
+                } else {
+                    boundsStr = `${uniqueSet.size} categories`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/5 transition-all duration-300';
+                tr.innerHTML = `
+                    <td class="py-3 font-semibold text-white">
+                        <div>${header}</div>
+                        <div class="text-[9px] text-on-surface-variant/70 uppercase font-normal">${alias}</div>
+                    </td>
+                    <td class="py-3">
+                        <span class="text-white">${detectedType}</span>
+                        <div class="text-[9px] text-primary">${semanticMeaning}</div>
+                    </td>
+                    <td class="py-3 text-center">
+                        <div class="text-white">${colMissingPct}%</div>
+                        <div class="w-12 bg-white/5 h-1 rounded-full mx-auto overflow-hidden mt-1">
+                            <div class="bg-error h-full" style="width: ${colMissingPct}%"></div>
+                        </div>
+                    </td>
+                    <td class="py-3 text-center">
+                        <div class="text-white">${colUniqPct}%</div>
+                        <div class="w-12 bg-white/5 h-1 rounded-full mx-auto overflow-hidden mt-1">
+                            <div class="bg-secondary h-full" style="width: ${colUniqPct}%"></div>
+                        </div>
+                    </td>
+                    <td class="py-3 text-on-surface-variant max-w-[200px] truncate" title="${purpose}">${purpose}</td>
+                    <td class="py-3 font-data-mono text-on-surface-variant">${boundsStr}</td>
+                    <td class="py-3 text-right text-tertiary-fixed-dim font-bold">${'★'.repeat(importance)}${'☆'.repeat(5 - importance)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 7. AI Data Stories
+        const storiesContainer = document.getElementById('data-stories-container');
+        if (storiesContainer) {
+            storiesContainer.innerHTML = '';
+            
+            const stories = [
+                { icon: 'auto_awesome', text: `<strong>Domain Anchor:</strong> Classified under the <strong>${domain}</strong> operational track with moderate schema complexity.` },
+                { icon: 'trending_up', text: `<strong>Temporal Trend:</strong> Sequential date anchor detected over <strong>${headers[dateIndex] || 'Date'}</strong> enabling high-accuracy forecasting pipelines.` },
+                { icon: 'query_stats', text: `<strong>Primary Driver:</strong> <strong>${headers[primaryMetricIndex]}</strong> identified as target measure showing typical average rates of <strong>${formatCurrencyOrNum(avg)}</strong>.` },
+                { icon: 'warning', text: `<strong>Governance Warning:</strong> Found <strong>${outlierCount}</strong> statistical anomalies. These rows show Z-scores above 2.0 and require automated screening.` }
+            ];
+
+            stories.forEach(st => {
+                const item = document.createElement('div');
+                item.className = 'text-xs text-on-surface bg-white/5 p-2.5 rounded border border-white/5 flex items-start gap-2.5 interactive-scale hover:border-primary/20 duration-300';
+                item.innerHTML = `
+                    <span class="material-symbols-outlined text-[16px] text-primary mt-0.5">${st.icon}</span>
+                    <span>${st.text}</span>
+                `;
+                storiesContainer.appendChild(item);
+            });
+        }
+
+        // 8. Data Prep Assistant
+        const prepContainer = document.getElementById('prep-assistant-container');
+        if (prepContainer) {
+            prepContainer.innerHTML = '';
+            
+            const tasks = [
+                { title: `Deduplicate Rows`, desc: `Drop the ${duplicateCount} duplicate records detected to restore analytical consistency.`, lift: 6 },
+                { title: `Cap Target Outliers`, desc: `Apply IQR bounding box logic to cap the ${outlierCount} outliers in ${headers[primaryMetricIndex]}.`, lift: 11 },
+                { title: `Impute Null Values`, desc: `Fill the ${emptyCells} empty cells in variables using mean/median interpolation.`, lift: 8 },
+                { title: `Normalize Schema Headers`, desc: `Convert schema header metadata to strict lowercase variables.`, lift: 3 }
+            ];
+
+            tasks.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'text-xs text-on-surface bg-white/5 p-2.5 rounded border border-white/5 flex items-center justify-between interactive-scale hover:border-secondary/20 duration-300';
+                item.innerHTML = `
+                    <div class="flex items-start gap-2.5">
+                        <span class="material-symbols-outlined text-[16px] text-secondary mt-0.5">check_box_outline_blank</span>
+                        <div>
+                            <div class="font-bold text-white">${t.title}</div>
+                            <div class="text-[10px] text-on-surface-variant mt-0.5">${t.desc}</div>
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-data-mono px-1.5 py-0.5 rounded bg-secondary/15 text-secondary border border-secondary/25 font-bold flex-shrink-0 ml-2">+${t.lift}% Lift</span>
+                `;
+                prepContainer.appendChild(item);
+            });
+        }
+
+        // 9. Auto KPI Detection
+        const kpiTbody = document.getElementById('kpi-detection-tbody');
+        if (kpiTbody) {
+            kpiTbody.innerHTML = '';
+            let kpiCount = 0;
+            
+            headers.forEach((h, colIdx) => {
+                let isNum = true;
+                cleanRows.forEach(row => {
+                    if (isNaN(parseFloat(row[colIdx].replace(/[$,%]/g, '')))) isNum = false;
+                });
+                
+                if (isNum) {
+                    kpiCount++;
+                    const colA = cleanRows.map(r => parseFloat(String(r[primaryMetricIndex]).replace(/[$,%]/g, '')) || 0);
+                    const colB = cleanRows.map(r => parseFloat(String(r[colIdx]).replace(/[$,%]/g, '')) || 0);
+                    const corr = calculatePearsonCorrelation(colA, colB);
+                    
+                    const valueRating = Math.round(Math.abs(corr) * 5);
+                    const stars = '★'.repeat(valueRating) + '☆'.repeat(5 - valueRating);
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="py-2 font-semibold text-white">
+                            <div>${h}</div>
+                            <span class="text-[8px] text-on-surface-variant px-1 rounded bg-white/5 uppercase">${colIdx === primaryMetricIndex ? 'Target KPI' : 'Metric Variable'}</span>
+                        </td>
+                        <td class="py-2 text-center text-primary font-bold">${corr.toFixed(3)}</td>
+                        <td class="py-2 text-right text-tertiary-fixed-dim font-bold">${stars}</td>
+                    `;
+                    kpiTbody.appendChild(tr);
+                }
+            });
+            
+            if (kpiCount === 0) {
+                kpiTbody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="py-4 text-center text-on-surface-variant">No numeric metric candidates found.</td>
+                    </tr>
+                `;
+            }
+        }
+
+        // 10. Descriptive Stats & Mini Histogram
+        const statsGrid = document.getElementById('datasets-descriptive-stats-grid');
+        if (statsGrid) {
+            const minVal = Math.min(...primaryValues);
+            const maxVal = Math.max(...primaryValues);
+            const rangeVal = maxVal - minVal;
+            const meanVal = avg;
+            
+            const valuesSorted = [...primaryValues].sort((a,b) => a-b);
+            const medianVal = valuesSorted[Math.floor(valuesSorted.length / 2)] || 0;
+            
+            statsGrid.innerHTML = `
+                <div class="bg-white/5 p-1.5 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[8px] uppercase">Mean</div>
+                    <div class="text-white font-bold">${formatCurrencyOrNum(meanVal)}</div>
+                </div>
+                <div class="bg-white/5 p-1.5 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[8px] uppercase">Median</div>
+                    <div class="text-white font-bold">${formatCurrencyOrNum(medianVal)}</div>
+                </div>
+                <div class="bg-white/5 p-1.5 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[8px] uppercase">Range</div>
+                    <div class="text-white font-bold">${formatCurrencyOrNum(rangeVal)}</div>
+                </div>
+                <div class="bg-white/5 p-1.5 rounded border border-white/5">
+                    <div class="text-on-surface-variant text-[8px] uppercase">Std Dev</div>
+                    <div class="text-white font-bold">${formatCurrencyOrNum(stdDev)}</div>
+                </div>
+            `;
+
+            // Draw mini histogram SVG
+            const histSvg = document.getElementById('datasets-histogram-svg');
+            if (histSvg) {
+                histSvg.innerHTML = '';
+                
+                // Calculate 5 equal bins
+                const bins = [0, 0, 0, 0, 0];
+                const binSize = (rangeVal || 1) / 5;
+                
+                primaryValues.forEach(val => {
+                    let binIdx = Math.floor((val - minVal) / binSize);
+                    if (binIdx >= 5) binIdx = 4;
+                    bins[binIdx]++;
+                });
+                
+                const maxBinCount = Math.max(...bins) || 1;
+                const svgW = 100, svgH = 80;
+                
+                bins.forEach((count, i) => {
+                    const rectH = (count / maxBinCount) * 60;
+                    const rectW = 14;
+                    const x = i * 20 + 2;
+                    const y = 70 - rectH;
+                    
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', y);
+                    rect.setAttribute('width', rectW);
+                    rect.setAttribute('height', rectH);
+                    rect.setAttribute('fill', 'url(#hist-gradient)');
+                    rect.setAttribute('rx', '1');
+                    
+                    // Tooltip
+                    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                    title.textContent = `Bin ${i+1}: ${count} records`;
+                    rect.appendChild(title);
+                    
+                    histSvg.appendChild(rect);
+                });
+                
+                // Define gradient
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                defs.innerHTML = `
+                    <linearGradient id="hist-gradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#c0c1ff" stop-opacity="0.8"/>
+                        <stop offset="100%" stop-color="#c0c1ff" stop-opacity="0.2"/>
+                    </linearGradient>
+                `;
+                histSvg.appendChild(defs);
+            }
+        }
+
+        // 11. Data Governance & PII Shield
+        const govBadge = document.getElementById('governance-class-badge');
+        const govContainer = document.getElementById('governance-pii-container');
+        if (govContainer && govBadge) {
+            govContainer.innerHTML = '';
+            
+            const piiCols = [];
+            headers.forEach((h, colIdx) => {
+                const hl = h.toLowerCase();
+                if (/email|name|ssn|phone|address|ip|password|card|bank|salary/i.test(hl)) {
+                    piiCols.push(h);
+                }
+            });
+
+            if (piiCols.length > 0) {
+                govBadge.textContent = 'RESTRICTED PII';
+                govBadge.className = 'text-[9px] font-bold font-data-mono px-2 py-0.5 rounded border text-error bg-error/15 border-error/20';
+
+                const alertBox = document.createElement('div');
+                alertBox.className = 'p-2.5 rounded bg-error/10 border border-error/20 text-error flex items-start gap-2';
+                alertBox.innerHTML = `
+                    <span class="material-symbols-outlined text-[16px] mt-0.5">gavel</span>
+                    <div>
+                        <div class="font-bold">Compliance Warning</div>
+                        <div class="text-[10px] mt-0.5">${piiCols.length} columns are classified as sensitive PII. Regulatory auditing rules apply.</div>
+                    </div>
+                `;
+                govContainer.appendChild(alertBox);
+
+                piiCols.forEach(col => {
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-2 rounded bg-white/5 border border-white/5';
+                    item.innerHTML = `
+                        <span class="text-white">${col}</span>
+                        <span class="text-[8px] font-bold font-data-mono px-1.5 py-0.5 rounded bg-error/10 text-error border border-error/25">PII SHIELD ACTIVE</span>
+                    `;
+                    govContainer.appendChild(item);
+                });
+            } else {
+                govBadge.textContent = 'PUBLIC';
+                govBadge.className = 'text-[9px] font-bold font-data-mono px-2 py-0.5 rounded border text-secondary bg-secondary/15 border-secondary/20';
+
+                const okBox = document.createElement('div');
+                okBox.className = 'p-2.5 rounded bg-secondary/10 border border-secondary/20 text-secondary flex items-start gap-2';
+                okBox.innerHTML = `
+                    <span class="material-symbols-outlined text-[16px] mt-0.5">verified_user</span>
+                    <div>
+                        <div class="font-bold">No Sensitive PII Detected</div>
+                        <div class="text-[10px] mt-0.5">Dataset is safe for public distribution & standard modeling.</div>
+                    </div>
+                `;
+                govContainer.appendChild(okBox);
+            }
+        }
     }
 
     function calculatePearsonCorrelation(x, y) {

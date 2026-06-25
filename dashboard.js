@@ -551,12 +551,12 @@
         `;
         
         updateDatasetsTab(rows, headers, cleanRows, primaryMetricIndex, dateIndex, categoryIndex);
-        updateInsightsTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain);
+        updateInsightsTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain, confidenceScore);
         updateForecastingTab(cleanData, headers, primaryMetricIndex, dateIndex);
         updateCopilotTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain, bestGeo, maxGeoVal, geoIndex);
         
         updateAnalyticsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, skewness, kurtosis, variance, medianVal, rangeVal, anomalies);
-        updateReportsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, outlierCount, maxCatVal, bestCat, worstCat, domain, growthRate, anomalies, bestGeo, maxGeoVal, geoIndex);
+        updateReportsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, outlierCount, maxCatVal, bestCat, worstCat, domain, growthRate, anomalies, bestGeo, worstGeo, maxGeoVal, geoIndex);
     }
 
     function calculateSkewness(values, mean, stdDev) {
@@ -1100,7 +1100,7 @@
         }
     }
 
-    function updateReportsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, outlierCount, maxCatVal, bestCat, worstCat, domain, growthRate, anomalies, bestGeo, maxGeoVal, geoIndex) {
+    function updateReportsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, outlierCount, maxCatVal, bestCat, worstCat, domain, growthRate, anomalies, bestGeo, worstGeo, maxGeoVal, geoIndex) {
         const primaryMetricName = headers[primaryMetricIndex];
         const sumVal = cleanData.reduce((sum, item) => sum + item.value, 0);
         

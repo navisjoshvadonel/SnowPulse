@@ -2561,7 +2561,7 @@ void main() {
         return result;
     }
 
-    function updateInsightsTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain) {
+    function updateInsightsTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain, confidenceScore) {
         const primaryMetricName = headers[primaryMetricIndex];
         const container = document.getElementById('insights-list-container');
         if (!container) return;

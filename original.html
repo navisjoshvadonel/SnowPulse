@@ -2855,15 +2855,13 @@ void main() {
     let copilotAnswers = {};
 
     function updateCopilotTab(cleanData, headers, primaryMetricIndex, categoryIndex, dateIndex, outlierCount, maxCatVal, bestCat, worstCat, domain) {
-        // Build responses mapping
+        // Build responses mapping following elite CDO/SnowPulse structure
         copilotAnswers = {
             "why did revenue spike in november?": {
-                answer: `Revenue spiked by 206% in November to **$950,000**, which represents a significant statistical outlier.`,
-                evidence: `
-- **Statistical Significance**: The November value has a Z-score of **3.07** (exceeding the standard outlier limit of 2.2). The IQR bounds are **$46,875 to $431,875**, proving mathematically that this is an anomalous deviation.
-- **Segment**: Electronics category in the South region.
-- **Total Revenue Contribution**: South region represents $1.995M (56.7% of total sales).
-                `,
+                answer: "Revenue spiked due to a massive, statistically anomalous hardware transaction in the South region.",
+                evidence: "On 2024-11-01, primary revenue reached **$950,000**, representing a 206% increase over the baseline average. The Z-score reached 3.07, far exceeding the outlier threshold of 2.2.",
+                soWhat: "This single transaction distorts standard run-rate projections and hides an extreme single-point concentration risk in the Southern territory.",
+                nextStep: "Audit the transaction ledger for November and adjust inventory buffers to prevent over-stocking based on this outlier.",
                 viz: "Scatter Plot (Anomaly Detection) or Line Chart showing historical actuals with November's huge spike.",
                 confidence: 99,
                 followups: [
@@ -2873,14 +2871,10 @@ void main() {
                 ]
             },
             "predict next quarter sales.": {
-                answer: `Next quarter (Q1 2025) sales are projected to reach **$1.275M** based on the selected Double Exponential Smoothing (DES) model.`,
-                evidence: `
-- **Monthly Predictions**:
-  - January 2025: **$404,859** (Expected Range: $344k – $465k)
-  - February 2025: **$425,067** (Expected Range: $361k – $488k)
-  - March 2025: **$445,275** (Expected Range: $378k – $512k)
-- **Model Validation**: The DES model has a Mean Absolute Percentage Error (MAPE) of **12.21%** and RMSE of **$35,097**, which is significantly more accurate than Linear Regression (MAPE: 28.29%).
-                `,
+                answer: "Next quarter (Q1 2025) sales are projected to reach a cumulative total of $1,275,201.",
+                evidence: "Monthly projections indicate **$404,859** in January, $425,067 in February, and $445,275 in March, calculated using a Double Exponential Smoothing model with a validated 12.2% MAPE.",
+                soWhat: "Constant growth suggests healthy baseline expansion, allowing you to confidently allocate larger marketing budgets.",
+                nextStep: "Monitor January sales actuals to confirm model accuracy before executing Q2 hiring plans.",
                 viz: "Line Chart displaying actual monthly data (Jan-Dec 2024) transitioning into dashed forecast lines with shaded confidence bands.",
                 confidence: 92,
                 followups: [
@@ -2890,15 +2884,10 @@ void main() {
                 ]
             },
             "compare regions.": {
-                answer: `The sales analysis shows a high geographic concentration in the **South** territory, representing **56.7%** of total revenue.`,
-                evidence: `
-- **Regional Breakdown**:
-  - **South**: **$1,995,000** (56.7% share, 6 transactions, mean: $332.5k)
-  - **West**: **$795,000** (22.6% share, 3 transactions, mean: $265k)
-  - **East**: **$480,000** (13.6% share, 2 transactions, mean: $240k)
-  - **North**: **$250,000** (7.1% share, 1 transaction, mean: $250k)
-- **Concentration Risk**: South accounts for more than all other regions combined.
-                `,
+                answer: "The South territory overwhelmingly dominates performance, accounting for more revenue than all other regions combined.",
+                evidence: "The South generated **$1,995,000** (56.7% share), compared to $795,000 (22.6%) in the West, $480,000 (13.6%) in the East, and $250,000 (7.1%) in the North.",
+                soWhat: "High regional concentration exposes the portfolio to severe localized market shocks.",
+                nextStep: "Reallocate outbound sales resources from the South to underpenetrated markets in the East and West.",
                 viz: "Geographic Bubble Map or Horizontal Bar Chart comparing total revenue contributions by region.",
                 confidence: 98,
                 followups: [
@@ -2908,14 +2897,10 @@ void main() {
                 ]
             },
             "which segment performs best?": {
-                answer: `**Electronics** is the top-performing product segment, generating **$2,040,000** (58.0% of total revenue).`,
-                evidence: `
-- **Segment Sales**:
-  - **Electronics**: **$2.04M** (6 sales, mean: $340k)
-  - **Apparel**: **$960,000** (4 sales, mean: $240k)
-  - **Home**: **$520,000** (2 sales, mean: $260k)
-- **Margin / Size**: Electronics has the highest deal size, though Home is slightly larger on average than Apparel.
-                `,
+                answer: "Electronics is the top-performing product category, generating more than half of all portfolio revenue.",
+                evidence: "Electronics contributed **$2,040,000** (58.0% of total revenue) with a high average transaction size of $340,000.",
+                soWhat: "It provides the core cash engine but represents product concentration risk if hardware demand softens.",
+                nextStep: "Launch cross-selling campaigns for software services to the existing Electronics customer base.",
                 viz: "Treemap of revenue by category, or a Categorical Bar Chart.",
                 confidence: 98,
                 followups: [
@@ -2925,12 +2910,10 @@ void main() {
                 ]
             },
             "show major anomalies.": {
-                answer: `**1 critical anomaly** was detected in the dataset in November 2024.`,
-                evidence: `
-- **Details**: Date: **2024-11-01**, Primary Metric (Revenue): **$950,000**.
-- **Detection Method**: Z-score (3.07 > 2.2), IQR bounds exceeded ($950k vs upper bound of $432k), and Isolation Forest (flagged as -1 outlier).
-- **Secondary Flag**: Isolation Forest also highlights Dec 2024 ($320k) as a potential secondary structural boundary point.
-                `,
+                answer: "A single critical anomaly is flagged in the historical timeline.",
+                evidence: "The statistical engine detected an outlier on **2024-11-01** where revenue spiked to $950,000 (Z-score: 3.07, IQR upper bound exceeded).",
+                soWhat: "This spike distorts baseline growth trend lines and suggests high deal-flow volatility.",
+                nextStep: "Exclude this outlier from standard forecasting models to obtain a normalized run-rate trajectory.",
                 viz: "Scatter Plot with normal points in primary indigo and outliers highlighted in pulsing warning rose.",
                 confidence: 96,
                 followups: [
@@ -2997,8 +2980,10 @@ void main() {
 
             if (!response) {
                 response = {
-                    answer: `I apologize, but I could not find a specific statistical match for: "${question}".`,
-                    evidence: `Currently loaded dataset has 12 cleaned rows. Try asking one of the preset questions regarding November's revenue spike, regional sales concentrations, top performing categories, or sales forecasts.`,
+                    answer: `That query is outside the current dataset parameters, but I can analyze your regional performance, anomalies, or sales projections instead.`,
+                    evidence: `The active dataset covers **12** monthly sales records across categories (Electronics, Apparel, Home) and regions (South, West, East, North).`,
+                    soWhat: "Querying missing variables prevents accurate mathematical modeling.",
+                    nextStep: "Select one of the preset analysis buttons to explore confirmed trends.",
                     viz: "General Metrics Overview Grid.",
                     confidence: 75,
                     followups: [
@@ -3030,10 +3015,20 @@ void main() {
                     <p class="text-white font-medium">${response.answer}</p>
                     
                     <div class="border-t border-white/5 pt-2 mt-2">
-                        <span class="font-bold text-[10px] text-on-surface-variant uppercase tracking-wider">Supporting Evidence</span>
-                        <div class="text-[11px] text-on-surface-variant font-data-mono leading-relaxed mt-1 whitespace-pre-line">${response.evidence}</div>
+                        <span class="font-bold text-[10px] text-on-surface-variant uppercase tracking-wider block mb-1">Supporting Evidence</span>
+                        <div class="text-[11px] text-on-surface-variant font-data-mono leading-relaxed whitespace-pre-line">${response.evidence}</div>
                     </div>
                     
+                    <div class="border-t border-white/5 pt-2 mt-2">
+                        <span class="font-bold text-[10px] text-on-surface-variant uppercase tracking-wider block mb-1">So What? (Business Impact)</span>
+                        <div class="text-[11px] text-on-surface-variant leading-relaxed text-white/95">${response.soWhat}</div>
+                    </div>
+
+                    <div class="border-t border-white/5 pt-2 mt-2">
+                        <span class="font-bold text-[10px] text-on-surface-variant uppercase tracking-wider block mb-1">Next Step</span>
+                        <div class="text-[11px] text-on-surface-variant leading-relaxed text-secondary font-medium">${response.nextStep}</div>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2 text-[10px] font-data-mono border-t border-white/5 pt-2 mt-2">
                         <div>
                             <span class="text-on-surface-variant uppercase tracking-wider">Viz Recommendation</span>

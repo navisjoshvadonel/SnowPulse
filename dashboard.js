@@ -1,9 +1,7 @@
 (function() {
     const fileInput = document.getElementById('csv-file-input');
-    const uploadBtn = document.getElementById('upload-btn');
 
-    if (uploadBtn && fileInput) {
-        uploadBtn.addEventListener('click', () => fileInput.click());
+    if (fileInput) {
         fileInput.addEventListener('change', handleFileSelect);
     }
 

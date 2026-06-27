@@ -319,14 +319,11 @@ void main() {
 <div class="font-label-caps text-label-caps text-on-surface-variant mt-1 opacity-70">Executive Overview</div>
 </div>
 </div>
-<button id="upload-btn" class="mx-stack-md mb-stack-lg bg-primary hover:bg-primary/90 text-on-primary font-body-md text-body-md py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 transition-all duration-300 ease-out interactive-scale shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] animate-entrance">
-<span class="material-symbols-outlined text-[18px]">upload_file</span>
-        Upload Dataset
-    </button>
+
 <input type="file" id="csv-file-input" accept=".csv" class="hidden" />
 
 <!-- Nav Links -->
-<nav class="flex-1 px-stack-sm space-y-1">
+<nav id="main-nav" class="flex-1 px-stack-sm space-y-1 opacity-50 pointer-events-none transition-opacity duration-300">
     <a id="nav-dashboard" class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary bg-primary/10 border-r-2 border-primary duration-300 ease-out interactive-scale" href="#">
         <span class="material-symbols-outlined text-[20px]">dashboard</span>
         Overview
@@ -391,7 +388,7 @@ void main() {
 </button>
 <div class="flex items-baseline gap-4">
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile font-semibold text-on-surface tracking-tight">SnowPulse</h1>
-<div class="hidden lg:flex items-center gap-3 px-3 py-1 rounded-full glass-panel text-xs text-on-surface-variant">
+<div id="header-dataset-details" class="hidden lg:flex items-center gap-3 px-3 py-1 rounded-full glass-panel text-xs text-on-surface-variant opacity-0 pointer-events-none transition-opacity duration-300">
 <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">database</span> <span id="chip-dataset-name">Global Sales 2024</span></span>
 <div class="w-1 h-1 rounded-full bg-outline-variant"></div>
 <span class="font-data-mono text-data-mono" id="chip-rows-count">1.2M rows</span>
@@ -418,7 +415,18 @@ void main() {
 <!-- Dashboard Canvas -->
 <div class="flex-1 overflow-y-auto p-margin-page relative z-10">
 <div class="max-w-container-max mx-auto relative">
-<div id="dashboard-view" class="grid grid-cols-12 gap-gutter">
+<div id="empty-state-view" class="flex flex-col items-center justify-center h-[60vh] animate-entrance">
+    <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 shadow-[0_0_30px_rgba(192,193,255,0.1)]">
+        <span class="material-symbols-outlined text-[48px] text-primary">upload_file</span>
+    </div>
+    <h2 class="text-3xl font-bold text-white tracking-wide mb-3">Upload a Dataset to Begin</h2>
+    <p class="text-on-surface-variant text-sm max-w-md text-center leading-relaxed mb-8">SnowPulse AI requires a dataset to perform autonomous deep analysis, detect anomalies, and generate predictive risk forecasts.</p>
+    <button onclick="document.getElementById('csv-file-input').click()" class="bg-primary hover:bg-primary/90 text-on-primary font-semibold py-3 px-8 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all duration-300 interactive-scale">
+        <span class="material-symbols-outlined text-[20px]">add</span>
+        Load Dataset
+    </button>
+</div>
+<div id="dashboard-view" class="grid grid-cols-12 gap-gutter hidden">
 <!-- AI Insights Panel -->
 <div class="col-span-12 mb-stack-sm glass-panel rounded-lg p-stack-md ai-pulse-border flex flex-col md:flex-row gap-stack-md items-center relative overflow-hidden animate-entrance delay-3">
 <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50 pointer-events-none"></div>

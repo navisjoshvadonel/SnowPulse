@@ -557,6 +557,8 @@
         
         updateAnalyticsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, skewness, kurtosis, variance, medianVal, rangeVal, anomalies);
         updateReportsTab(cleanData, headers, cleanRows, primaryMetricIndex, numericIndices, dateIndex, categoryIndex, avgVal, stdDev, outlierCount, maxCatVal, bestCat, worstCat, domain, growthRate, anomalies, bestGeo, worstGeo, maxGeoVal, geoIndex);
+        
+        showDashboardState();
     }
 
     function calculateSkewness(values, mean, stdDev) {
@@ -2431,12 +2433,52 @@
         }
     }
 
+    function resetToEmptyState() {
+        const emptyState = document.getElementById('empty-state-view');
+        const dashboardView = document.getElementById('dashboard-view');
+        const headerDetails = document.getElementById('header-dataset-details');
+        const mainNav = document.getElementById('main-nav');
+        
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (dashboardView) dashboardView.classList.add('hidden');
+        if (headerDetails) headerDetails.classList.add('opacity-0', 'pointer-events-none');
+        if (mainNav) mainNav.classList.add('opacity-50', 'pointer-events-none');
+        
+        // Hide all views just in case
+        ['datasets', 'analytics', 'insights', 'forecasting', 'copilot', 'reports'].forEach(id => {
+            const el = document.getElementById(id + '-view');
+            if (el) el.classList.add('hidden');
+        });
+        
+        // Ensure nav dashboard is active initially for when it's unlocked
+        document.querySelectorAll('nav a').forEach(el => {
+            el.classList.remove('text-primary', 'bg-primary/10', 'border-r-2', 'border-primary');
+            el.classList.add('text-on-surface-variant');
+        });
+        const navDash = document.getElementById('nav-dashboard');
+        if (navDash) {
+            navDash.classList.add('text-primary', 'bg-primary/10', 'border-r-2', 'border-primary');
+            navDash.classList.remove('text-on-surface-variant');
+        }
+    }
+    
+    function showDashboardState() {
+        const emptyState = document.getElementById('empty-state-view');
+        const dashboardView = document.getElementById('dashboard-view');
+        const headerDetails = document.getElementById('header-dataset-details');
+        const mainNav = document.getElementById('main-nav');
+        
+        if (emptyState) emptyState.classList.add('hidden');
+        if (dashboardView) dashboardView.classList.remove('hidden');
+        if (headerDetails) headerDetails.classList.remove('opacity-0', 'pointer-events-none');
+        if (mainNav) mainNav.classList.remove('opacity-50', 'pointer-events-none');
+    }
+
     function loginSuccess() {
         if (authContainer) authContainer.classList.add('hidden');
         if (appLayout) appLayout.classList.remove('hidden');
         
-        document.getElementById('chip-dataset-name').textContent = "test_sales_data";
-        analyzeDataset(DEFAULT_CSV);
+        resetToEmptyState();
     }
 
     // Silent refresh on startup
@@ -2463,6 +2505,7 @@
         if (appLayout) appLayout.classList.add('hidden');
         if (authContainer) authContainer.classList.remove('hidden');
         setAuthMode('login');
+        resetToEmptyState();
     }
 
     // Settings Modal toggles

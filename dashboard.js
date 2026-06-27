@@ -2239,6 +2239,293 @@
 2024-11-01,950000,Electronics,South,99
 2024-12-01,320000,Apparel,West,30`;
 
-    document.getElementById('chip-dataset-name').textContent = "test_sales_data";
-    analyzeDataset(DEFAULT_CSV);
+    // --- AUTHENTICATION MODULE ---
+    let accessToken = null;
+    let currentUser = null;
+
+    // UI Elements
+    const authContainer = document.getElementById('auth-container');
+    const appLayout = document.getElementById('app-layout');
+    const authForm = document.getElementById('auth-form');
+    const authEmail = document.getElementById('auth-email');
+    const authPassword = document.getElementById('auth-password');
+    const authFullname = document.getElementById('auth-fullname');
+    const authError = document.getElementById('auth-error');
+    const authErrorText = document.getElementById('auth-error-text');
+    const authSuccess = document.getElementById('auth-success');
+    const authSuccessText = document.getElementById('auth-success-text');
+    const authBtnText = document.getElementById('auth-btn-text');
+    const authSubmit = document.getElementById('auth-submit');
+    const fieldFullname = document.getElementById('field-fullname');
+
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+
+    const btnSettings = document.getElementById('btn-settings');
+    const btnLogout = document.getElementById('btn-logout');
+    const settingsModal = document.getElementById('settings-modal');
+    const btnCloseSettings = document.getElementById('btn-close-settings');
+    const btnDeleteAccount = document.getElementById('btn-delete-account');
+
+    let authMode = 'login'; // 'login' or 'register'
+
+    // Tab Switchers
+    if (tabLogin && tabRegister) {
+        tabLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            setAuthMode('login');
+        });
+        tabRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            setAuthMode('register');
+        });
+    }
+
+    function setAuthMode(mode) {
+        authMode = mode;
+        if (authError) authError.classList.add('hidden');
+        if (authSuccess) authSuccess.classList.add('hidden');
+        
+        if (mode === 'login') {
+            if (tabLogin) tabLogin.className = "flex-1 pb-3 text-sm font-semibold text-primary border-b-2 border-primary transition-all duration-300";
+            if (tabRegister) tabRegister.className = "flex-1 pb-3 text-sm font-semibold text-on-surface-variant border-b-2 border-transparent hover:text-white transition-all duration-300";
+            if (fieldFullname) fieldFullname.classList.add('hidden');
+            if (authFullname) authFullname.required = false;
+            if (authBtnText) authBtnText.textContent = "Log In";
+        } else {
+            if (tabRegister) tabRegister.className = "flex-1 pb-3 text-sm font-semibold text-primary border-b-2 border-primary transition-all duration-300";
+            if (tabLogin) tabLogin.className = "flex-1 pb-3 text-sm font-semibold text-on-surface-variant border-b-2 border-transparent hover:text-white transition-all duration-300";
+            if (fieldFullname) fieldFullname.classList.remove('hidden');
+            if (authFullname) authFullname.required = true;
+            if (authBtnText) authBtnText.textContent = "Create Account";
+        }
+    }
+
+    // Submit handler
+    if (authForm) {
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (authError) authError.classList.add('hidden');
+            if (authSuccess) authSuccess.classList.add('hidden');
+            if (authSubmit) authSubmit.disabled = true;
+
+            const email = authEmail ? authEmail.value.trim() : '';
+            const password = authPassword ? authPassword.value : '';
+            const fullname = authFullname ? authFullname.value.trim() : '';
+
+            try {
+                if (authMode === 'login') {
+                    await handleLogin(email, password);
+                } else {
+                    await handleRegister(email, password, fullname);
+                }
+            } catch (err) {
+                showAuthError(err.message || "An authentication error occurred.");
+                if (authSubmit) authSubmit.disabled = false;
+            }
+        });
+    }
+
+    async function handleLogin(email, password) {
+        const body = new URLSearchParams({
+            username: email,
+            password: password
+        });
+
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.detail || "Invalid credentials.");
+        }
+
+        const data = await res.json();
+        accessToken = data.access_token;
+        
+        await fetchUserInfo();
+        showAuthSuccess("Successfully logged in! Fetching your dashboard...");
+        
+        setTimeout(() => {
+            if (authSubmit) authSubmit.disabled = false;
+            loginSuccess();
+        }, 1000);
+    }
+
+    async function handleRegister(email, password, fullname) {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.detail || "Registration failed.");
+        }
+
+        // Store registration name if provided
+        if (fullname) {
+            localStorage.setItem(`user_fullname_${email}`, fullname);
+        }
+
+        showAuthSuccess("Account created successfully! Logging you in...");
+        
+        // Auto-login after registration
+        setTimeout(async () => {
+            try {
+                await handleLogin(email, password);
+            } catch (err) {
+                setAuthMode('login');
+                if (authSubmit) authSubmit.disabled = false;
+            }
+        }, 1500);
+    }
+
+    function showAuthError(msg) {
+        if (authErrorText) authErrorText.textContent = msg;
+        if (authError) authError.classList.remove('hidden');
+    }
+
+    function showAuthSuccess(msg) {
+        if (authSuccessText) authSuccessText.textContent = msg;
+        if (authSuccess) authSuccess.classList.remove('hidden');
+    }
+
+    async function fetchUserInfo() {
+        const res = await fetch('/api/user/me', {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        if (!res.ok) {
+            throw new Error("Could not retrieve user profile.");
+        }
+        currentUser = await res.json();
+        
+        const email = currentUser.email;
+        const storedName = localStorage.getItem(`user_fullname_${email}`);
+        const displayName = storedName || email.split('@')[0];
+
+        // Sidebar
+        const adminName = document.getElementById('admin-user-name');
+        const adminEmail = document.getElementById('admin-user-email');
+        if (adminName) adminName.textContent = displayName;
+        if (adminEmail) adminEmail.textContent = email;
+
+        // Settings Modal
+        const settingsName = document.getElementById('settings-user-name');
+        const settingsEmail = document.getElementById('settings-user-email');
+        const settingsAvatar = document.getElementById('settings-avatar-letter');
+        if (settingsName) settingsName.textContent = displayName;
+        if (settingsEmail) settingsEmail.textContent = email;
+        if (settingsAvatar) {
+            settingsAvatar.textContent = displayName.charAt(0).toUpperCase();
+        }
+    }
+
+    function loginSuccess() {
+        if (authContainer) authContainer.classList.add('hidden');
+        if (appLayout) appLayout.classList.remove('hidden');
+        
+        document.getElementById('chip-dataset-name').textContent = "test_sales_data";
+        analyzeDataset(DEFAULT_CSV);
+    }
+
+    // Silent refresh on startup
+    async function initAuth() {
+        try {
+            const res = await fetch('/api/auth/refresh', {
+                method: 'POST'
+            });
+            if (res.ok) {
+                const data = await res.json();
+                accessToken = data.access_token;
+                await fetchUserInfo();
+                loginSuccess();
+            } else {
+                showAuthScreen();
+            }
+        } catch (e) {
+            console.error("Silent authentication check failed:", e);
+            showAuthScreen();
+        }
+    }
+
+    function showAuthScreen() {
+        if (appLayout) appLayout.classList.add('hidden');
+        if (authContainer) authContainer.classList.remove('hidden');
+        setAuthMode('login');
+    }
+
+    // Settings Modal toggles
+    if (btnSettings) {
+        btnSettings.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (settingsModal) settingsModal.classList.remove('hidden');
+        });
+    }
+    if (btnCloseSettings) {
+        btnCloseSettings.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (settingsModal) settingsModal.classList.add('hidden');
+        });
+    }
+
+    // Logout handler
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (err) {
+                console.error("Logout request failed:", err);
+            }
+            accessToken = null;
+            currentUser = null;
+            showAuthScreen();
+            if (settingsModal) settingsModal.classList.add('hidden');
+        });
+    }
+
+    // GDPR Delete Account handler
+    if (btnDeleteAccount) {
+        btnDeleteAccount.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const confirmed = confirm("Are you absolutely sure you want to permanently delete your account and all associated dashboards/history? This action cannot be undone under GDPR 'Right to be Forgotten' guidelines.");
+            if (!confirmed) return;
+
+            try {
+                const res = await fetch('/api/user/account', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (res.ok) {
+                    alert("Your account and all associated data have been permanently purged.");
+                    accessToken = null;
+                    currentUser = null;
+                    showAuthScreen();
+                    if (settingsModal) settingsModal.classList.add('hidden');
+                } else {
+                    const data = await res.json();
+                    alert("Failed to delete account: " + (data.detail || "Unknown error"));
+                }
+            } catch (err) {
+                alert("An error occurred: " + err.message);
+            }
+        });
+    }
+
+    // Start authentication silent refresh check
+    initAuth();
 })();

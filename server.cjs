@@ -16,6 +16,31 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
+    // API Proxy routing to FastAPI backend
+    if (req.url.startsWith('/api/')) {
+        const options = {
+            hostname: '127.0.0.1',
+            port: 8000,
+            path: req.url,
+            method: req.method,
+            headers: req.headers
+        };
+
+        const proxyReq = http.request(options, (proxyRes) => {
+            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            proxyRes.pipe(res, { end: true });
+        });
+
+        proxyReq.on('error', (e) => {
+            console.error(`Proxy error: ${e.message}`);
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end(`Bad Gateway: FastAPI backend might not be running on port 8000.`);
+        });
+
+        req.pipe(proxyReq, { end: true });
+        return;
+    }
+
     let safeUrl = decodeURIComponent(req.url);
     let pathname = safeUrl.split('?')[0];
     let filePath = '.' + (pathname === '/' ? '/original.html' : pathname);

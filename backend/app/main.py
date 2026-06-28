@@ -1,10 +1,13 @@
 import datetime
+import os
+import shutil
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status, Response, Cookie
+from fastapi import FastAPI, Depends, HTTPException, status, Response, Cookie, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
+from pydantic import BaseModel
 
 from .database import engine, Base, get_db
 from .models import User, Dataset, UserDashboard, RefreshToken
@@ -20,6 +23,13 @@ from .auth import (
     JWT_REFRESH_SECRET_KEY, ALGORITHM
 )
 from .dependencies import get_current_user, verify_dashboard_ownership
+from .analytics.engine import AnalyticsEngine
+from .ai.gemini_service import GeminiService
+
+gemini_service = GeminiService()
+
+class QueryRequest(BaseModel):
+    query: str
 
 # Initialize database schemas
 Base.metadata.create_all(bind=engine)
@@ -309,4 +319,155 @@ def delete_user_account(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while purging user data: {str(e)}"
+        )
+
+
+# --- DATASET UPLOAD & POLARS/GEMINI ANALYTICS ENDPOINTS ---
+
+@app.post("/api/datasets/upload", response_model=DatasetResponse, status_code=status.HTTP_201_CREATED)
+def upload_dataset(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a custom CSV dataset for personal analysis.
+    """
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only CSV files are supported."
+        )
+        
+    os.makedirs("./uploads", exist_ok=True)
+    file_path = f"./uploads/{datetime.datetime.utcnow().timestamp()}_{file.filename}"
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}"
+        )
+        
+    db_dataset = Dataset(
+        name=file.filename.rsplit('.', 1)[0],
+        description=f"Uploaded by {current_user.email} on {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
+        file_path=file_path
+    )
+    db.add(db_dataset)
+    db.commit()
+    db.refresh(db_dataset)
+    
+    return db_dataset
+
+
+@app.get("/api/analytics/summary/{dataset_id}")
+def get_analytics_summary(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve statistical summaries, ECharts structures, anomalies, and correlations.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found"
+        )
+        
+    try:
+        engine = AnalyticsEngine(dataset.file_path)
+        return {
+            "kpis": engine.get_kpis(),
+            "trends": engine.get_trends(),
+            "geo": engine.get_geo_metrics(),
+            "anomalies": engine.get_anomalies(),
+            "correlations": engine.get_correlations()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Analytics computation failed: {str(e)}"
+        )
+
+
+@app.get("/api/analytics/insights/{dataset_id}")
+def get_analytics_insights(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve automated Gemini AI insights (headline, trends, regional highlights, and recommendations).
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found"
+        )
+        
+    try:
+        engine = AnalyticsEngine(dataset.file_path)
+        context = engine.generate_statistical_context_summary()
+        insights = gemini_service.generate_dashboard_insights(context)
+        return insights
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate insights: {str(e)}"
+        )
+
+
+@app.post("/api/analytics/query/{dataset_id}")
+def post_copilot_query(
+    dataset_id: int,
+    payload: QueryRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Pose natural language queries to the Gemini Copilot.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found"
+        )
+        
+    try:
+        engine = AnalyticsEngine(dataset.file_path)
+        context = engine.generate_statistical_context_summary()
+        response = gemini_service.ask_copilot(payload.query, context)
+        
+        # Save query to history if user has a dashboard linked to this dataset
+        dashboard = db.query(UserDashboard).filter(
+            UserDashboard.user_id == current_user.id,
+            UserDashboard.dataset_id == dataset_id
+        ).first()
+        if dashboard:
+            history = dashboard.query_history or []
+            if not history:
+                history = []
+            history.append({
+                "query": payload.query,
+                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "response": response
+            })
+            # Force dirty session for json mutation
+            dashboard.query_history = None
+            db.commit()
+            dashboard.query_history = history
+            db.commit()
+            
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process query: {str(e)}"
         )

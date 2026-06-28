@@ -5,3 +5,7 @@ __pycache__/
 snowpulse.db
 node_modules/
 .DS_Store
+npm_cache/
+pip_temp/
+uploads/
+*.db

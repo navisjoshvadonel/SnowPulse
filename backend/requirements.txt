@@ -6,3 +6,7 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
 pydantic==2.7.4
 pydantic-settings==2.3.4
+psycopg2-binary==2.9.9
+polars==0.20.31
+google-generativeai==0.7.2
+numpy==1.26.4

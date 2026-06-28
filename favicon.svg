@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- Container 3D Gradient -->
+    <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="30%" stop-color="#d9dbff" />
+      <stop offset="100%" stop-color="#a3a8ff" />
+    </linearGradient>
+    
+    <!-- Snowflake Base 3D Gradient -->
+    <linearGradient id="snowBaseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#07006c" />
+      <stop offset="100%" stop-color="#02002b" />
+    </linearGradient>
+
+    <!-- Snowflake Highlight Gradient (simulates 3D shine) -->
+    <linearGradient id="snowHighlightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b4b7ff" />
+      <stop offset="50%" stop-color="#5558ff" />
+      <stop offset="100%" stop-color="#0e00be" />
+    </linearGradient>
+    
+    <!-- Bevel light border -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1" />
+    </linearGradient>
+
+    <filter id="logoShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    
+    <!-- Symmetrical Arm Definition -->
+    <g id="snowflake-arm-def">
+      <!-- Base Layer (depth) -->
+      <path d="M50,40 L50,17 M50,28 L40,18 M50,28 L60,18" stroke="url(#snowBaseGrad)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- Highlight Layer (bevel) -->
+      <path d="M49.5,39.5 L49.5,16.5 M49.5,27.5 L39.5,17.5 M49.5,27.5 L59.5,17.5" stroke="url(#snowHighlightGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+  </defs>
+
+  <!-- 3D Card Background -->
+  <rect x="4" y="4" width="92" height="92" rx="24" fill="url(#btnGrad)" stroke="url(#borderGrad)" stroke-width="1.5" filter="url(#logoShadow)" />
+  
+  <!-- Central Snowflake Logo -->
+  <g filter="url(#logoShadow)">
+    <!-- Central Hexagon (Base) -->
+    <polygon points="50,38 60.4,44 60.4,56 50,62 39.6,56 39.6,44" fill="url(#snowBaseGrad)" />
+    <!-- Central Hexagon (Highlight, offset up-left) -->
+    <polygon points="49.5,37.5 59.9,43.5 59.9,55.5 49.5,61.5 39.1,55.5 39.1,43.5" fill="url(#snowHighlightGrad)" />
+    
+    <!-- Symmetrical Arms -->
+    <use href="#snowflake-arm-def" transform="rotate(0, 50, 50)" />
+    <use href="#snowflake-arm-def" transform="rotate(60, 50, 50)" />
+    <use href="#snowflake-arm-def" transform="rotate(120, 50, 50)" />
+    <use href="#snowflake-arm-def" transform="rotate(180, 50, 50)" />
+    <use href="#snowflake-arm-def" transform="rotate(240, 50, 50)" />
+    <use href="#snowflake-arm-def" transform="rotate(300, 50, 50)" />
+    
+    <!-- Central Core Bead (glossy sphere in center for extra 3D feel) -->
+    <circle cx="50" cy="50" r="4" fill="#ffffff" opacity="0.15" />
+    <circle cx="49" cy="49" r="2" fill="#ffffff" opacity="0.6" />
+  </g>
+</svg>

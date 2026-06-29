@@ -1,6 +1,8 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Any
 import datetime
+from typing import Any
+
+from pydantic import BaseModel, EmailStr
+
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -9,11 +11,11 @@ class UserCreate(UserBase):
     password: str
 
 class UserUpdate(BaseModel):
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
 
 class UserResponse(UserBase):
     id: int
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
     is_active: bool
     created_at: datetime.datetime
 
@@ -23,7 +25,7 @@ class UserResponse(UserBase):
 
 class DatasetBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     file_path: str
 
 class DatasetCreate(DatasetBase):
@@ -39,8 +41,8 @@ class DatasetResponse(DatasetBase):
 
 class DashboardBase(BaseModel):
     title: str
-    insight_notes: Optional[str] = None
-    query_history: Optional[List[Any]] = None
+    insight_notes: str | None = None
+    query_history: list[Any] | None = None
 
 class DashboardCreate(DashboardBase):
     dataset_id: int

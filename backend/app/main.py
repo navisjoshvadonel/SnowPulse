@@ -1,30 +1,49 @@
 import datetime
 import os
 import shutil
-from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status, Response, Cookie, UploadFile, File
-from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from jose import jwt, JWTError
-from pydantic import BaseModel
+import time
+import uuid
 
-from .database import engine, Base, get_db
-from .models import User, Dataset, UserDashboard, RefreshToken
-from .schemas import (
-    UserCreate, UserResponse, UserUpdate,
-    DatasetResponse, DatasetCreate,
-    DashboardCreate, DashboardResponse, TokenResponse
-)
-from .auth import (
-    get_password_hash, verify_password,
-    create_access_token, create_refresh_token,
-    set_refresh_token_cookie, delete_refresh_token_cookie,
-    JWT_REFRESH_SECRET_KEY, ALGORITHM
-)
-from .dependencies import get_current_user, verify_dashboard_ownership
-from .analytics.engine import AnalyticsEngine
+from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from pydantic import BaseModel
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy.orm import Session
+
 from .ai.gemini_service import GeminiService
+from .analytics.engine import AnalyticsEngine
+from .auth import (
+    ALGORITHM,
+    JWT_REFRESH_SECRET_KEY,
+    JWT_SECRET_KEY,
+    create_access_token,
+    create_refresh_token,
+    delete_refresh_token_cookie,
+    get_password_hash,
+    set_refresh_token_cookie,
+    verify_password,
+)
+from .cache.cache_service import cache_service
+from .database import Base, SessionLocal, engine, get_db
+from .dependencies import get_current_user, verify_dashboard_ownership
+from .limiter import limiter
+from .logging_config import configure_logging, logger
+from .models import Dataset, RefreshToken, User, UserDashboard
+from .monitoring import run_liveness_check, run_readiness_check
+from .schemas import (
+    DashboardCreate,
+    DashboardResponse,
+    DatasetResponse,
+    TokenResponse,
+    UserCreate,
+    UserResponse,
+)
+
+# Initialize logging
+configure_logging()
 
 gemini_service = GeminiService()
 
@@ -40,6 +59,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# SlowAPI setup
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS setup: allow credentials to enable secure HttpOnly cookie transport
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +71,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Structured Logging Middleware
+@app.middleware("http")
+async def log_request_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    start_time = time.time()
+
+    # Try resolving user from token if Authorization header is present
+    user_id = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+            email = payload.get("sub")
+            if email:
+                user_id = email
+        except Exception:
+            pass
+
+    response = await call_next(request)
+
+    duration = time.time() - start_time
+    logger.info(
+        "http.request",
+        request_id=request_id,
+        user_id=user_id,
+        method=request.method,
+        endpoint=request.url.path,
+        execution_time=f"{duration:.4f}s",
+        status_code=response.status_code
+    )
+
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 @app.on_event("startup")
@@ -92,7 +150,7 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="An account with this email already exists."
         )
-        
+
     hashed_pwd = get_password_hash(user_in.password)
     new_user = User(
         email=user_in.email,
@@ -105,14 +163,16 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def login_user(
+    request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
     """
     Verifies user credentials.
-    Issues a short-lived access token in the JSON response, 
+    Issues a short-lived access token in the JSON response,
     and sets a long-lived refresh token in an HttpOnly cookie.
     """
     user = db.query(User).filter(User.email == form_data.username).first()
@@ -148,7 +208,7 @@ def login_user(
 @app.post("/api/auth/refresh", response_model=TokenResponse)
 def refresh_access_token(
     response: Response,
-    refresh_token: Optional[str] = Cookie(None),
+    refresh_token: str | None = Cookie(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -175,10 +235,10 @@ def refresh_access_token(
     # Query DB to make sure token exists, belongs to the user, and is not revoked
     db_token = db.query(RefreshToken).filter(
         RefreshToken.token == refresh_token,
-        RefreshToken.revoked == False,
+        RefreshToken.revoked is False,
         RefreshToken.expires_at > datetime.datetime.utcnow()
     ).first()
-    
+
     if not db_token:
         raise credentials_exception
 
@@ -194,11 +254,11 @@ def refresh_access_token(
 @app.post("/api/auth/logout")
 def logout(
     response: Response,
-    refresh_token: Optional[str] = Cookie(None),
+    refresh_token: str | None = Cookie(None),
     db: Session = Depends(get_db)
 ):
     """
-    Log out the user: revokes the refresh token from the database, 
+    Log out the user: revokes the refresh token from the database,
     and deletes the client-side HttpOnly cookie.
     """
     if refresh_token:
@@ -221,32 +281,36 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 # --- DATA ACCESS ENDPOINTS (Logical Tenant Isolation) ---
 
-@app.get("/api/datasets", response_model=List[DatasetResponse])
+@app.get("/api/datasets", response_model=list[DatasetResponse])
 def get_datasets(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Fetch all shared datasets. 
+    Fetch all shared datasets.
     Requires any active registered user credentials to read metadata.
     """
     return db.query(Dataset).all()
 
 
-@app.get("/api/dashboards", response_model=List[DashboardResponse])
+@app.get("/api/dashboards", response_model=list[DashboardResponse])
+@limiter.limit("100/minute")
 def get_user_dashboards(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Fetch user dashboards. 
+    Fetch user dashboards.
     Strictly filters records by the current_user.id. Users cannot query other user's data.
     """
     return db.query(UserDashboard).filter(UserDashboard.user_id == current_user.id).all()
 
 
 @app.post("/api/dashboards", response_model=DashboardResponse)
+@limiter.limit("100/minute")
 def create_user_dashboard(
+    request: Request,
     dashboard_in: DashboardCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -277,11 +341,13 @@ def create_user_dashboard(
 
 
 @app.get("/api/dashboards/{dashboard_id}", response_model=DashboardResponse)
+@limiter.limit("100/minute")
 def get_single_dashboard(
+    request: Request,
     dashboard: UserDashboard = Depends(verify_dashboard_ownership)
 ):
     """
-    Fetch details of a specific dashboard session. 
+    Fetch details of a specific dashboard session.
     Enforces route-level ownership validation dependency.
     """
     return dashboard
@@ -296,9 +362,9 @@ def delete_user_account(
     db: Session = Depends(get_db)
 ):
     """
-    GDPR Purge Endpoint. 
-    Fully deletes the user's main profile. Due to database-level CASCADE rules, 
-    all linked dashboards (insights, queries) and session refresh tokens 
+    GDPR Purge Endpoint.
+    Fully deletes the user's main profile. Due to database-level CASCADE rules,
+    all linked dashboards (insights, queries) and session refresh tokens
     are instantly and permanently deleted from the persistent database.
     Does NOT affect the shared datasets table.
     """
@@ -306,10 +372,10 @@ def delete_user_account(
         # Perform permanent hard delete on user
         db.delete(current_user)
         db.commit()
-        
+
         # Clear the HttpOnly session cookie
         delete_refresh_token_cookie(response)
-        
+
         return {
             "status": "success",
             "message": f"Account registration for {current_user.email} and all associated private dashboards, credentials, and profiles have been completely purged from the system in compliance with GDPR guidelines."
@@ -338,10 +404,10 @@ def upload_dataset(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only CSV files are supported."
         )
-        
+
     os.makedirs("./uploads", exist_ok=True)
     file_path = f"./uploads/{datetime.datetime.utcnow().timestamp()}_{file.filename}"
-    
+
     try:
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -350,7 +416,7 @@ def upload_dataset(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save file: {str(e)}"
         )
-        
+
     db_dataset = Dataset(
         name=file.filename.rsplit('.', 1)[0],
         description=f"Uploaded by {current_user.email} on {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
@@ -359,12 +425,14 @@ def upload_dataset(
     db.add(db_dataset)
     db.commit()
     db.refresh(db_dataset)
-    
+
     return db_dataset
 
 
 @app.get("/api/analytics/summary/{dataset_id}")
+@limiter.limit("60/minute")
 def get_analytics_summary(
+    request: Request,
     dataset_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -372,31 +440,63 @@ def get_analytics_summary(
     """
     Retrieve statistical summaries, ECharts structures, anomalies, and correlations.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-    if not dataset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dataset not found"
-        )
-        
-    try:
-        engine = AnalyticsEngine(dataset.file_path)
-        return {
-            "kpis": engine.get_kpis(),
-            "trends": engine.get_trends(),
-            "geo": engine.get_geo_metrics(),
-            "anomalies": engine.get_anomalies(),
-            "correlations": engine.get_correlations()
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analytics computation failed: {str(e)}"
-        )
+    kpi_key = f"kpis:{dataset_id}"
+    trend_key = f"trends:{dataset_id}"
+    geo_key = f"geo:{dataset_id}"
+    anom_key = f"anomalies:{dataset_id}"
+    corr_key = f"correlations:{dataset_id}"
+
+    kpis = cache_service.get(kpi_key)
+    trends = cache_service.get(trend_key)
+    geo = cache_service.get(geo_key)
+    anomalies = cache_service.get(anom_key)
+    correlations = cache_service.get(corr_key)
+
+    engine = None
+    if not (kpis and trends and geo and anomalies and correlations):
+        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+        if not dataset:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Dataset not found"
+            )
+        try:
+            engine = AnalyticsEngine(dataset.file_path)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Analytics computation failed: {str(e)}"
+            )
+
+    if not kpis and engine:
+        kpis = engine.get_kpis()
+        cache_service.set(kpi_key, kpis, ttl_seconds=300)
+    if not trends and engine:
+        trends = engine.get_trends()
+        cache_service.set(trend_key, trends, ttl_seconds=1800)
+    if not geo and engine:
+        geo = engine.get_geo_metrics()
+        cache_service.set(geo_key, geo, ttl_seconds=600)
+    if not anomalies and engine:
+        anomalies = engine.get_anomalies()
+        cache_service.set(anom_key, anomalies, ttl_seconds=600)
+    if not correlations and engine:
+        correlations = engine.get_correlations()
+        cache_service.set(corr_key, correlations, ttl_seconds=600)
+
+    return {
+        "kpis": kpis,
+        "trends": trends,
+        "geo": geo,
+        "anomalies": anomalies,
+        "correlations": correlations
+    }
 
 
 @app.get("/api/analytics/insights/{dataset_id}")
+@limiter.limit("60/minute")
 def get_analytics_insights(
+    request: Request,
     dataset_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -404,17 +504,23 @@ def get_analytics_insights(
     """
     Retrieve automated Gemini AI insights (headline, trends, regional highlights, and recommendations).
     """
+    cache_key = f"insights:{dataset_id}"
+    insights = cache_service.get(cache_key)
+    if insights:
+        return insights
+
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Dataset not found"
         )
-        
+
     try:
         engine = AnalyticsEngine(dataset.file_path)
         context = engine.generate_statistical_context_summary()
         insights = gemini_service.generate_dashboard_insights(context)
+        cache_service.set(cache_key, insights, ttl_seconds=900)
         return insights
     except Exception as e:
         raise HTTPException(
@@ -424,7 +530,9 @@ def get_analytics_insights(
 
 
 @app.post("/api/analytics/query/{dataset_id}")
+@limiter.limit("20/minute")
 def post_copilot_query(
+    request: Request,
     dataset_id: int,
     payload: QueryRequest,
     current_user: User = Depends(get_current_user),
@@ -439,12 +547,12 @@ def post_copilot_query(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Dataset not found"
         )
-        
+
     try:
         engine = AnalyticsEngine(dataset.file_path)
         context = engine.generate_statistical_context_summary()
         response = gemini_service.ask_copilot(payload.query, context)
-        
+
         # Save query to history if user has a dashboard linked to this dataset
         dashboard = db.query(UserDashboard).filter(
             UserDashboard.user_id == current_user.id,
@@ -464,10 +572,26 @@ def post_copilot_query(
             db.commit()
             dashboard.query_history = history
             db.commit()
-            
+
         return {"response": response}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process query: {str(e)}"
         )
+
+
+@app.get("/health/liveness")
+def health_liveness():
+    """
+    Liveness check to ensure app is running.
+    """
+    return run_liveness_check()
+
+
+@app.get("/health/readiness")
+def health_readiness():
+    """
+    Readiness check to verify dependencies are responsive.
+    """
+    return run_readiness_check(SessionLocal)

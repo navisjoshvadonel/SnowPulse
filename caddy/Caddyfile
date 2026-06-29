@@ -1,0 +1,10 @@
+:80 {
+    # Proxy API endpoints to the FastAPI backend
+    reverse_proxy /api/* backend:8000
+    
+    # Proxy health endpoints to the backend
+    reverse_proxy /health/* backend:8000
+
+    # Serve the frontend Next.js app for all other routes
+    reverse_proxy * frontend:3000
+}

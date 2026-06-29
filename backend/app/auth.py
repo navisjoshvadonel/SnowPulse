@@ -1,10 +1,9 @@
-import os
 import datetime
-from typing import Optional
-import bcrypt
-from jose import jwt
-from fastapi import Response
+import os
 
+import bcrypt
+from fastapi import Response
+from jose import jwt
 
 # Secret keys configuration (Default fallback for dev, must be loaded from env in production)
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "7d4a2ef39b0394017de8b71d9d9fcaee8d203a985a21db4b830d9e83cd1891b9")
@@ -35,24 +34,24 @@ def get_password_hash(password: str) -> str:
     return hashed.decode("utf-8")
 
 
-def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: datetime.timedelta | None = None) -> str:
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.datetime.utcnow() + expires_delta
     else:
         expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def create_refresh_token(data: dict, expires_delta: Optional[datetime.timedelta] = None) -> str:
+def create_refresh_token(data: dict, expires_delta: datetime.timedelta | None = None) -> str:
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.datetime.utcnow() + expires_delta
     else:
         expire = datetime.datetime.utcnow() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    
+
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, JWT_REFRESH_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

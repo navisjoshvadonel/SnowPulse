@@ -1,13 +1,15 @@
-import os
 import json
+import os
+from typing import Any
+
 import google.generativeai as genai
-from typing import Dict, List, Any, Optional
+
 
 class GeminiService:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-        
+
         if self.api_key:
             genai.configure(api_key=self.api_key)
             self.model = genai.GenerativeModel(self.model_name)
@@ -16,7 +18,7 @@ class GeminiService:
             self.active = False
             print("Gemini API key not found. Running in offline statistical fallback mode.")
 
-    def generate_dashboard_insights(self, stats_context: str) -> Dict[str, str]:
+    def generate_dashboard_insights(self, stats_context: str) -> dict[str, str]:
         """
         Generates structured executive insights for the 4 panels:
         - Headline Insight (Panel 1)
@@ -52,7 +54,7 @@ CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks o
             if text.endswith("```"):
                 text = text[:-3]
             text = text.strip()
-            
+
             data = json.loads(text)
             return {
                 "headline_insight": data.get("headline_insight", ""),
@@ -72,7 +74,7 @@ CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks o
             return self._generate_fallback_copilot_response(query, stats_context)
 
         prompt = f"""
-You are the Executive AI Copilot for SNOW Analytics. 
+You are the Executive AI Copilot for SNOW Analytics.
 A user has asked a question about their business performance.
 Answer the user's question concisely using the statistical data context provided. Keep it professional, data-driven, and easy to read for C-level executives.
 
@@ -91,7 +93,7 @@ Respond in clean markdown. Format numbers, percentages, and metrics clearly. Kee
             print(f"Gemini API copilot error: {e}. Falling back.")
             return self._generate_fallback_copilot_response(query, stats_context)
 
-    def _generate_fallback_insights(self, stats_context: str) -> Dict[str, Any]:
+    def _generate_fallback_insights(self, stats_context: str) -> dict[str, Any]:
         # Offline rule-based summarizer using string parsing of statistical context
         lines = stats_context.split("\n")
         stats = {}

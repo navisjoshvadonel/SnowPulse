@@ -1,0 +1,23 @@
+# Ruff configuration for SnowPulse backend
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort
+    "C90",  # McCabe complexity
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+]
+ignore = [
+    "B008",  # Do not perform function calls in argument defaults (FastAPI Depends uses this heavily)
+    "E501",  # Line too long
+    "E402",  # Module level import not at top of file (used in test config/limiter)
+    "B904",  # Within an except clause, raise exceptions with raise...from
+]
+
+[lint.mccabe]
+max-complexity = 15

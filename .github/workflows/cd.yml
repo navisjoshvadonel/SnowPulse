@@ -1,0 +1,31 @@
+name: SNOW Pulse CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  docker-validation:
+    name: Production Build & Docker Compose Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build production images
+        run: docker-compose build
+
+      - name: Validate Container Orchestration Boot
+        env:
+          GEMINI_API_KEY: mock
+        run: |
+          docker compose up -d
+          # Wait for services to boot and database to be ready
+          sleep 20
+          docker compose ps
+          docker compose logs backend
+          docker compose logs frontend
+          docker compose logs caddy
+          # Basic endpoint checks via Caddy reverse proxy
+          curl -v --fail http://localhost/health/liveness || exit 1
+          docker compose down

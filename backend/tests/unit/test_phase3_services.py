@@ -112,7 +112,7 @@ async def test_job_manager_submission(mock_get_redis_pool):
     mock_redis_client = MagicMock()
     cache_service.enabled = True
     cache_service.client = mock_redis_client
-    
+
     # Run progress update test
     mock_redis_client.exists.return_value = True
     JobManager.update_progress("job123", 45, "Running task...")
@@ -120,7 +120,7 @@ async def test_job_manager_submission(mock_get_redis_pool):
         "snowpulse:job_tracker:job123",
         mapping={"progress": 45, "message": "Running task...", "status": "running"}
     )
-    
+
     # Run job submission test
     job_id = await JobManager.submit_job("process_pipeline_task", 1, "key", "file.csv")
     assert job_id is not None

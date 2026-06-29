@@ -32,6 +32,7 @@ class Dataset(Base):
 
     # Shared relationship - multiple dashboards can query/reference the same dataset
     dashboards = relationship("UserDashboard", back_populates="dataset")
+    insights = relationship("Insight", back_populates="dataset", cascade="all, delete-orphan")
 
 
 class UserDashboard(Base):
@@ -61,3 +62,20 @@ class RefreshToken(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="refresh_tokens")
+
+
+class Insight(Base):
+    __tablename__ = "insights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    recommendation = Column(Text, nullable=True)
+    severity = Column(String, nullable=False)  # Critical, High, Medium, Info
+    score = Column(Integer, nullable=False)     # 0-100
+    category = Column(String, nullable=False)   # Anomaly, Growth, Risk, Forecast, ML
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # Relationship
+    dataset = relationship("Dataset", back_populates="insights")

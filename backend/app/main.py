@@ -3,6 +3,7 @@ import os
 import shutil
 import time
 import uuid
+from typing import Any
 
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,8 +32,8 @@ from .database import Base, SessionLocal, engine, get_db
 from .dependencies import get_current_user, verify_dashboard_ownership
 from .limiter import limiter
 from .logging_config import configure_logging, logger
-from .models import Dataset, RefreshToken, User, UserDashboard
-from .monitoring import run_liveness_check, run_readiness_check
+from .models import Dataset, RefreshToken, User, UserDashboard, Insight
+from .monitoring import run_liveness_check, run_readiness_check, get_metrics_response
 from .schemas import (
     DashboardCreate,
     DashboardResponse,
@@ -40,7 +41,15 @@ from .schemas import (
     TokenResponse,
     UserCreate,
     UserResponse,
+    JobSubmission,
+    JobStatusResponse,
+    InsightResponse,
 )
+from .storage.service import storage_service
+from .search.service import search_service
+from .jobs.manager import JobManager
+from .forecasting.predictor import ForecastingPredictor
+from .ml.serving import MLServing
 
 # Initialize logging
 configure_logging()
@@ -391,41 +400,67 @@ def delete_user_account(
 # --- DATASET UPLOAD & POLARS/GEMINI ANALYTICS ENDPOINTS ---
 
 @app.post("/api/datasets/upload", response_model=DatasetResponse, status_code=status.HTTP_201_CREATED)
-def upload_dataset(
+async def upload_dataset(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Upload a custom CSV dataset for personal analysis.
+    Upload a custom CSV or Excel dataset, persist in MinIO, and trigger the analytics pipeline.
     """
-    if not file.filename.endswith('.csv'):
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in ('csv', 'xlsx', 'xls'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only CSV files are supported."
+            detail="Only CSV and Excel (.xlsx, .xls) files are supported."
         )
 
-    os.makedirs("./uploads", exist_ok=True)
-    file_path = f"./uploads/{datetime.datetime.utcnow().timestamp()}_{file.filename}"
-
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        content_bytes = await file.read()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save file: {str(e)}"
+            detail=f"Failed to read file stream: {str(e)}"
         )
 
+    # 1. Upload to MinIO S3
+    file_key = f"{datetime.datetime.utcnow().timestamp()}_{file.filename}"
+    try:
+        storage_service.upload_file(
+            bucket_name="datasets",
+            object_name=file_key,
+            data=content_bytes,
+            content_type=file.content_type or "application/octet-stream"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload dataset to storage server: {str(e)}"
+        )
+
+    # 2. Save metadata in DB
     db_dataset = Dataset(
         name=file.filename.rsplit('.', 1)[0],
-        description=f"Uploaded by {current_user.email} on {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
-        file_path=file_path
+        description=f"Uploaded by {current_user.email} (In-flight validation)",
+        file_path=f"minio://datasets/{file_key}"
     )
     db.add(db_dataset)
     db.commit()
     db.refresh(db_dataset)
 
+    # 3. Trigger asynchronous background pipeline coordinator
+    job_id = None
+    try:
+        job_id = await JobManager.submit_job(
+            "process_pipeline_task",
+            dataset_id=db_dataset.id,
+            file_key=file_key,
+            original_filename=file.filename
+        )
+    except Exception as e:
+        logger.error(f"Failed to enqueue background pipeline for dataset {db_dataset.id}: {e}")
+
+    db_dataset.job_id = job_id
     return db_dataset
 
 
@@ -595,3 +630,288 @@ def health_readiness():
     Readiness check to verify dependencies are responsive.
     """
     return run_readiness_check(SessionLocal)
+
+
+# --- PROMETHEUS METRICS EXPORTER ---
+
+@app.get("/metrics")
+def get_metrics():
+    """
+    Prometheus metrics scraping endpoint.
+    """
+    return get_metrics_response()
+
+
+# --- ASYNCHRONOUS BACKGROUND JOBS API ---
+
+@app.post("/api/jobs", response_model=JobStatusResponse)
+async def submit_background_job(
+    job_in: JobSubmission,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Submit an arbitrary background job (for administrative or pipeline testing).
+    """
+    try:
+        args = job_in.arguments or {}
+        job_id = await JobManager.submit_job(
+            job_in.task_name,
+            queue=job_in.queue,
+            **args
+        )
+        return {
+            "job_id": job_id,
+            "task_name": job_in.task_name,
+            "status": "queued",
+            "message": "Job submitted to background queue."
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to submit background job: {str(e)}"
+        )
+
+
+@app.get("/api/jobs", response_model=list[JobStatusResponse])
+async def list_background_jobs(current_user: User = Depends(get_current_user)):
+    """
+    List all background jobs and their current status details.
+    """
+    try:
+        return await JobManager.get_all_jobs()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list jobs: {str(e)}"
+        )
+
+
+@app.get("/api/jobs/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(
+    job_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieve status, progress percentage, logs, and results of a background job.
+    """
+    try:
+        status_info = await JobManager.get_job_status(job_id)
+        if not status_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job {job_id} not found."
+            )
+        return status_info
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve job status: {str(e)}"
+        )
+
+
+# --- OBJECT STORAGE API ---
+
+@app.get("/api/storage/presigned/{bucket}/{key:path}")
+def get_download_url(
+    bucket: str,
+    key: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate a secure, short-lived presigned URL to download files from MinIO.
+    """
+    try:
+        url = storage_service.generate_presigned_url(
+            bucket_name=bucket,
+            object_name=key,
+            expires_delta_seconds=600  # 10 minutes
+        )
+        return {"url": url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate URL: {str(e)}"
+        )
+
+
+# --- UNIFIED RESOURCE SEARCH API ---
+
+@app.get("/api/search")
+def unified_search(
+    q: str,
+    filter_by: str | None = None,
+    limit: int = 10,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Unified search across datasets, dashboards, and insights via Meilisearch.
+    """
+    try:
+        return search_service.search_resources(
+            query=q,
+            filter_by=filter_by,
+            limit=limit,
+            offset=offset
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Search request failed: {str(e)}"
+        )
+
+
+# --- TIME-SERIES FORECASTING API ---
+
+@app.post("/api/forecast/train/{dataset_id}")
+async def trigger_forecast_training(
+    dataset_id: int,
+    target_col: str,
+    steps: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger time-series forecast model training for a dataset as a background task.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    try:
+        job_id = await JobManager.submit_job(
+            "run_forecast_task",
+            dataset_id=dataset_id,
+            target_col=target_col,
+            steps=steps
+        )
+        return {"job_id": job_id, "status": "queued", "message": "Forecasting model training initiated."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/forecast/predict/{dataset_id}")
+def get_forecast_predictions(
+    dataset_id: int,
+    steps: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve future forecast projections and explanations using the best trained model.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    try:
+        predictor = ForecastingPredictor(dataset_id=dataset_id)
+        if not predictor.loaded:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No forecasting model found for this dataset. Please train one first."
+            )
+        return predictor.predict(steps=steps)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- MACHINE LEARNING PLATFORM API ---
+
+@app.post("/api/ml/train/{dataset_id}")
+async def trigger_ml_training(
+    dataset_id: int,
+    task_type: str,  # segmentation, churn, revenue_prediction, anomaly
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger training for a specific Scikit-Learn task (clustering, classification, regression, anomalies) as a background task.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    try:
+        job_id = await JobManager.submit_job(
+            "run_ml_training_task",
+            dataset_id=dataset_id,
+            task_type=task_type
+        )
+        return {"job_id": job_id, "status": "queued", "message": f"ML pipeline training for '{task_type}' initiated."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ml/predict/{dataset_id}")
+def run_ml_inference(
+    dataset_id: int,
+    task_type: str,
+    input_records: list[dict[str, Any]],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Serve predictions using the latest trained model registered for a task type.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    try:
+        server = MLServing(dataset_id=dataset_id, task_type=task_type)
+        if not server.loaded:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No trained model registered for task type '{task_type}'. Please trigger training first."
+            )
+        return server.predict(input_records)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- INSIGHTS AUTOMATION API ---
+
+@app.get("/api/insights/dataset/{dataset_id}", response_model=list[InsightResponse])
+def get_dataset_insights(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve all structured, categorized insights and actionable recommendations for a dataset.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    return db.query(Insight).filter(Insight.dataset_id == dataset_id).order_by(Insight.score.desc()).all()
+
+
+@app.post("/api/insights/trigger/{dataset_id}")
+async def trigger_insights_generation(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually enqueue a background job to run analytical insight scans and recommendations.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    try:
+        job_id = await JobManager.submit_job(
+            "run_insight_generation_task",
+            dataset_id=dataset_id
+        )
+        return {"job_id": job_id, "status": "queued", "message": "AI insights scans initiated in background."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

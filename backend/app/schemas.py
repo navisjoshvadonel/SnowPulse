@@ -34,6 +34,7 @@ class DatasetCreate(DatasetBase):
 class DatasetResponse(DatasetBase):
     id: int
     created_at: datetime.datetime
+    job_id: str | None = None
 
     class Config:
         from_attributes = True
@@ -61,3 +62,34 @@ class DashboardResponse(DashboardBase):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class InsightResponse(BaseModel):
+    id: int
+    dataset_id: int
+    title: str
+    description: str
+    recommendation: str | None = None
+    severity: str
+    score: int
+    category: str
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+
+class JobSubmission(BaseModel):
+    task_name: str
+    queue: str = "default"
+    arguments: dict[str, Any] | None = None
+
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    task_name: str | None = None
+    status: str
+    progress: int | None = 0
+    message: str | None = None
+    error: str | None = None
+    result: Any | None = None

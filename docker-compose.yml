@@ -31,6 +31,43 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:RELEASE.2023-08-29T23-07-35Z
+    container_name: snowpulse-minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.3-alpine
+    container_name: snowpulse-meili
+    restart: always
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: supersecretmeilikewy123
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -42,13 +79,74 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: change_this_to_something_really_secure_for_production_env
       GEMINI_API_KEY: ${GEMINI_API_KEY:-mock}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_SECURE: "false"
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: supersecretmeilikewy123
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
     ports:
       - "8000:8000"
+
+  arq-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: snowpulse-arq-worker
+    restart: always
+    command: arq app.workers.worker.WorkerSettings
+    environment:
+      DATABASE_URL: postgresql://postgres:supersecretpassword123@db:5432/snowpulse
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: change_this_to_something_really_secure_for_production_env
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-mock}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_SECURE: "false"
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: supersecretmeilikewy123
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: snowpulse-prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: snowpulse-grafana
+    restart: always
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    depends_on:
+      - prometheus
 
   frontend:
     build:
@@ -80,5 +178,9 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:
+  meili_data:
+  prometheus_data:
+  grafana_data:
   caddy_data:
   caddy_config:

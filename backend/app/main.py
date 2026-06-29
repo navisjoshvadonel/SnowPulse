@@ -81,6 +81,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from .ai.routes import router as ai_router
+
+app.include_router(ai_router)
+
 # Structured Logging Middleware
 @app.middleware("http")
 async def log_request_middleware(request: Request, call_next):
@@ -379,6 +383,27 @@ def delete_user_account(
     """
     try:
         # Perform permanent hard delete on user
+        user_id = current_user.id
+        
+        # Purge MinIO reports referenced in semantic memory
+        from .ai.memory.vector_store import SemanticMemory
+        reports = db.query(SemanticMemory).filter(
+            SemanticMemory.user_id == user_id,
+            SemanticMemory.category == "report"
+        ).all()
+        for report in reports:
+            meta = report.metadata_json or {}
+            obj_path = meta.get("object_path")
+            if obj_path and obj_path.startswith("minio://reports/"):
+                filename = obj_path.replace("minio://reports/", "")
+                try:
+                    storage_service.delete_file("reports", filename)
+                except Exception as e:
+                    logger.warning(f"Failed to delete report file {filename} during GDPR purge: {e}")
+                    
+        # Delete database-level semantic memories
+        db.query(SemanticMemory).filter(SemanticMemory.user_id == user_id).delete()
+        
         db.delete(current_user)
         db.commit()
 

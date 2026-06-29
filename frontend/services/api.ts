@@ -129,5 +129,18 @@ export const apiService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
     });
+  },
+
+  // Phase 4 Executive Report compilation
+  async generateReport(datasetId: number, query: string, reportType: string) {
+    return fetchAPI("/api/ai/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        report_type: reportType,
+        dataset_id: datasetId,
+      }),
+    });
   }
 };

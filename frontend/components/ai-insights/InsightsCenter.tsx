@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, AlertTriangle, TrendingUp, Sparkles, MessageSquare, CheckSquare, BrainCircuit, RefreshCw } from "lucide-react";
+import { Send, AlertTriangle, TrendingUp, Sparkles, MessageSquare, CheckSquare, BrainCircuit, RefreshCw, FileText } from "lucide-react";
 import { apiService } from "@/services/api";
 
 interface Anomaly {
@@ -38,11 +38,13 @@ export default function InsightsCenter({
   loading,
 }: InsightsCenterProps) {
   const [activeTab, setActiveTab] = useState<"copilot" | "anomalies" | "forecast" | "recommendations">("copilot");
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string; thoughts?: string }[]>([
     { role: "assistant", text: "Hello! I am your SNOW intelligence copilot. Ask me anything about your loaded dataset, like 'What is our best performing region?' or 'Summarize our anomalies.'" }
   ]);
   const [input, setInput] = useState("");
   const [copilotLoading, setCopilotLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Forecasting state
@@ -77,24 +79,121 @@ export default function InsightsCenter({
     setInput("");
     setCopilotLoading(true);
 
+    // Append placeholder for assistant response
+    setMessages((prev) => [...prev, { role: "assistant", text: "", thoughts: "" }]);
+
     try {
-      const response = await apiService.askCopilot(datasetId, userQuery);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages((prev) => [...prev, { role: "assistant", text: data.response }]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", text: "Sorry, I couldn't reach the intelligence engine. Please try again." }
-        ]);
+      const token = localStorage.getItem("snow_access_token");
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE}/api/ai/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          query: userQuery,
+          dataset_id: datasetId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("HTTP error " + response.status);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) {
+        throw new Error("Response body is not readable");
+      }
+
+      let assistantText = "";
+      let thoughtsText = "";
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          const cleanPart = part.trim();
+          if (cleanPart.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(cleanPart.slice(6));
+              if (data.type === "token") {
+                assistantText += data.content;
+              } else if (data.type === "reasoning") {
+                thoughtsText += data.content + "\n";
+              } else if (data.type === "error") {
+                assistantText += `\n[Error: ${data.content}]`;
+              }
+              
+              setMessages((prev) => {
+                const updated = [...prev];
+                if (updated.length > 0) {
+                  updated[updated.length - 1] = {
+                    role: "assistant",
+                    text: assistantText,
+                    thoughts: thoughtsText,
+                  };
+                }
+                return updated;
+              });
+            } catch (err) {
+              console.error("Error parsing SSE chunk:", err);
+            }
+          }
+        }
       }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: "An unexpected error occurred. Let's make sure the backend is running." }
-      ]);
+      console.error(err);
+      setMessages((prev) => {
+        const updated = [...prev];
+        if (updated.length > 0 && updated[updated.length - 1].role === "assistant" && !updated[updated.length - 1].text) {
+          updated[updated.length - 1] = {
+            role: "assistant",
+            text: "Sorry, I couldn't reach the intelligence engine. Make sure the SNOW backend is running.",
+          };
+        } else {
+          updated.push({
+            role: "assistant",
+            text: "An unexpected error occurred. Let's make sure the backend is running.",
+          });
+        }
+        return updated;
+      });
     } finally {
       setCopilotLoading(false);
+    }
+  };
+
+  const handleGeneratePDFReport = async () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, "_blank");
+      return;
+    }
+    setPdfLoading(true);
+    try {
+      const response = await apiService.generateReport(
+        datasetId,
+        "Analyze latest dataset metrics, highlight anomaly impact, and suggest optimization strategies.",
+        "executive"
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.presigned_url) {
+          setPdfUrl(data.presigned_url);
+          window.open(data.presigned_url, "_blank");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to generate PDF report", err);
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -212,6 +311,17 @@ export default function InsightsCenter({
                         : "bg-white/5 border border-white/5 text-gray-200"
                     }`}
                   >
+                    {msg.thoughts && (
+                      <div className="mb-2 p-2 rounded bg-black/30 border border-indigo-500/20 text-[10px] font-mono text-indigo-300">
+                        <details className="outline-none cursor-pointer" open>
+                          <summary className="font-semibold flex items-center gap-1.5 select-none text-[11px] text-indigo-400">
+                            <BrainCircuit className="w-3.5 h-3.5 animate-pulse text-indigo-400" />
+                            Agent Reasoning
+                          </summary>
+                          <p className="mt-1.5 whitespace-pre-line pl-3 border-l border-indigo-500/25">{msg.thoughts}</p>
+                        </details>
+                      </div>
+                    )}
                     <p className="whitespace-pre-line font-sans">{msg.text}</p>
                   </div>
                 </div>
@@ -368,18 +478,36 @@ export default function InsightsCenter({
 
         {/* TAB 4: RECOMMENDATIONS */}
         {activeTab === "recommendations" && (
-          <div className="h-full overflow-y-auto pr-1 space-y-2.5 max-h-[310px]">
-            <p className="text-[10px] text-brand-muted font-bold tracking-wider uppercase font-mono mb-2">Automated Actions</p>
-            {activeRecs.map((rec, idx) => (
-              <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-white/2 border border-white/2 hover:bg-white/3 transition-all">
-                <input
-                  type="checkbox"
-                  defaultChecked={idx === 2}
-                  className="mt-1 w-4 h-4 accent-brand-primary rounded border-white/10 bg-transparent text-white cursor-pointer"
-                />
-                <span className="text-xs text-gray-200 leading-normal">{rec}</span>
-              </div>
-            ))}
+          <div className="h-full overflow-y-auto pr-1 space-y-2.5 max-h-[310px] flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <p className="text-[10px] text-brand-muted font-bold tracking-wider uppercase font-mono mb-2">Automated Actions</p>
+              {activeRecs.map((rec, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-white/2 border border-white/2 hover:bg-white/3 transition-all">
+                  <input
+                    type="checkbox"
+                    defaultChecked={idx === 2}
+                    className="mt-1 w-4 h-4 accent-brand-primary rounded border-white/10 bg-transparent text-white cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-200 leading-normal">{rec}</span>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between gap-3 bg-black/10 p-3 rounded-xl">
+              <span className="text-[10px] text-brand-muted font-mono">Compile full analysis into branded PDF</span>
+              <button
+                onClick={handleGeneratePDFReport}
+                disabled={pdfLoading}
+                className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800/40 text-white font-semibold text-[11px] flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-indigo-600/20"
+              >
+                {pdfLoading ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5" />
+                )}
+                {pdfUrl ? "Download PDF Report" : "Generate Executive Report"}
+              </button>
+            </div>
           </div>
         )}
 

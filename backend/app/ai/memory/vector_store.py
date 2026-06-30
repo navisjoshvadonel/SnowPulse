@@ -83,6 +83,8 @@ class VectorStore:
                     elif len(embedding) < EMBEDDING_DIM:
                         return embedding + [0.0] * (EMBEDDING_DIM - len(embedding))
                     return embedding
+                else:
+                    raise Exception(f"Ollama returned status code {res.status_code}: {res.text}")
         except Exception as e:
             logger.warning(f"Ollama embeddings call failed: {e}. Falling back to deterministic local mock vector.")
 

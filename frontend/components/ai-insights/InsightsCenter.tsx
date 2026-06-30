@@ -84,7 +84,7 @@ export default function InsightsCenter({
 
     try {
       const token = localStorage.getItem("snow_access_token");
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
       const response = await fetch(`${API_BASE}/api/ai/chat`, {
         method: "POST",
         headers: {

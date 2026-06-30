@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Standard helper to handle API calls with credentials (refresh token cookie support)
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {

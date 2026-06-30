@@ -23,6 +23,7 @@ class OllamaClient:
 
         # Connection timeouts
         self.timeout = httpx.Timeout(15.0, connect=5.0, read=45.0)
+        self._pulling_models = set()
 
     async def get_available_models(self) -> list[str]:
         """
@@ -64,25 +65,35 @@ class OllamaClient:
     async def ensure_model_pulled(self, model_name: str) -> bool:
         """
         Triggers an async pull request on Ollama if model isn't currently installed.
+        Does not block; pulls in background and returns False until complete.
         """
         available = await self.get_available_models()
         # Handle tags, e.g. "qwen2.5:7b" matches "qwen2.5:7b" or "qwen2.5:latest" etc.
         if model_name in available or any(model_name in m for m in available):
             return True
 
-        logger.info(f"Ollama model '{model_name}' not found. Attempting to pull...")
+        if model_name in self._pulling_models:
+            return False
+
+        self._pulling_models.add(model_name)
+        logger.info(f"Ollama model '{model_name}' not found. Triggering background pull...")
+        asyncio.create_task(self._pull_model_in_background(model_name))
+        return False
+
+    async def _pull_model_in_background(self, model_name: str):
         try:
-            async with httpx.AsyncClient(timeout=600.0) as client:
-                # Async pull streaming request
+            logger.info(f"Background pull started for model '{model_name}'")
+            async with httpx.AsyncClient(timeout=1800.0) as client:
                 async with client.stream("POST", f"{self.base_url}/api/pull", json={"name": model_name}) as response:
                     if response.status_code == 200:
                         async for _chunk in response.aiter_text():
                             pass
-                        logger.info(f"Successfully pulled Ollama model '{model_name}'")
-                        return True
+                        logger.info(f"Successfully pulled Ollama model '{model_name}' in background")
         except Exception as e:
-            logger.error(f"Failed to pull model '{model_name}': {e}")
-        return False
+            logger.error(f"Background pull failed for model '{model_name}': {e}")
+        finally:
+            self._pulling_models.discard(model_name)
+
 
     async def _call_gemini_fallback(self, prompt: str, system_prompt: str, json_mode: bool = False) -> str:
         """
@@ -123,7 +134,7 @@ class OllamaClient:
         system_prompt: str,
         model: str | None = None,
         json_mode: bool = False,
-        retries: int = 2
+        retries: int = 0
     ) -> str:
         """
         Synchronous/blocking text generation from Ollama, supporting JSON parsing and retries.
@@ -134,7 +145,9 @@ class OllamaClient:
             for current_model in models_to_try:
                 try:
                     # Let's ensure the model is present
-                    await self.ensure_model_pulled(current_model)
+                    if not await self.ensure_model_pulled(current_model):
+                        logger.info(f"Skipping model {current_model} because it is not pulled yet.")
+                        continue
 
                     payload = {
                         "model": current_model,
@@ -182,7 +195,9 @@ class OllamaClient:
 
         for current_model in models_to_try:
             try:
-                await self.ensure_model_pulled(current_model)
+                if not await self.ensure_model_pulled(current_model):
+                    logger.info(f"Skipping stream for model {current_model} because it is not pulled yet.")
+                    continue
                 payload = {
                     "model": current_model,
                     "prompt": prompt,

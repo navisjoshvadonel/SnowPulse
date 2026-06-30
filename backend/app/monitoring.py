@@ -210,8 +210,9 @@ def run_readiness_check(db_session_factory: Callable) -> dict[str, Any]:
 
     # 1. Check Database
     try:
+        from sqlalchemy import text
         db = db_session_factory()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         checks["database"] = "healthy"
         DB_ACTIVE_CONNECTIONS.set(1)
         db.close()
@@ -253,7 +254,7 @@ def run_readiness_check(db_session_factory: Callable) -> dict[str, Any]:
     except Exception as e:
         checks["search"] = f"unhealthy: {str(e)}"
 
-    overall = "healthy" if all("healthy" in str(v) for v in checks.values()) else "unhealthy"
+    overall = "healthy" if all(v == "healthy" for v in checks.values()) else "unhealthy"
 
     return {
         "status": overall,

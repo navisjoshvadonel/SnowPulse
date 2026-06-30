@@ -648,11 +648,14 @@ def health_liveness():
 
 
 @app.get("/health/readiness")
-def health_readiness():
+def health_readiness(response: Response):
     """
     Readiness check to verify dependencies are responsive.
     """
-    return run_readiness_check(SessionLocal)
+    result = run_readiness_check(SessionLocal)
+    if result["status"] != "healthy":
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return result
 
 
 # --- PROMETHEUS METRICS EXPORTER ---

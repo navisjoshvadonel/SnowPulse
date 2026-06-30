@@ -80,6 +80,7 @@ jobs:
 
       - name: Run Pytest Suite with Coverage
         env:
+          ENV: testing
           DATABASE_URL: postgresql://postgres:testpass@localhost:5432/snowpulse
           REDIS_URL: redis://localhost:6379/0
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

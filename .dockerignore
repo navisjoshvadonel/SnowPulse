@@ -1,11 +1,145 @@
-**/node_modules
-**/.next
-**/venv
-**/.venv
-**/.git
-**/.mypy_cache
-**/.pytest_cache
-**/.ruff_cache
-**/__pycache__
-**/*.db
-**/*.sqlite
+# Git and version control
+.git
+.gitignore
+.gitattributes
+.github
+
+# IDEs and editors
+.vscode
+.idea
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Development
+node_modules
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing and coverage
+.pytest_cache
+.mypy_cache
+.coverage
+coverage.xml
+.tox/
+htmlcov/
+.ruff_cache
+.nyc_output
+coverage/
+
+# Linting
+.eslintcache
+.flake8
+.pylint.d
+
+# Package managers
+package-lock.json
+yarn.lock
+poetry.lock
+pipenv.lock
+
+# Build outputs
+.next
+out/
+.nuxt
+.cache/
+dist/
+build/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+.env.local
+.env.*.local
+
+# Docker-specific
+Dockerfile*
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+docs/
+.docs
+
+# CI/CD
+.github/workflows
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+*.swp
+*~
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Development scripts
+scripts/
+dev-scripts/
+
+# Node/npm cache
+npm-debug.log*
+npm-cache/
+.npm/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python cache
+*.pth
+
+# Video/audio (large files)
+*.mp4
+*.avi
+*.mov
+*.mp3
+*.wav
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Test artifacts
+test-results/
+test-coverage/
+cypress/screenshots
+cypress/videos

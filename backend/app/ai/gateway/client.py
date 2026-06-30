@@ -1,9 +1,13 @@
-import os
-import json
-import httpx
 import asyncio
-from typing import AsyncGenerator, Dict, List, Any, Optional
+import json
+import os
+from collections.abc import AsyncGenerator
+from typing import Any
+
+import httpx
+
 from ...logging_config import logger
+
 
 class OllamaClient:
     def __init__(self):
@@ -12,15 +16,15 @@ class OllamaClient:
         self.primary_model = os.getenv("OLLAMA_PRIMARY_MODEL", "qwen2.5:7b")
         self.fallback_1 = os.getenv("OLLAMA_FALLBACK_1", "deepseek-r1:7b")
         self.fallback_2 = os.getenv("OLLAMA_FALLBACK_2", "gemma2:2b")
-        
+
         # Load Gemini API key to check if available
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-        
+
         # Connection timeouts
         self.timeout = httpx.Timeout(15.0, connect=5.0, read=45.0)
 
-    async def get_available_models(self) -> List[str]:
+    async def get_available_models(self) -> list[str]:
         """
         List all pulled/installed models on local Ollama instance.
         """
@@ -34,7 +38,7 @@ class OllamaClient:
             logger.warning(f"Failed to check available Ollama models: {e}")
         return []
 
-    async def check_health(self) -> Dict[str, Any]:
+    async def check_health(self) -> dict[str, Any]:
         """
         Retrieves health and connectivity of Ollama and active models.
         """
@@ -48,7 +52,7 @@ class OllamaClient:
                         ollama_status = "healthy"
             except Exception:
                 pass
-                
+
         return {
             "status": "healthy" if ollama_status == "healthy" else "degraded",
             "ollama_connected": ollama_status == "healthy",
@@ -72,7 +76,7 @@ class OllamaClient:
                 # Async pull streaming request
                 async with client.stream("POST", f"{self.base_url}/api/pull", json={"name": model_name}) as response:
                     if response.status_code == 200:
-                        async for chunk in response.iter_text():
+                        async for _chunk in response.aiter_text():
                             pass
                         logger.info(f"Successfully pulled Ollama model '{model_name}'")
                         return True
@@ -86,11 +90,11 @@ class OllamaClient:
         """
         if not self.gemini_key or self.gemini_key == "mock":
             raise Exception("Gemini API key not configured for fallback.")
-            
+
         logger.info("Falling back to Gemini API for inference.")
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_key}"
         headers = {"Content-Type": "application/json"}
-        
+
         contents = {
             "contents": [
                 {
@@ -101,7 +105,7 @@ class OllamaClient:
         }
         if json_mode:
             contents["generationConfig"] = {"responseMimeType": "application/json"}
-            
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             res = await client.post(url, json=contents, headers=headers)
             if res.status_code == 200:
@@ -117,7 +121,7 @@ class OllamaClient:
         self,
         prompt: str,
         system_prompt: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         json_mode: bool = False,
         retries: int = 2
     ) -> str:
@@ -125,13 +129,13 @@ class OllamaClient:
         Synchronous/blocking text generation from Ollama, supporting JSON parsing and retries.
         """
         models_to_try = [model] if model else [self.primary_model, self.fallback_1, self.fallback_2]
-        
+
         for attempt in range(retries + 1):
             for current_model in models_to_try:
                 try:
                     # Let's ensure the model is present
                     await self.ensure_model_pulled(current_model)
-                    
+
                     payload = {
                         "model": current_model,
                         "prompt": prompt,
@@ -156,7 +160,7 @@ class OllamaClient:
                 except Exception as e:
                     logger.error(f"Error calling Ollama model {current_model} (attempt {attempt}): {e}")
                     await asyncio.sleep(0.5 * (attempt + 1))
-        
+
         # If all local models failed, fallback to Gemini API
         try:
             return await self._call_gemini_fallback(prompt, system_prompt, json_mode)
@@ -168,14 +172,14 @@ class OllamaClient:
         self,
         prompt: str,
         system_prompt: str,
-        model: Optional[str] = None
+        model: str | None = None
     ) -> AsyncGenerator[str, None]:
         """
         Streams generated text tokens from local Ollama container.
         """
         models_to_try = [model] if model else [self.primary_model, self.fallback_1, self.fallback_2]
         success = False
-        
+
         for current_model in models_to_try:
             try:
                 await self.ensure_model_pulled(current_model)
@@ -189,11 +193,11 @@ class OllamaClient:
                         "top_p": 0.9
                     }
                 }
-                
+
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     async with client.stream("POST", f"{self.base_url}/api/generate", json=payload) as response:
                         if response.status_code == 200:
-                            async for chunk in response.iter_text():
+                            async for chunk in response.aiter_text():
                                 if not chunk.strip():
                                     continue
                                 for line in chunk.split("\n"):
@@ -208,7 +212,7 @@ class OllamaClient:
                             break
             except Exception as e:
                 logger.error(f"Streaming error on Ollama model {current_model}: {e}")
-                
+
         if not success:
             # Fallback to Gemini API (non-streaming yielding in one chunk for safety)
             try:

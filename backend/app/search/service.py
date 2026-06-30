@@ -1,6 +1,7 @@
-import os
 import logging
-from typing import Any, Dict, List, Optional
+import os
+from typing import Any
+
 import meilisearch
 from meilisearch.errors import MeilisearchError
 
@@ -35,7 +36,7 @@ class SearchService:
             # Create index if it does not exist
             self.client.create_index(index_name, {"primaryKey": "id"})
             index = self.client.index(index_name)
-            
+
             # Configure settings
             index.update_filterable_attributes([
                 "resource_type",
@@ -55,7 +56,7 @@ class SearchService:
         except MeilisearchError as e:
             logger.error(f"Meilisearch index bootstrap failed: {e}")
 
-    def index_document(self, resource_type: str, document: Dict[str, Any]) -> None:
+    def index_document(self, resource_type: str, document: dict[str, Any]) -> None:
         """
         Indexes or updates a single resource document.
         The document must have an 'id' field.
@@ -102,11 +103,11 @@ class SearchService:
     def search(
         self,
         query: str,
-        user_id: Optional[int] = None,
-        resource_type: Optional[str] = None,
+        user_id: int | None = None,
+        resource_type: str | None = None,
         limit: int = 20,
         offset: int = 0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Performs typo-tolerant full-text search.
         """
@@ -132,7 +133,7 @@ class SearchService:
             logger.error(f"Search failed for query '{query}': {e}")
             return {"hits": [], "nbHits": 0, "error": str(e)}
 
-    def reindex_all_resources(self, db_session) -> Dict[str, int]:
+    def reindex_all_resources(self, db_session) -> dict[str, Any]:
         """
         Synchronous database fetch and indexing.
         Should be invoked inside a background task to prevent blocking HTTP workers.
@@ -140,7 +141,7 @@ class SearchService:
         if not self.enabled or not self.client:
             return {"indexed": 0}
 
-        from ..models import UserDashboard, Dataset
+        from ..models import Dataset, UserDashboard
         # Fetch Dashboards
         dashboards = db_session.query(UserDashboard).all()
         datasets = db_session.query(Dataset).all()

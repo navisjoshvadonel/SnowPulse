@@ -1,5 +1,6 @@
 import os
 from urllib.parse import urlparse
+
 from arq.connections import RedisSettings, create_pool
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -13,7 +14,7 @@ def get_redis_settings() -> RedisSettings:
     port = parsed.port or 6379
     password = parsed.password
     db = int(parsed.path.lstrip("/")) if parsed.path else 0
-    
+
     return RedisSettings(
         host=host,
         port=port,

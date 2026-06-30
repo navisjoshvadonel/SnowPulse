@@ -1,10 +1,12 @@
 import io
-import pandas as pd
-import numpy as np
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
+
+import numpy as np
+import pandas as pd
 import pandera as pa
-from ..schemas.dataset_schema import sales_transaction_schema, get_dynamic_schema
+
+from ..schemas.dataset_schema import get_dynamic_schema, sales_transaction_schema
 
 logger = logging.getLogger("snowpulse.validation.quality")
 
@@ -12,7 +14,7 @@ class DataQualityScorer:
     """
     Validates uploaded files (CSV or Excel) and calculates a comprehensive quality score.
     """
-    
+
     @staticmethod
     def read_file_to_pandas(file_bytes: bytes, filename: str) -> pd.DataFrame:
         """
@@ -33,7 +35,7 @@ class DataQualityScorer:
             raise ValueError(f"Failed to parse file: {str(e)}")
 
     @classmethod
-    def validate_and_score(cls, file_bytes: bytes, filename: str) -> Tuple[bool, Dict[str, Any]]:
+    def validate_and_score(cls, file_bytes: bytes, filename: str) -> tuple[bool, dict[str, Any]]:
         """
         Performs Pandera schema checks, gathers validation errors, and computes data health score.
         """
@@ -62,7 +64,7 @@ class DataQualityScorer:
             schema = get_dynamic_schema(df)
             schema_type = "dynamic_inferred"
 
-        anomalies: List[Dict[str, Any]] = []
+        anomalies: list[dict[str, Any]] = []
         is_valid = True
 
         # 2. Execute Pandera Validation
@@ -73,14 +75,14 @@ class DataQualityScorer:
             # Parse lazy validation errors
             for failure in err.schema_errors:
                 col = failure.schema.name if failure.schema else "unknown"
-                reason = str(failure.reason)
+                reason = str(getattr(failure, "reason_code", str(failure)))
                 row_idx = failure.failure_cases.get("index") if failure.failure_cases is not None else None
                 val = failure.failure_cases.get("failure_case") if failure.failure_cases is not None else None
-                
+
                 # If row_idx is a list or Series, make it a list
                 rows = []
                 if row_idx is not None:
-                    if isinstance(row_idx, (pd.Series, np.ndarray, list)):
+                    if isinstance(row_idx, pd.Series | np.ndarray | list):
                         rows = [int(x) for x in row_idx]
                     else:
                         rows = [int(row_idx)]
@@ -99,10 +101,10 @@ class DataQualityScorer:
         total_cells = df.size
         null_cells = df.isnull().sum().sum()
         null_ratio = null_cells / total_cells if total_cells > 0 else 0.0
-        
+
         # Deduct score for null cells (max 30 points deduction)
         null_deduction = min(30, int(null_ratio * 100))
-        
+
         # Deduct score for validation anomalies (max 40 points deduction)
         # Weight each unique anomaly type
         anomaly_deduction = min(40, len(anomalies) * 2)
@@ -128,7 +130,7 @@ class DataQualityScorer:
                         anomalies.append({
                             "row": int(idx) + 1,
                             "column": col,
-                            "error": f"Statistical outlier flagged (> 3 std dev)",
+                            "error": "Statistical outlier flagged (> 3 std dev)",
                             "value": float(df.loc[idx, col])
                         })
 

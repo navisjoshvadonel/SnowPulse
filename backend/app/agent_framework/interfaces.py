@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("snowpulse.agent_framework")
@@ -13,7 +14,7 @@ class ToolParameterSchema(BaseModel):
 class AgentToolDefinition(BaseModel):
     name: str = Field(..., description="Unique tool identifier")
     description: str = Field(..., description="High-level usage instructions for LLM agent")
-    parameters: List[ToolParameterSchema] = Field(default=[], description="List of parameters accepted by this tool")
+    parameters: list[ToolParameterSchema] = Field(default=[], description="List of parameters accepted by this tool")
 
 class AgentMetadata(BaseModel):
     agent_id: str
@@ -21,7 +22,7 @@ class AgentMetadata(BaseModel):
     role: str
     description: str
     system_prompt: str
-    tools: List[AgentToolDefinition]
+    tools: list[AgentToolDefinition]
 
 class BaseAgentInterface:
     """
@@ -34,14 +35,14 @@ class BaseAgentInterface:
     def get_agent_metadata(self) -> AgentMetadata:
         raise NotImplementedError("Agents must implement get_agent_metadata")
 
-    async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """
         Tool executor dispatcher.
         """
         logger.info(f"Agent {self.metadata.name} invoking tool '{tool_name}' with args {arguments}")
         if not hasattr(self, f"tool_{tool_name}"):
             return {"error": f"Tool '{tool_name}' is not registered on agent '{self.metadata.name}'."}
-        
+
         try:
             method = getattr(self, f"tool_{tool_name}")
             return await method(**arguments)
@@ -76,7 +77,7 @@ class DataQueryAgent(BaseAgentInterface):
             ]
         )
 
-    async def tool_query_dataset(self, dataset_id: int, query_expression: str) -> Dict[str, Any]:
+    async def tool_query_dataset(self, dataset_id: int, query_expression: str) -> dict[str, Any]:
         # Staging mock execution for LLM agent
         return {
             "status": "success",
@@ -109,7 +110,7 @@ class DataQualityAgent(BaseAgentInterface):
             ]
         )
 
-    async def tool_run_quality_audit(self, dataset_id: int) -> Dict[str, Any]:
+    async def tool_run_quality_audit(self, dataset_id: int) -> dict[str, Any]:
         return {
             "status": "success",
             "dataset_id": dataset_id,
@@ -140,7 +141,7 @@ class ForecastingAgent(BaseAgentInterface):
             ]
         )
 
-    async def tool_run_forecast_simulation(self, dataset_id: int, steps: int) -> Dict[str, Any]:
+    async def tool_run_forecast_simulation(self, dataset_id: int, steps: int) -> dict[str, Any]:
         return {
             "status": "success",
             "dataset_id": dataset_id,
@@ -168,7 +169,7 @@ class MonitoringAgent(BaseAgentInterface):
             ]
         )
 
-    async def tool_get_health_metrics(self) -> Dict[str, Any]:
+    async def tool_get_health_metrics(self) -> dict[str, Any]:
         return {
             "status": "healthy",
             "metrics": "System exporter listening on /metrics."
@@ -197,7 +198,7 @@ class RecommendationAgent(BaseAgentInterface):
             ]
         )
 
-    async def tool_get_business_recommendations(self, dataset_id: int) -> Dict[str, Any]:
+    async def tool_get_business_recommendations(self, dataset_id: int) -> dict[str, Any]:
         return {
             "status": "success",
             "dataset_id": dataset_id,

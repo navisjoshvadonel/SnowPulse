@@ -1,11 +1,12 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, Optional, List
+from typing import Any
+
 from arq.connections import ArqRedis
-from arq.jobs import Job
-from ..queues.connection import get_redis_pool
+
 from ..cache.cache_service import cache_service
+from ..queues.connection import get_redis_pool
 
 logger = logging.getLogger("snowpulse.jobs")
 
@@ -13,7 +14,7 @@ class JobManager:
     """
     Manages background jobs via ARQ and custom progress/metadata tracking in Redis.
     """
-    
+
     @staticmethod
     def _get_job_key(job_id: str) -> str:
         return f"snowpulse:job_tracker:{job_id}"
@@ -25,7 +26,7 @@ class JobManager:
         """
         if not cache_service.enabled or not cache_service.client:
             return
-        
+
         tracker_data = {
             "job_id": job_id,
             "task_name": task_name,
@@ -48,7 +49,7 @@ class JobManager:
         """
         if not cache_service.enabled or not cache_service.client:
             return
-        
+
         logger.info(f"Job {job_id} progress: {progress}% - {message}")
         key = cls._get_job_key(job_id)
         if cache_service.client.exists(key):
@@ -65,7 +66,7 @@ class JobManager:
         """
         if not cache_service.enabled or not cache_service.client:
             return
-        
+
         logger.info(f"Job {job_id} completed.")
         serialized_result = json.dumps(result) if result is not None else ""
         cache_service.client.hset(cls._get_job_key(job_id), mapping={
@@ -82,7 +83,7 @@ class JobManager:
         """
         if not cache_service.enabled or not cache_service.client:
             return
-        
+
         logger.error(f"Job {job_id} failed: {error}")
         key = cls._get_job_key(job_id)
         cache_service.client.hset(key, mapping={
@@ -90,7 +91,7 @@ class JobManager:
             "message": "Job failed.",
             "error": error
         })
-        
+
         # Log to Dead Letter Queue (DLQ) list
         try:
             dlq_item = {
@@ -109,7 +110,7 @@ class JobManager:
         """
         job_id = str(uuid.uuid4())
         await cls.create_job_tracker(job_id, task_name, queue)
-        
+
         arq_redis: ArqRedis = await get_redis_pool()
         try:
             # Enqueue task. Pass job_id as standard keyword argument so the task can use it to report progress
@@ -120,22 +121,22 @@ class JobManager:
             cls.mark_failed(job_id, f"Enqueue error: {str(e)}")
         finally:
             await arq_redis.close()
-            
+
         return job_id
 
     @classmethod
-    def get_job_status(cls, job_id: str) -> Dict[str, Any]:
+    def get_job_status(cls, job_id: str) -> dict[str, Any]:
         """
         Returns full tracking details for a job.
         """
         if not cache_service.enabled or not cache_service.client:
             return {"job_id": job_id, "status": "unknown", "message": "Caching service offline"}
-        
+
         key = cls._get_job_key(job_id)
         data = cache_service.client.hgetall(key)
         if not data:
             return {"job_id": job_id, "status": "not_found", "message": "No tracking record exists."}
-        
+
         # Parse result if exists
         res = data.get("result", "")
         if res:
@@ -143,21 +144,21 @@ class JobManager:
                 data["result"] = json.loads(res)
             except Exception:
                 pass
-                
+
         # Parse progress to int
         if "progress" in data:
             data["progress"] = int(data["progress"])
-            
+
         return data
 
     @classmethod
-    def get_all_jobs_status(cls) -> List[Dict[str, Any]]:
+    def get_all_jobs_status(cls) -> list[dict[str, Any]]:
         """
         Retrieve statuses of all tracked jobs.
         """
         if not cache_service.enabled or not cache_service.client:
             return []
-        
+
         keys = cache_service.client.keys("snowpulse:job_tracker:*")
         jobs = []
         for key in keys:

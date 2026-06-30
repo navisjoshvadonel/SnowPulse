@@ -1,9 +1,11 @@
 import io
 import logging
+from typing import Any
+
 import joblib
 import numpy as np
 import pandas as pd
-from typing import Any, Dict, List
+
 from ..storage.service import storage_service
 
 logger = logging.getLogger("snowpulse.forecasting.predictor")
@@ -16,7 +18,7 @@ class ForecastingPredictor:
     def __init__(self, dataset_id: int):
         self.dataset_id = dataset_id
         self.model_key = f"forecaster_{dataset_id}.joblib"
-        
+
         try:
             model_bytes = storage_service.get_file("models", self.model_key)
             self.payload = joblib.load(io.BytesIO(model_bytes))
@@ -31,7 +33,7 @@ class ForecastingPredictor:
             logger.error(f"Failed to load forecast model for dataset {dataset_id}: {e}")
             self.loaded = False
 
-    def predict(self, steps: int = 30) -> Dict[str, Any]:
+    def predict(self, steps: int = 30) -> dict[str, Any]:
         """
         Runs model forecast and calculates upper/lower confidence bounds.
         """
@@ -52,7 +54,7 @@ class ForecastingPredictor:
                 # Get forecast results object containing standard errors
                 results = self.model.get_forecast(steps=steps)
                 forecast_values = results.predicted_mean.tolist()
-                
+
                 # 95% confidence intervals
                 conf_int = results.conf_int(alpha=0.05)
                 lower_bounds = conf_int.iloc[:, 0].tolist()
@@ -63,7 +65,7 @@ class ForecastingPredictor:
                 forecast_values = self.model.forecast(steps=steps).tolist()
                 residuals = self.model.resid
                 std_err = np.std(residuals) if len(residuals) > 0 else 1.0
-                
+
                 # Expand error band over time step t
                 for i in range(steps):
                     margin = 1.96 * std_err * np.sqrt(i + 1)
@@ -99,7 +101,7 @@ class ForecastingPredictor:
             "explanation": explanation
         }
 
-    def generate_explanation(self, forecast: List[float], steps: int) -> str:
+    def generate_explanation(self, forecast: list[float], steps: int) -> str:
         """
         Generates textual descriptions of the forecast trend and overall trajectory.
         """
@@ -111,7 +113,7 @@ class ForecastingPredictor:
         pct_change = ((end_val - start_val) / (start_val or 1.0)) * 100
 
         trend_direction = "increasing" if pct_change > 2.0 else "decreasing" if pct_change < -2.0 else "stable"
-        
+
         explanation = (
             f"Using the optimal {self.model_name} model, the platform forecasts that '{self.target_col}' "
             f"is projected to follow a {trend_direction} trend over the next {steps} days, "

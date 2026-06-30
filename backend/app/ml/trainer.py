@@ -1,14 +1,19 @@
 import logging
-import pandas as pd
-import numpy as np
-from typing import Any, Dict
-from sklearn.cluster import KMeans
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, IsolationForest
-from sklearn.metrics import silhouette_score, accuracy_score, precision_score, recall_score, mean_squared_error, r2_score
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
+from typing import Any
 
-from ..database import SessionLocal
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.ensemble import IsolationForest, RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import (
+    accuracy_score,
+    mean_squared_error,
+    precision_score,
+    r2_score,
+    recall_score,
+    silhouette_score,
+)
+
 from ..models import Dataset
 from ..storage.service import storage_service
 from .features import FeaturePipeline
@@ -23,12 +28,12 @@ class MLTrainer:
     def __init__(self, db, dataset_id: int):
         self.db = db
         self.dataset_id = dataset_id
-        
+
         # Retrieve dataset
         ds = db.query(Dataset).filter(Dataset.id == dataset_id).first()
         if not ds:
             raise ValueError(f"Dataset with ID {dataset_id} not found.")
-            
+
         if ds.file_path.startswith("minio://"):
             parts = ds.file_path.replace("minio://", "").split("/", 1)
             file_bytes = storage_service.get_file(parts[0], parts[1])
@@ -37,24 +42,24 @@ class MLTrainer:
         else:
             self.df = pd.read_csv(ds.file_path)
 
-    def _get_column_types(self) -> Dict[str, list]:
+    def _get_column_types(self) -> dict[str, list]:
         """
         Classifies dataset columns into numeric and categorical features.
         """
         numeric_cols = list(self.df.select_dtypes(include=[np.number]).columns)
         categorical_cols = list(self.df.select_dtypes(exclude=[np.number]).columns)
-        
+
         # Remove date-like columns from categorical list to avoid high-cardinality issues
         date_cols = [c for c in categorical_cols if "date" in c.lower() or "time" in c.lower()]
         categorical_cols = [c for c in categorical_cols if c not in date_cols]
-        
+
         return {
             "numeric": numeric_cols,
             "categorical": categorical_cols,
             "date": date_cols
         }
 
-    def train_model(self, task_type: str) -> Dict[str, Any]:
+    def train_model(self, task_type: str) -> dict[str, Any]:
         """
         Coordinates feature engineering, fitting, evaluation, and saving of ML models.
         """
@@ -77,19 +82,19 @@ class MLTrainer:
             # 1. Customer Segmentation using K-Means Clustering
             n_clusters = 3
             hyperparams["n_clusters"] = n_clusters
-            
+
             # Feature engineering
             preprocessor = FeaturePipeline()
             X_scaled = preprocessor.fit_transform_numeric(df, num_cols)
-            
+
             # Fit K-Means
             model = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
             model.fit(X_scaled)
-            
+
             # Calculate evaluation metric
             sil = float(silhouette_score(X_scaled, model.labels_)) if len(set(model.labels_)) > 1 else 0.0
             metrics["silhouette_score"] = sil
-            
+
             # Bundle into a composite pipeline object
             pipeline = {
                 "preprocessor": preprocessor,
@@ -102,19 +107,19 @@ class MLTrainer:
             # 2. Anomaly Detection using Isolation Forest
             contamination = 0.05
             hyperparams["contamination"] = contamination
-            
+
             preprocessor = FeaturePipeline()
             X_scaled = preprocessor.fit_transform_numeric(df, num_cols)
-            
+
             model = IsolationForest(contamination=contamination, random_state=42)
             model.fit(X_scaled)
-            
+
             # Eval metric: proportion of anomalies identified
             preds = model.predict(X_scaled)
             anom_count = int((preds == -1).sum())
             metrics["anomaly_ratio"] = float(anom_count / len(df))
             metrics["anomaly_count"] = anom_count
-            
+
             pipeline = {
                 "preprocessor": preprocessor,
                 "estimator": model,
@@ -132,35 +137,35 @@ class MLTrainer:
                     break
             if not target_col:
                 target_col = num_cols[0]
-            
+
             # Features = numeric columns excluding target
             features_num = [c for c in num_cols if c != target_col]
-            
+
             preprocessor = FeaturePipeline()
             X_num = preprocessor.fit_transform_numeric(df, features_num)
             X_cat = preprocessor.fit_transform_categorical(df, cat_cols)
-            
+
             X = np.hstack([X_num, X_cat]) if cat_cols else X_num
             y = df[target_col].values
-            
+
             # Train test split for evaluation
             split = int(len(X) * 0.8)
             X_train, X_test = X[:split], X[split:]
             y_train, y_test = y[:split], y[split:]
-            
+
             model = RandomForestRegressor(n_estimators=50, random_state=42)
             model.fit(X_train, y_train)
-            
+
             preds = model.predict(X_test)
             r2 = float(r2_score(y_test, preds))
             mse = float(mean_squared_error(y_test, preds))
-            
+
             metrics["r2_score"] = r2
             metrics["mse"] = mse
-            
+
             # Refit on full
             model.fit(X, y)
-            
+
             hyperparams["n_estimators"] = 50
             pipeline = {
                 "preprocessor": preprocessor,
@@ -179,7 +184,7 @@ class MLTrainer:
                 if any(x in c.lower() for x in ["churn", "status", "attrition", "active"]):
                     target_col = c
                     break
-            
+
             # If no churn target is found, synthesize one (revenue below 25th percentile = 1, else 0)
             is_synthetic = False
             if not target_col:
@@ -189,23 +194,23 @@ class MLTrainer:
                 df["synthetic_churn"] = (df[rev_col] <= q25).astype(int)
                 target_col = "synthetic_churn"
                 logger.info("No churn target found, generated synthetic label based on low revenue threshold.")
-            
+
             # Features
             features_num = [c for c in num_cols if c != target_col]
             features_cat = [c for c in cat_cols if c != target_col]
-            
+
             preprocessor = FeaturePipeline()
             X_num = preprocessor.fit_transform_numeric(df, features_num)
             X_cat = preprocessor.fit_transform_categorical(df, features_cat)
-            
+
             X = np.hstack([X_num, X_cat]) if features_cat else X_num
             y = df[target_col].values.astype(int)
-            
+
             # Split
             split = int(len(X) * 0.8)
             X_train, X_test = X[:split], X[split:]
             y_train, y_test = y[:split], y[split:]
-            
+
             model = RandomForestClassifier(n_estimators=50, random_state=42)
             # Handle edge case if training split contains only 1 class
             if len(set(y_train)) < 2:
@@ -221,12 +226,12 @@ class MLTrainer:
                 prec = float(precision_score(y_test, preds, zero_division=0))
                 rec = float(recall_score(y_test, preds, zero_division=0))
                 model.fit(X, y)
-                
+
             metrics["accuracy"] = acc
             metrics["precision"] = prec
             metrics["recall"] = rec
             metrics["is_synthetic"] = int(is_synthetic)
-            
+
             hyperparams["n_estimators"] = 50
             pipeline = {
                 "preprocessor": preprocessor,

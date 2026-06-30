@@ -1,21 +1,20 @@
-import os
 import json
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..models import User, Dataset
+from ..logging_config import logger
+from ..models import Dataset, User
+from .evaluation.evaluator import AIEvaluator
 from .gateway.client import OllamaClient
-from .memory.vector_store import VectorStore
 from .graphs.supervisor import run_supervisor_workflow
+from .memory.vector_store import VectorStore
 from .tools.database_tools import DatabaseTools
 from .workflows.reports import ReportGenerator
-from .evaluation.evaluator import AIEvaluator
-from ..logging_config import logger
 
 router = APIRouter(prefix="/api/ai", tags=["AI Intelligence Layer"])
 
@@ -26,7 +25,7 @@ vector_store = VectorStore()
 # Request schemas
 class ChatRequest(BaseModel):
     query: str
-    dataset_id: Optional[int] = None
+    dataset_id: int | None = None
 
 class AnalyzeRequest(BaseModel):
     dataset_id: int
@@ -34,11 +33,11 @@ class AnalyzeRequest(BaseModel):
 class ReportRequest(BaseModel):
     query: str
     report_type: str  # 'executive', 'kpi', 'forecast', 'operational'
-    dataset_id: Optional[int] = None
+    dataset_id: int | None = None
 
 class ForecastRequest(BaseModel):
     dataset_id: int
-    steps: Optional[int] = 30
+    steps: int | None = 30
 
 @router.post("/chat")
 async def chat_endpoint(
@@ -50,10 +49,10 @@ async def chat_endpoint(
     Server-Sent Events endpoint streaming supervisor multi-agent thoughts and token-by-token final answers.
     """
     logger.info("ai.chat_request", user_id=current_user.id, query=req.query, dataset_id=req.dataset_id)
-    
+
     # 1. Build execution context
     context = {"user_id": current_user.id}
-    
+
     if req.dataset_id:
         dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id).first()
         if not dataset:
@@ -83,7 +82,7 @@ async def chat_endpoint(
             async for event in run_supervisor_workflow(req.query, context, db):
                 event_type = event.get("type", "reasoning")
                 content = event.get("data", "")
-                
+
                 if event_type == "output":
                     full_response.append(content)
                     yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
@@ -102,7 +101,7 @@ async def chat_endpoint(
                     dataset_id=req.dataset_id,
                     metadata={"query": req.query}
                 )
-                
+
         except Exception as e:
             logger.error(f"SSE execution error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'content': f'Execution failed: {str(e)}'})}\n\n"
@@ -121,11 +120,11 @@ async def analyze_endpoint(
     dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     stats = DatabaseTools.get_dataset_statistics(dataset.file_path)
     if not stats.get("success"):
         raise HTTPException(status_code=400, detail=stats.get("error"))
-        
+
     return stats
 
 @router.post("/report")
@@ -139,7 +138,7 @@ async def report_endpoint(
     and returns S3 download URLs.
     """
     logger.info("ai.report_request", user_id=current_user.id, type=req.report_type)
-    
+
     # 1. Ask Supervisor Report Agent to build markdown content
     context = {"user_id": current_user.id}
     if req.dataset_id:
@@ -148,12 +147,12 @@ async def report_endpoint(
             context["dataset_path"] = dataset.file_path
             context["dataset_id"] = dataset.id
             context["dataset_name"] = dataset.name
-            
+
     # Gather statistics to inject
     stats = {}
     if req.dataset_id and "dataset_path" in context:
         stats = DatabaseTools.get_dataset_statistics(context["dataset_path"])
-        
+
     prompt = f"""
 Compose a comprehensive executive {req.report_type} report.
 User Objective: "{req.query}"
@@ -161,10 +160,10 @@ Dataset Statistics Context:
 {json.dumps(stats, indent=2)}
 """
     system_prompt = "You are the Executive Report Agent. Format a detailed analytical summary in clean markdown."
-    
+
     # Retrieve Markdown
     markdown_content = await ollama_client.generate(prompt, system_prompt, model="qwen2.5:7b")
-    
+
     # 2. Render and upload PDF
     try:
         obj_path, presigned_url = await ReportGenerator.generate_and_upload_report(
@@ -173,7 +172,7 @@ Dataset Statistics Context:
             user_id=current_user.id,
             dataset_id=req.dataset_id
         )
-        
+
         # Save reference to vector store for semantic memory searches
         await vector_store.add_memory(
             db=db,
@@ -183,7 +182,7 @@ Dataset Statistics Context:
             dataset_id=req.dataset_id,
             metadata={"object_path": obj_path, "report_type": req.report_type}
         )
-        
+
         return {
             "success": True,
             "report_type": req.report_type,
@@ -207,11 +206,11 @@ async def forecast_endpoint(
     dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     scenarios = DatabaseTools.get_forecast_scenarios(req.dataset_id, steps=req.steps)
     if not scenarios.get("success"):
         raise HTTPException(status_code=400, detail=scenarios.get("error"))
-        
+
     return scenarios
 
 @router.get("/models")
@@ -231,7 +230,7 @@ async def health_endpoint(
     Returns aggregated metrics and connection states of local AI backend.
     """
     ollama_health = await ollama_client.check_health()
-    
+
     # Vector store count
     vector_ok = True
     record_count = 0
@@ -240,7 +239,7 @@ async def health_endpoint(
         record_count = db.query(SemanticMemory).count()
     except Exception:
         vector_ok = False
-        
+
     return {
         "status": "healthy" if (ollama_health.get("status") == "healthy" and vector_ok) else "degraded",
         "ollama": ollama_health,

@@ -1,10 +1,12 @@
 import io
 import json
 import logging
+from typing import Any
+
 import joblib
-from typing import Any, Dict, Optional
-from ..storage.service import storage_service
+
 from ..cache.cache_service import cache_service
+from ..storage.service import storage_service
 
 logger = logging.getLogger("snowpulse.ml.registry")
 
@@ -13,7 +15,7 @@ class ModelRegistry:
     Registry management to archive trained Scikit-Learn pipelines in MinIO,
     version models, and preserve experiment metadata in Redis.
     """
-    
+
     @staticmethod
     def _get_history_key(dataset_id: int, task_type: str) -> str:
         return f"snowpulse:ml_history:{dataset_id}:{task_type}"
@@ -24,20 +26,20 @@ class ModelRegistry:
         dataset_id: int,
         task_type: str,
         pipeline: Any,
-        metrics: Dict[str, Any],
-        hyperparams: Dict[str, Any]
+        metrics: dict[str, Any],
+        hyperparams: dict[str, Any]
     ) -> str:
         """
         Saves the complete model pipeline (preprocessors + estimator) to MinIO,
         and logs the metrics/hyperparameters into the registry history.
         """
         object_name = f"ml_{dataset_id}_{task_type}.joblib"
-        
+
         # Serialize model pipeline
         buffer = io.BytesIO()
         joblib.dump(pipeline, buffer)
         buffer.seek(0)
-        
+
         # Upload model to MinIO models bucket
         storage_uri = storage_service.upload_file(
             bucket_name="models",
@@ -45,11 +47,11 @@ class ModelRegistry:
             data=buffer.getvalue(),
             content_type="application/octet-stream"
         )
-        
+
         # Increment version and update history in Redis
         version = 1
         history = []
-        
+
         if cache_service.enabled and cache_service.client:
             history_key = cls._get_history_key(dataset_id, task_type)
             existing_history_json = cache_service.client.get(history_key)
@@ -59,7 +61,7 @@ class ModelRegistry:
                     version = len(history) + 1
                 except Exception:
                     history = []
-            
+
             run_metadata = {
                 "version": version,
                 "metrics": metrics,
@@ -69,7 +71,7 @@ class ModelRegistry:
             }
             history.append(run_metadata)
             cache_service.client.set(history_key, json.dumps(history))
-            
+
             # Update Prometheus accuracy gauge
             try:
                 from ..monitoring import ML_MODEL_ACCURACY

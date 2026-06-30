@@ -1,12 +1,12 @@
 import time
-import logging
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Dict, Optional
-from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
-from fastapi import Response
+from typing import Any
 
-logger = logging.getLogger("snowpulse.monitoring")
+from fastapi import Response
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
+
+from .logging_config import logger
 
 # --- Prometheus Metrics Definitions ---
 API_REQUEST_COUNT = Counter(
@@ -81,7 +81,7 @@ class MetricsManager:
     def __init__(self):
         self._metrics: dict[str, Any] = {}
 
-    def counter_inc(self, name: str, labels: Optional[Dict[str, str]] = None):
+    def counter_inc(self, name: str, labels: dict[str, str] | None = None):
         """
         Increment a prometheus counter.
         """
@@ -111,7 +111,7 @@ class MetricsManager:
         except Exception as e:
             logger.error(f"Failed to record counter '{name}': {e}")
 
-    def gauge_set(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
+    def gauge_set(self, name: str, value: float, labels: dict[str, str] | None = None):
         """
         Set a prometheus gauge value.
         """
@@ -127,7 +127,7 @@ class MetricsManager:
         except Exception as e:
             logger.error(f"Failed to record gauge '{name}': {e}")
 
-    def histogram_observe(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
+    def histogram_observe(self, name: str, value: float, labels: dict[str, str] | None = None):
         """
         Observe a value in a prometheus histogram.
         """

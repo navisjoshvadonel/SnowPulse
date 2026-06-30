@@ -1,19 +1,20 @@
-import time
-import logging
 import io
+import logging
+import time
+from typing import Any
+
 import polars as pl
-from typing import Any, Dict
 from sqlalchemy.orm import Session
 
-from ..jobs.manager import JobManager
-from ..storage.service import storage_service
-from ..search.service import search_service
-from ..validation.quality.quality_scorer import DataQualityScorer
-from ..forecasting.trainer import ForecastingTrainer
-from ..ml.trainer import MLTrainer
-from ..insights.automation import InsightAutomationEngine
-from ..models import Dataset
 from ..cache.cache_service import cache_service
+from ..forecasting.trainer import ForecastingTrainer
+from ..insights.automation import InsightAutomationEngine
+from ..jobs.manager import JobManager
+from ..ml.trainer import MLTrainer
+from ..models import Dataset
+from ..search.service import search_service
+from ..storage.service import storage_service
+from ..validation.quality.quality_scorer import DataQualityScorer
 
 logger = logging.getLogger("snowpulse.pipeline.coordinator")
 
@@ -30,13 +31,13 @@ class PipelineCoordinator:
         self.job_id = job_id
         self.start_time = time.time()
 
-    async def execute_pipeline(self) -> Dict[str, Any]:
+    async def execute_pipeline(self) -> dict[str, Any]:
         """
         Runs the stages of the pipeline sequentially, reporting progress to Redis.
         """
         logger.info(f"Pipeline coordinator starting for dataset {self.dataset_id}, file key: {self.file_key}")
         stages_completed = {}
-        
+
         try:
             # Stage 1: File Retrieval from MinIO
             JobManager.update_progress(self.job_id, 10, "Stage 1: Downloading source file from MinIO Storage...")
@@ -55,7 +56,7 @@ class PipelineCoordinator:
                 "anomalies_count": len(validation_out.get("anomalies", [])),
                 "duration_ms": int((time.time() - t_start) * 1000)
             }
-            
+
             # Even if schema validation failed (is_valid = False), we proceed with a quality rating warning,
             # but raise error if parsing failed completely.
             if "error" in validation_out and validation_out["quality_score"] == 0:
@@ -64,7 +65,7 @@ class PipelineCoordinator:
             # Stage 3: Polars Cleaning & Ingestion into DB
             JobManager.update_progress(self.job_id, 40, "Stage 3: Running Polars data aggregation...")
             t_start = time.time()
-            
+
             # Load into Polars DataFrame for fast analytics processing
             df_polars = pl.read_csv(io.BytesIO(file_bytes), ignore_errors=True)
             row_count = df_polars.height
@@ -101,7 +102,7 @@ class PipelineCoordinator:
             # Stage 5: Statsmodels Forecasting Engine Training
             JobManager.update_progress(self.job_id, 70, "Stage 5: Executing time series forecasting models...")
             t_start = time.time()
-            
+
             # Try parsing a target metric for forecasting
             numeric_cols = [c for c in df_polars.columns if df_polars[c].dtype in (pl.Int64, pl.Float64)]
             target_metric = None
@@ -132,7 +133,7 @@ class PipelineCoordinator:
                     # Train segmentation (clustering) and anomaly models as standard platform steps
                     seg_metrics = ml_trainer.train_model(task_type="segmentation")
                     anom_metrics = ml_trainer.train_model(task_type="anomaly")
-                    
+
                     stages_completed["machine_learning"] = {
                         "segmentation": seg_metrics,
                         "anomaly": anom_metrics
@@ -164,16 +165,16 @@ class PipelineCoordinator:
                 cache_service.invalidate(f"anomalies:{self.dataset_id}")
                 cache_service.invalidate(f"correlations:{self.dataset_id}")
                 cache_service.invalidate(f"insights:{self.dataset_id}")
-                
+
             stages_completed["duration_total_ms"] = int((time.time() - self.start_time) * 1000)
-            
+
             logger.info(f"Pipeline executed successfully in {stages_completed['duration_total_ms']}ms.")
             return {
                 "status": "success",
                 "dataset_id": self.dataset_id,
                 "stages": stages_completed
             }
-            
+
         except Exception as e:
             logger.error(f"Pipeline execution halted on error: {str(e)}")
             raise e

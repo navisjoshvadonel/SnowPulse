@@ -1,6 +1,7 @@
-import pandera as pa
-import pandas as pd
 import logging
+
+import pandas as pd
+import pandera as pa
 
 logger = logging.getLogger("snowpulse.validation")
 

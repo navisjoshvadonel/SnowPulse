@@ -1,6 +1,4 @@
 import datetime
-import os
-import shutil
 import time
 import uuid
 from typing import Any
@@ -30,26 +28,26 @@ from .auth import (
 from .cache.cache_service import cache_service
 from .database import Base, SessionLocal, engine, get_db
 from .dependencies import get_current_user, verify_dashboard_ownership
+from .forecasting.predictor import ForecastingPredictor
+from .jobs.manager import JobManager
 from .limiter import limiter
 from .logging_config import configure_logging, logger
-from .models import Dataset, RefreshToken, User, UserDashboard, Insight
-from .monitoring import run_liveness_check, run_readiness_check, get_metrics_response
+from .ml.serving import MLServing
+from .models import Dataset, Insight, RefreshToken, User, UserDashboard
+from .monitoring import get_metrics_response, run_liveness_check, run_readiness_check
 from .schemas import (
     DashboardCreate,
     DashboardResponse,
     DatasetResponse,
+    InsightResponse,
+    JobStatusResponse,
+    JobSubmission,
     TokenResponse,
     UserCreate,
     UserResponse,
-    JobSubmission,
-    JobStatusResponse,
-    InsightResponse,
 )
-from .storage.service import storage_service
 from .search.service import search_service
-from .jobs.manager import JobManager
-from .forecasting.predictor import ForecastingPredictor
-from .ml.serving import MLServing
+from .storage.service import storage_service
 
 # Initialize logging
 configure_logging()
@@ -384,7 +382,7 @@ def delete_user_account(
     try:
         # Perform permanent hard delete on user
         user_id = current_user.id
-        
+
         # Purge MinIO reports referenced in semantic memory
         from .ai.memory.vector_store import SemanticMemory
         reports = db.query(SemanticMemory).filter(
@@ -400,10 +398,10 @@ def delete_user_account(
                     storage_service.delete_file("reports", filename)
                 except Exception as e:
                     logger.warning(f"Failed to delete report file {filename} during GDPR purge: {e}")
-                    
+
         # Delete database-level semantic memories
         db.query(SemanticMemory).filter(SemanticMemory.user_id == user_id).delete()
-        
+
         db.delete(current_user)
         db.commit()
 
@@ -703,7 +701,7 @@ async def list_background_jobs(current_user: User = Depends(get_current_user)):
     List all background jobs and their current status details.
     """
     try:
-        return await JobManager.get_all_jobs()
+        return JobManager.get_all_jobs_status()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -720,7 +718,7 @@ async def get_job_status(
     Retrieve status, progress percentage, logs, and results of a background job.
     """
     try:
-        status_info = await JobManager.get_job_status(job_id)
+        status_info = JobManager.get_job_status(job_id)
         if not status_info:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -748,10 +746,10 @@ def get_download_url(
     Generate a secure, short-lived presigned URL to download files from MinIO.
     """
     try:
-        url = storage_service.generate_presigned_url(
+        url = storage_service.get_signed_url(
             bucket_name=bucket,
             object_name=key,
-            expires_delta_seconds=600  # 10 minutes
+            expires_in_seconds=600  # 10 minutes
         )
         return {"url": url}
     except Exception as e:
@@ -775,9 +773,10 @@ def unified_search(
     Unified search across datasets, dashboards, and insights via Meilisearch.
     """
     try:
-        return search_service.search_resources(
+        return search_service.search(
             query=q,
-            filter_by=filter_by,
+            user_id=current_user.id,
+            resource_type=filter_by,
             limit=limit,
             offset=offset
         )
@@ -804,7 +803,7 @@ async def trigger_forecast_training(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     try:
         job_id = await JobManager.submit_job(
             "run_forecast_task",
@@ -830,7 +829,7 @@ def get_forecast_predictions(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     try:
         predictor = ForecastingPredictor(dataset_id=dataset_id)
         if not predictor.loaded:
@@ -860,7 +859,7 @@ async def trigger_ml_training(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     try:
         job_id = await JobManager.submit_job(
             "run_ml_training_task",
@@ -886,7 +885,7 @@ def run_ml_inference(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     try:
         server = MLServing(dataset_id=dataset_id, task_type=task_type)
         if not server.loaded:
@@ -915,7 +914,7 @@ def get_dataset_insights(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     return db.query(Insight).filter(Insight.dataset_id == dataset_id).order_by(Insight.score.desc()).all()
 
 
@@ -931,7 +930,7 @@ async def trigger_insights_generation(
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-        
+
     try:
         job_id = await JobManager.submit_job(
             "run_insight_generation_task",

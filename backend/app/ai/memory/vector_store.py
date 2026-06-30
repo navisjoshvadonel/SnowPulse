@@ -1,11 +1,12 @@
 import os
-import json
+from datetime import datetime
+from typing import Any
+
 import httpx
 import numpy as np
-from datetime import datetime
-from typing import List, Dict, Any, Optional
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, text
+from sqlalchemy import JSON, Column, DateTime, Integer, String, Text, text
 from sqlalchemy.orm import Session
+
 from ...database import Base, engine
 from ...logging_config import logger
 
@@ -17,11 +18,12 @@ except ImportError:
     PGVECTOR_AVAILABLE = False
     # Dummy type placeholder for non-Postgres systems (like local SQLite development)
     from sqlalchemy.types import UserDefinedType
-    class Vector(UserDefinedType):
+    class DummyVector(UserDefinedType):
         def __init__(self, dim=384):
             self.dim = dim
         def get_col_spec(self, **kw):
             return f"FLOAT[{self.dim}]"
+    Vector = DummyVector
 
 # Dimension for embeddings. We'll use 384 (all-minilm dimension) or 768 (nomic-embed-text)
 EMBEDDING_DIM = 384
@@ -43,7 +45,7 @@ class VectorStore:
     def __init__(self):
         self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.is_postgres = engine.dialect.name == "postgresql"
-        
+
         # Enable extension if Postgres
         if self.is_postgres and PGVECTOR_AVAILABLE:
             try:
@@ -62,7 +64,7 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error creating semantic_memory schemas: {e}")
 
-    async def get_embedding(self, text_input: str) -> List[float]:
+    async def get_embedding(self, text_input: str) -> list[float]:
         """
         Retrieves text vector embeddings from local Ollama instance.
         Falls back to hash-based determinism if Ollama is unavailable.
@@ -83,7 +85,7 @@ class VectorStore:
                     return embedding
         except Exception as e:
             logger.warning(f"Ollama embeddings call failed: {e}. Falling back to deterministic local mock vector.")
-            
+
         # Deterministic mock fallback (reproducible vectors from string hash values)
         np.random.seed(sum(ord(c) for c in text_input) % 10000)
         mock_vec = np.random.uniform(-0.5, 0.5, EMBEDDING_DIM).tolist()
@@ -95,8 +97,8 @@ class VectorStore:
         user_id: int,
         category: str,
         content: str,
-        dataset_id: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        dataset_id: int | None = None,
+        metadata: dict[str, Any] | None = None
     ) -> SemanticMemory:
         """
         Inserts a new semantic memory block with generated embeddings.
@@ -120,23 +122,23 @@ class VectorStore:
         db: Session,
         user_id: int,
         query: str,
-        dataset_id: Optional[int] = None,
-        category: Optional[str] = None,
+        dataset_id: int | None = None,
+        category: str | None = None,
         limit: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Performs semantic similarity search. Uses pgvector on Postgres,
         or NumPy cosine similarity fallback on SQLite.
         """
         query_vector = await self.get_embedding(query)
-        
+
         # Build base filter
         filters = [SemanticMemory.user_id == user_id]
         if dataset_id is not None:
             filters.append(SemanticMemory.dataset_id == dataset_id)
         if category is not None:
             filters.append(SemanticMemory.category == category)
-            
+
         # 1. Native pgvector database query
         if self.is_postgres and PGVECTOR_AVAILABLE:
             try:
@@ -144,7 +146,7 @@ class VectorStore:
                 # We sort by cosine distance ascending (closer distance = higher similarity)
                 query_filter = SemanticMemory.embedding.cosine_distance(query_vector)
                 memories = db.query(SemanticMemory).filter(*filters).order_by(query_filter).limit(limit).all()
-                
+
                 results = []
                 for m in memories:
                     results.append({
@@ -166,27 +168,27 @@ class VectorStore:
             memories = db.query(SemanticMemory).filter(*filters).all()
             if not memories:
                 return []
-                
+
             mem_vectors = [m.embedding for m in memories if m.embedding is not None]
             if not mem_vectors:
                 return []
-                
+
             # Cosine similarity calculations via numpy
             u = np.array(query_vector)
             scores = []
-            
-            for idx, m in enumerate(memories):
+
+            for m in memories:
                 v = np.array(m.embedding)
                 dot_product = np.dot(u, v)
                 norm_u = np.linalg.norm(u)
                 norm_v = np.linalg.norm(v)
-                
+
                 similarity = float(dot_product / (norm_u * norm_v)) if norm_u > 0 and norm_v > 0 else 0.0
                 scores.append((similarity, m))
-                
+
             # Sort descending by similarity score
             scores.sort(key=lambda x: x[0], reverse=True)
-            
+
             results = []
             for score, m in scores[:limit]:
                 results.append({

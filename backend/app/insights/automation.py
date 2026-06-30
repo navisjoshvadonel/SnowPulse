@@ -1,10 +1,10 @@
 import logging
-import datetime
-from typing import Any, Dict, List
+from typing import Any
+
 from sqlalchemy.orm import Session
-from ..models import Dataset
+
 from ..analytics.engine import AnalyticsEngine
-from ..storage.service import storage_service
+from ..models import Dataset
 
 logger = logging.getLogger("snowpulse.insights.automation")
 
@@ -16,26 +16,26 @@ class InsightAutomationEngine:
     def __init__(self, db: Session, dataset_id: int):
         self.db = db
         self.dataset_id = dataset_id
-        
+
         # Load dataset
         ds = db.query(Dataset).filter(Dataset.id == dataset_id).first()
         if not ds:
             raise ValueError(f"Dataset {dataset_id} not found.")
         self.dataset = ds
-        
+
         # Instantiate statistical analytics engine
         self.analytics_engine = AnalyticsEngine(ds.file_path)
 
-    def run_detection(self) -> List[Dict[str, Any]]:
+    def run_detection(self) -> list[dict[str, Any]]:
         """
         Runs multiple anomaly scans, trend checks, and forecasts evaluations.
         Generates and saves prioritized insights into the PostgreSQL database.
         """
-        from ..models import Insight # Import here to avoid circular dependencies
-        
+        from ..models import Insight  # Import here to avoid circular dependencies
+
         kpis = self.analytics_engine.get_kpis()
         anomalies = self.analytics_engine.get_anomalies()
-        
+
         detected_insights = []
 
         # 1. Evaluate Growth Rate Shifts
@@ -44,7 +44,7 @@ class InsightAutomationEngine:
             category = "Growth" if growth_rate > 0 else "Risk"
             severity = "High" if abs(growth_rate) > 25.0 else "Medium"
             score = min(95, int(abs(growth_rate) * 2.5))
-            
+
             title = f"Significant {'Growth Acceleration' if growth_rate > 0 else 'Revenue Contraction'} Detected"
             description = f"The dataset displays a {growth_rate:+.1f}% shift in overall values between the first and second half of the records."
             rec = (
@@ -61,18 +61,18 @@ class InsightAutomationEngine:
         if anomalies:
             critical_count = sum(1 for a in anomalies if a["severity"] == "Critical")
             high_count = sum(1 for a in anomalies if a["severity"] == "High")
-            
+
             if critical_count > 0 or high_count > 0:
                 severity = "Critical" if critical_count > 0 else "High"
                 score = 90 if severity == "Critical" else 75
-                
-                title = f"Unusual Data Anomaly Spike Flags"
+
+                title = "Unusual Data Anomaly Spike Flags"
                 description = f"Detected {len(anomalies)} statistical outliers. {critical_count} outliers require immediate review."
-                
+
                 # Extract most extreme outlier details
                 extreme = max(anomalies, key=lambda a: abs(a["z_score"]))
                 description += f" Most extreme outlier at row {extreme['row_index']} ({extreme['date']}) with value {extreme['value']:,.2f} (Z-Score: {extreme['z_score']:.2f})."
-                
+
                 rec = "Inspect data source logs for collection errors or pipeline corruption. If data is accurate, schedule an operational audit."
                 detected_insights.append({
                     "title": title, "description": description, "recommendation": rec,
@@ -134,7 +134,7 @@ class InsightAutomationEngine:
         # Save to database
         # Clear previous insights for this dataset to avoid clutter
         self.db.query(Insight).filter(Insight.dataset_id == self.dataset_id).delete()
-        
+
         saved_db_objects = []
         for item in detected_insights:
             db_ins = Insight(
@@ -148,9 +148,9 @@ class InsightAutomationEngine:
             )
             self.db.add(db_ins)
             saved_db_objects.append(db_ins)
-            
+
         self.db.commit()
-        
+
         # Synchronize Meilisearch index for all newly created insights
         try:
             from ..search.service import search_service
@@ -171,4 +171,3 @@ class InsightAutomationEngine:
             logger.error(f"Failed to index insights in search: {e}")
 
         return detected_insights
-import os

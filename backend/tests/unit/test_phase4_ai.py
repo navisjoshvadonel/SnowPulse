@@ -1,14 +1,14 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from app.ai.evaluation.evaluator import AIEvaluator
+from app.ai.gateway.client import OllamaClient
+from app.ai.memory.vector_store import SemanticMemory, VectorStore
+from app.ai.tools.database_tools import DatabaseTools, SecurityAlertException, sanitize_and_validate_sql
+from app.ai.workflows.reports import ReportGenerator
+from app.database import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-from app.database import Base
-from app.ai.gateway.client import OllamaClient
-from app.ai.memory.vector_store import VectorStore, SemanticMemory
-from app.ai.tools.database_tools import DatabaseTools, sanitize_and_validate_sql, SecurityAlertException
-from app.ai.workflows.reports import ReportGenerator
-from app.ai.evaluation.evaluator import AIEvaluator
 
 # Create an in-memory SQLite database for testing Vector Store
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -31,7 +31,7 @@ def db_session():
 async def test_ollama_client_fallback_to_offline(mock_post):
     # Mock post to raise connection error (simulating Ollama offline)
     mock_post.side_effect = Exception("Connection refused")
-    
+
     # We patch env vars to ensure no Gemini API key exists
     with patch.dict("os.environ", {"GEMINI_API_KEY": ""}):
         client = OllamaClient()
@@ -46,7 +46,7 @@ async def test_ollama_client_fallback_to_offline(mock_post):
 async def test_ollama_client_fallback_to_gemini(mock_post):
     # Mock post to Ollama to raise error
     mock_post.side_effect = Exception("Ollama offline")
-    
+
     # Mock httpx AsyncClient post for Gemini API call
     mock_gemini_response = MagicMock()
     mock_gemini_response.status_code = 200
@@ -59,7 +59,7 @@ async def test_ollama_client_fallback_to_gemini(mock_post):
             }
         ]
     }
-    
+
     with patch.dict("os.environ", {"GEMINI_API_KEY": "valid_mock_key"}):
         client = OllamaClient()
         client.ensure_model_pulled = AsyncMock(return_value=False)
@@ -73,7 +73,7 @@ async def test_ollama_client_fallback_to_gemini(mock_post):
 @pytest.mark.asyncio
 async def test_vector_store_memory_add_and_search(db_session):
     store = VectorStore()
-    
+
     # Patch get_embedding to return mocked vectors
     async def mock_embedding(text_str):
         if "sales" in text_str:
@@ -81,16 +81,16 @@ async def test_vector_store_memory_add_and_search(db_session):
         elif "churn" in text_str:
             return [0.0, 1.0] + [0.0] * 382
         return [0.0] * 384
-        
+
     with patch.object(store, "get_embedding", side_effect=mock_embedding):
         # Add memories
-        m1 = await store.add_memory(db_session, user_id=1, category="insight", content="Sales are growing by 15%", dataset_id=10)
-        m2 = await store.add_memory(db_session, user_id=1, category="insight", content="Churn rate increased in Q3", dataset_id=10)
-        
+        await store.add_memory(db_session, user_id=1, category="insight", content="Sales are growing by 15%", dataset_id=10)
+        await store.add_memory(db_session, user_id=1, category="insight", content="Churn rate increased in Q3", dataset_id=10)
+
         # Verify they are added to DB
         count = db_session.query(SemanticMemory).count()
         assert count == 2
-        
+
         # Search query matching "sales"
         results = await store.search_memory(db_session, user_id=1, query="sales metrics", dataset_id=10)
         assert len(results) > 0
@@ -102,17 +102,17 @@ def test_sql_security_sanitization():
     # Safe queries
     assert sanitize_and_validate_sql("SELECT * FROM users;") == "SELECT * FROM users;"
     assert sanitize_and_validate_sql("  SELECT count(id) FROM datasets; -- test comment") == "SELECT count(id) FROM datasets;"
-    
+
     # Toxic queries (should raise exceptions)
     with pytest.raises(SecurityAlertException):
         sanitize_and_validate_sql("DELETE FROM users;")
-        
+
     with pytest.raises(SecurityAlertException):
         sanitize_and_validate_sql("SELECT * FROM users; DROP TABLE user_dashboards;")
-        
+
     with pytest.raises(SecurityAlertException):
         sanitize_and_validate_sql("INSERT INTO datasets (name) VALUES ('x');")
-        
+
     with pytest.raises(SecurityAlertException):
         # Commands not starting with select
         sanitize_and_validate_sql("UPDATE users SET is_active = 0;")
@@ -123,13 +123,13 @@ def test_execute_read_only_sql(db_session):
     db_session.execute(text("CREATE TABLE test_users (id INTEGER PRIMARY KEY, email TEXT);"))
     db_session.execute(text("INSERT INTO test_users (email) VALUES ('test1@test.com'), ('test2@test.com');"))
     db_session.commit()
-    
+
     # Try safe SELECT
     res = DatabaseTools.execute_read_only_sql(db_session, "SELECT email FROM test_users ORDER BY email ASC;")
     assert res["success"] is True
     assert res["columns"] == ["email"]
     assert res["rows"] == [["test1@test.com"], ["test2@test.com"]]
-    
+
     # Try unsafe INSERT
     res_unsafe = DatabaseTools.execute_read_only_sql(db_session, "INSERT INTO test_users (email) VALUES ('toxic@test.com');")
     assert res_unsafe["success"] is False
@@ -154,10 +154,10 @@ This is a standard paragraph detailing analytics trends.
 def test_overlap_calculation():
     response = "The forecast prediction indicates a growth scenario based on statsmodels algorithms."
     context = "forecast prediction statsmodels algorithm time-series scenario projections"
-    
+
     overlap = AIEvaluator.calculate_overlap_coefficient(response, context)
     assert overlap > 0.4
-    
+
     # Complete non-overlap
     non_overlap = AIEvaluator.calculate_overlap_coefficient("Completely different topic of discussion.", "Sales, revenue, growth, metrics.")
     assert non_overlap == 0.0

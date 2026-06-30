@@ -1,17 +1,17 @@
+import io
 import os
 from typing import Any
 
 import numpy as np
 import polars as pl
 
-
-import io
 from ..storage.service import storage_service
+
 
 class AnalyticsEngine:
     def __init__(self, file_path: str):
         self.file_path = file_path
-        
+
         if file_path.startswith("minio://"):
             parts = file_path.replace("minio://", "").split("/", 1)
             bucket = parts[0]
@@ -22,7 +22,7 @@ class AnalyticsEngine:
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"Dataset file not found at {file_path}")
             self.df = pl.read_csv(file_path)
-            
+
         self.headers = self.df.columns
         self.num_rows = self.df.height
 

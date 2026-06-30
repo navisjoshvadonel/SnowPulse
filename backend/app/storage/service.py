@@ -1,11 +1,12 @@
 import io
-import os
 import logging
+import os
 from datetime import timedelta
-from typing import BinaryIO, Dict, Optional, Union
+from typing import BinaryIO
+
 from minio import Minio
-from minio.error import S3Error
 from minio.commonconfig import ENABLED
+from minio.error import S3Error
 
 logger = logging.getLogger("snowpulse.storage")
 
@@ -45,7 +46,7 @@ class StorageService:
                 if not self.client.bucket_exists(bucket):
                     self.client.make_bucket(bucket)
                     logger.info(f"Created MinIO bucket: '{bucket}'")
-                    
+
                     # Enable versioning on datasets and models
                     if bucket in ("datasets", "models"):
                         self.client.set_bucket_versioning(bucket, ENABLED)
@@ -57,10 +58,10 @@ class StorageService:
         self,
         bucket_name: str,
         object_name: str,
-        data: Union[BinaryIO, bytes],
+        data: BinaryIO | bytes,
         length: int = -1,
         content_type: str = "application/octet-stream",
-        metadata: Optional[Dict[str, str]] = None
+        metadata: dict[str, str] | None = None
     ) -> str:
         """
         Uploads an object to the specified bucket and returns its path key.

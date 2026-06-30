@@ -214,8 +214,40 @@ jobs:
       - name: Check Container Health
         run: |
           docker compose ps
-          docker compose exec -T backend curl -f http://localhost:8000/health/liveness || exit 1
-          docker compose exec -T backend curl -f http://localhost:8000/health/readiness || exit 1
+          echo "Checking Backend Liveness..."
+          max_attempts=12
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if docker compose exec -T backend curl -f http://localhost:8000/health/liveness 2>/dev/null; then
+              echo "✓ Backend liveness check passed"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "⏳ Attempt $attempt/$max_attempts..."
+            sleep 5
+          done
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Backend liveness check failed after $max_attempts attempts"
+            docker compose logs backend
+            exit 1
+          fi
+          
+          echo "Checking Backend Readiness..."
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if docker compose exec -T backend curl -f http://localhost:8000/health/readiness 2>/dev/null; then
+              echo "✓ Backend readiness check passed"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "⏳ Attempt $attempt/$max_attempts..."
+            sleep 5
+          done
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Backend readiness check failed after $max_attempts attempts"
+            docker compose logs backend
+            exit 1
+          fi
 
       - name: Verify Backend Logs
         run: |

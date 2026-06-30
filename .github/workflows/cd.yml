@@ -205,6 +205,8 @@ jobs:
   create-release:
     name: Create GitHub Release & Tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs: [ production-deployment-validation ]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:

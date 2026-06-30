@@ -37,7 +37,7 @@ services:
       - snowpulse-network
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: minio/minio:latest
     container_name: snowpulse-minio
     restart: unless-stopped
     ports:

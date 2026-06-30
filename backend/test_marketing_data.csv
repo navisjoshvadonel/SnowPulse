@@ -1,0 +1,19 @@
+Date,Revenue,Spend,Clicks,Conversions,Region,Campaign
+2024-01-01,12000,5000,1200,80,North America,Search Ads Alpha
+2024-01-01,8000,3000,900,60,Europe,Search Ads Alpha
+2024-02-01,15000,6000,1500,110,North America,Social Ads Beta
+2024-02-01,9500,4000,1100,75,Europe,Social Ads Beta
+2024-03-01,18000,7000,1800,140,North America,Search Ads Alpha
+2024-03-01,11000,4500,1300,90,Europe,Search Ads Alpha
+2024-04-01,22000,8000,2200,180,APAC,Video Promo Gamma
+2024-04-01,13000,5000,1400,95,Europe,Video Promo Gamma
+2024-05-01,26000,9000,2600,210,North America,Social Ads Beta
+2024-05-01,16000,6000,1700,120,APAC,Social Ads Beta
+2024-06-01,31000,11000,3100,250,North America,Search Ads Alpha
+2024-06-01,19000,7500,2000,150,APAC,Search Ads Alpha
+2024-07-01,29000,10500,2900,230,Europe,Video Promo Gamma
+2024-08-01,34000,12000,3400,280,North America,Social Ads Beta
+2024-09-01,32000,11500,3200,260,APAC,Video Promo Gamma
+2024-10-01,38000,13000,3800,310,North America,Search Ads Alpha
+2024-11-01,120000,15000,4500,420,North America,Holiday Special
+2024-12-01,42000,14000,4000,330,APAC,Social Ads Beta

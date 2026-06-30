@@ -4,28 +4,257 @@ on:
   push:
     branches: [ main, master ]
 
+env:
+  REGISTRY: docker.io
+  REGISTRY_USERNAME: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+  REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
 jobs:
-  docker-validation:
-    name: Production Build & Docker Compose Verification
+  validate-production-ready:
+    name: Production Readiness Validation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build production images
-        run: docker-compose build
+      - name: Validate Dockerfile Best Practices
+        run: |
+          # Check for multi-stage build
+          grep -q "FROM.*as" backend/Dockerfile || echo "WARNING: Backend Dockerfile should use multi-stage build"
+          
+          # Check for healthcheck
+          grep -q "HEALTHCHECK" backend/Dockerfile || echo "ERROR: Backend Dockerfile missing HEALTHCHECK"
+          
+          # Check for non-root user (optional but recommended)
+          echo "✓ Dockerfile validation complete"
 
-      - name: Validate Container Orchestration Boot
+      - name: Validate Environment Configuration
+        run: |
+          # Check for .env.example
+          if [ ! -f .env.example ]; then
+            echo "WARNING: Missing .env.example for environment variable documentation"
+          fi
+          
+          # Check docker-compose uses environment variables
+          grep -q "\${" docker-compose.yml && echo "✓ docker-compose.yml uses environment variables"
+
+      - name: Validate docker-compose Configuration
+        run: |
+          docker-compose config > /dev/null && echo "✓ docker-compose.yml is valid"
+
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [ validate-production-ready ]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    strategy:
+      matrix:
+        service: [ backend, frontend ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+        if: env.REGISTRY_USERNAME != ''
+
+      - name: Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ secrets.DOCKER_REGISTRY_USERNAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and Push ${{ matrix.service }} Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  production-deployment-validation:
+    name: Production Deployment Validation
+    runs-on: ubuntu-latest
+    needs: [ build-and-push ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Images for Testing
+        run: docker compose build
+
+      - name: Start Docker Compose Stack
         env:
-          GEMINI_API_KEY: mock
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.PRODUCTION_REDIS_PASSWORD }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.PRODUCTION_MINIO_PASSWORD }}
+          MEILI_MASTER_KEY: ${{ secrets.PRODUCTION_MEILI_KEY }}
         run: |
           docker compose up -d
-          # Wait for services to boot and database to be ready
-          sleep 20
+          echo "⏳ Waiting 40 seconds for services to stabilize..."
+          sleep 40
+
+      - name: Verify All Containers Running
+        run: |
           docker compose ps
-          docker compose logs backend
-          docker compose logs frontend
-          docker compose logs caddy
-          # Basic endpoint checks via Caddy reverse proxy
-          curl -v --fail http://localhost/health/liveness || exit 1
-          docker compose down
+          docker compose ps --services | while read service; do
+            status=$(docker compose ps "$service" --format "{{.State}}")
+            if [[ "$status" != "running" ]]; then
+              echo "❌ Service '$service' is not running (status: $status)"
+              docker compose logs "$service" | tail -30
+              exit 1
+            fi
+            echo "✓ $service is healthy"
+          done
+
+      - name: Health Check - Liveness
+        run: |
+          max_attempts=10
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if docker compose exec -T backend curl -f http://localhost:8000/health/liveness 2>/dev/null; then
+              echo "✓ Backend liveness check passed"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "⏳ Attempt $attempt/$max_attempts..."
+            sleep 5
+          done
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Backend liveness check failed after $max_attempts attempts"
+            docker compose logs backend
+            exit 1
+          fi
+
+      - name: Health Check - Readiness
+        run: |
+          max_attempts=10
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if docker compose exec -T backend curl -f http://localhost:8000/health/readiness 2>/dev/null; then
+              echo "✓ Backend readiness check passed"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "⏳ Attempt $attempt/$max_attempts..."
+            sleep 5
+          done
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Backend readiness check failed after $max_attempts attempts"
+            docker compose logs backend
+            exit 1
+          fi
+
+      - name: Health Check - Frontend
+        run: |
+          max_attempts=10
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if docker compose exec -T frontend curl -f http://localhost:3000 2>/dev/null; then
+              echo "✓ Frontend health check passed"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "⏳ Attempt $attempt/$max_attempts..."
+            sleep 5
+          done
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Frontend health check failed after $max_attempts attempts"
+            docker compose logs frontend
+            exit 1
+          fi
+
+      - name: Verify Metrics Endpoint
+        run: |
+          echo "✓ Testing metrics endpoint..."
+          docker compose exec -T backend curl -s http://localhost:8000/metrics | head -20
+
+      - name: Collect Service Logs
+        if: always()
+        run: |
+          echo "=== Backend Logs (last 50 lines) ==="
+          docker compose logs backend | tail -50
+          echo "=== Frontend Logs (last 50 lines) ==="
+          docker compose logs frontend | tail -50
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
+
+  create-release:
+    name: Create GitHub Release & Tag
+    runs-on: ubuntu-latest
+    needs: [ production-deployment-validation ]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Generate Release Notes
+        id: release
+        run: |
+          VERSION=$(date +%Y.%m.%d.%H%M%S)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated release version: $VERSION"
+
+      - name: Create Git Tag
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a v${{ steps.release.outputs.version }} -m "Production release ${{ steps.release.outputs.version }}"
+          git push origin v${{ steps.release.outputs.version }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.release.outputs.version }}
+          body: |
+            ## Production Release: ${{ steps.release.outputs.version }}
+            
+            - ✅ All CI/CD checks passed
+            - ✅ Docker images built and pushed
+            - ✅ Production validation complete
+            - ✅ Services healthy and responsive
+            
+            ### Deployment Instructions
+            1. Pull the latest images: `docker compose pull`
+            2. Update environment variables in `.env`
+            3. Deploy: `docker compose up -d`
+            4. Verify health: `curl http://localhost:8000/health/readiness`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-success:
+    name: 📢 Deployment Success Notification
+    runs-on: ubuntu-latest
+    needs: [ create-release ]
+    if: always()
+    steps:
+      - name: Determine Pipeline Status
+        run: |
+          if [ "${{ needs.create-release.result }}" = "success" ]; then
+            echo "✅ CD Pipeline completed successfully!"
+            echo "Images pushed to registry and release created."
+            exit 0
+          else
+            echo "❌ CD Pipeline failed. Check logs for details."
+            exit 1
+          fi

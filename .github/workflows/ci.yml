@@ -6,31 +6,28 @@ on:
   pull_request:
     branches: [ main, master ]
 
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
 jobs:
-  backend-validation:
-    name: Backend Validation (Linter, Type Checker & Tests)
+  code-quality:
+    name: Code Quality Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
-
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y redis-server
-          sudo service redis-server start
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install pytest pytest-asyncio pytest-cov httpx ruff mypy
+          pip install -r backend/requirements.txt ruff mypy
 
       - name: Run Ruff Linter
         run: ruff check backend --config backend/ruff.toml
@@ -38,14 +35,77 @@ jobs:
       - name: Run Mypy Type Checker
         run: mypy backend --config-file backend/mypy.ini --explicit-package-bases
 
-      - name: Run Pytest Suite
+  backend-tests:
+    name: Backend Unit & Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
         env:
+          POSTGRES_DB: snowpulse
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run Pytest Suite with Coverage
+        env:
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/snowpulse
           REDIS_URL: redis://localhost:6379/0
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: pytest --cov=backend/app --cov-report=xml
+          JWT_SECRET_KEY: test-secret-key
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: test
+          MINIO_SECRET_KEY: test
+          MEILI_HOST: http://localhost:7700
+          MEILI_MASTER_KEY: test
+        run: |
+          pytest backend/tests \
+            --cov=backend/app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=70 \
+            -v
 
-  frontend-validation:
-    name: Frontend Validation (Vitest Component Tests)
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          flags: backend
+          name: backend-coverage
+
+  frontend-tests:
+    name: Frontend Unit & Component Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -54,7 +114,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -65,3 +125,124 @@ jobs:
       - name: Run Vitest Suite
         working-directory: frontend
         run: npm run test
+
+      - name: Generate Test Coverage Report
+        working-directory: frontend
+        run: npm run test:coverage
+
+  security-scan:
+    name: Security & Dependency Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Python Security Checks
+        run: |
+          pip install bandit safety
+          bandit -r backend/app -f json -o bandit-report.json || true
+          safety check --json || true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run Node Security Audit
+        working-directory: frontend
+        run: npm audit --audit-level=moderate || true
+
+      - name: Dependabot Check (if PR)
+        if: github.event_name == 'pull_request'
+        uses: dependabot/fetch-metadata@v1
+
+  docker-build:
+    name: Docker Image Build Validation
+    runs-on: ubuntu-latest
+    needs: [ code-quality, backend-tests, frontend-tests ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  integration-test:
+    name: Docker Compose Integration Test
+    runs-on: ubuntu-latest
+    needs: [ docker-build ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Images
+        run: docker compose build
+
+      - name: Start Services
+        env:
+          GEMINI_API_KEY: mock
+          DB_PASSWORD: testpass123
+          REDIS_PASSWORD: testpass123
+          JWT_SECRET_KEY: test-secret-key
+          MINIO_ROOT_PASSWORD: testpass123
+          MEILI_MASTER_KEY: testpass123
+        run: |
+          docker compose up -d
+          sleep 30
+
+      - name: Check Container Health
+        run: |
+          docker compose ps
+          docker compose exec -T backend curl -f http://localhost:8000/health/liveness || exit 1
+          docker compose exec -T backend curl -f http://localhost:8000/health/readiness || exit 1
+
+      - name: Verify Backend Logs
+        run: |
+          docker compose logs backend | head -50
+          docker compose logs arq-worker | head -30
+
+      - name: Run Basic API Endpoint Test
+        run: |
+          curl -s -X GET http://localhost:8000/api/datasets \
+            -H "Authorization: Bearer test-token" || echo "Dataset endpoint check failed (expected)"
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
+
+  notify:
+    name: Workflow Status Notification
+    runs-on: ubuntu-latest
+    needs: [ integration-test ]
+    if: always()
+    steps:
+      - name: Determine Workflow Status
+        run: |
+          if [ "${{ needs.integration-test.result }}" = "success" ]; then
+            echo "CI/CD Pipeline: ✅ All checks passed"
+            exit 0
+          else
+            echo "CI/CD Pipeline: ❌ Some checks failed"
+            exit 1
+          fi

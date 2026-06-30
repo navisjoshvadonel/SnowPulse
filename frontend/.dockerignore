@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.gitignore
+.prettierrc
+README.md
+vitest.config.ts
+vitest.setup.ts
+tests

@@ -2,18 +2,23 @@ import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./snowpulse.db")
 
 # For SQLite, we need to allow multithreaded access
 connect_args = {}
+poolclass = None
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+    if DATABASE_URL == "sqlite:///:memory:":
+        poolclass = StaticPool
 
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    **({"poolclass": poolclass} if poolclass is not None else {})
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

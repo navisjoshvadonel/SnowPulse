@@ -12,12 +12,8 @@ os.environ["JWT_REFRESH_SECRET_KEY"] = "testrefreshsecretkeytestrefreshsecretkey
 os.environ["ENV"] = "testing"
 
 from backend.app.auth import create_access_token
-from backend.app.database import Base, get_db
+from backend.app.database import Base, get_db, engine, SessionLocal
 from backend.app.main import app
-
-# Setup test DB engine
-engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
@@ -29,7 +25,7 @@ def setup_db():
 def db():
     connection = engine.connect()
     transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
+    session = SessionLocal(bind=connection)
 
     # Pre-populate some tables if needed
     yield session

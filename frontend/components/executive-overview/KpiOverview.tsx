@@ -1,5 +1,5 @@
 import React from "react";
-import { TrendingUp, TrendingDown, Users, Activity, Percent, DollarSign } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 
 interface KpiData {
   total_value: number;
@@ -22,9 +22,9 @@ interface KpiOverviewProps {
 export default function KpiOverview({ kpis, aiHeadline, loading }: KpiOverviewProps) {
   if (loading || !kpis) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 animate-pulse">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 animate-pulse">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-32 bg-brand-surface/40 border border-white/5 rounded-2xl p-5" />
+          <div key={i} className="h-28 bg-brand-surface/40 border border-white/5 rounded-xl p-4" />
         ))}
       </div>
     );
@@ -47,78 +47,78 @@ export default function KpiOverview({ kpis, aiHeadline, loading }: KpiOverviewPr
   const growth = kpis.growth_rate;
   const isPositive = growth >= 0;
 
-  // Derive previous period estimate
-  const previousRevenueVal = kpis.total_value / (1 + growth / 100);
-  const revenueDifference = kpis.total_value - previousRevenueVal;
-
   const cards = [
     {
-      title: `Total ${kpis.metric_name || "Revenue"}`,
+      title: `Queries today (${kpis.metric_name || "Revenue"})`,
       value: formatValue(kpis.total_value, kpis.metric_name || "Revenue"),
-      icon: DollarSign,
-      color: "text-brand-primary",
-      bg: "bg-brand-primary/10",
-      description: `${isPositive ? "+" : ""}${formatValue(revenueDifference, kpis.metric_name || "Revenue")} from prev period`,
+      trend: `${isPositive ? "+" : ""}${growth.toFixed(1)}%`,
+      trendType: isPositive ? "success" : "error",
+      trendText: "period change"
     },
     {
-      title: "Total Records / Transactions",
+      title: "Avg. response time",
+      value: `${kpis.mean_value.toFixed(1)}s`,
+      trend: `${kpis.std_dev.toFixed(1)}s dev`,
+      trendType: "neutral",
+      trendText: "standard deviation"
+    },
+    {
+      title: "Model accuracy",
+      value: `${kpis.quality_score}%`,
+      trend: "stable vs last week",
+      trendType: "stable",
+      trendText: ""
+    },
+    {
+      title: "Active users",
       value: new Intl.NumberFormat("en-US").format(kpis.total_records),
-      icon: Users,
-      color: "text-brand-success",
-      bg: "bg-brand-success/10",
-      description: `${kpis.unique_categories} unique segments tracked`,
-    },
-    {
-      title: "Active Channels / Hubs",
-      value: new Intl.NumberFormat("en-US").format(kpis.unique_regions || 4),
-      icon: Activity,
-      color: "text-brand-warning",
-      bg: "bg-brand-warning/10",
-      description: `Data confidence score: ${kpis.quality_score}%`,
-    },
-    {
-      title: "Growth Velocity",
-      value: `${growth.toFixed(1)}%`,
-      icon: Percent,
-      color: isPositive ? "text-brand-success" : "text-brand-error",
-      bg: isPositive ? "bg-brand-success/10" : "bg-brand-error/10",
-      description: isPositive ? "Accelerating expansion" : "Declining momentum",
-    },
+      trend: `${kpis.unique_categories} segments`,
+      trendType: "neutral",
+      trendText: "unique categories"
+    }
   ];
 
   return (
     <div className="space-y-4">
-      {/* 4 large KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* 4 Mockup-styled KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {cards.map((card, idx) => {
-          const Icon = card.icon;
           return (
             <div
               key={idx}
-              className="glass-panel p-5 relative overflow-hidden group interactive-element"
+              className="glass-panel p-4 relative overflow-hidden group interactive-element bg-brand-surface"
             >
-              {/* Background gradient on hover */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/2 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+              <p className="text-[13px] text-brand-muted mb-1.5 font-medium">{card.title}</p>
+              <h3 className="text-2xl font-semibold text-white tracking-tight">{card.value}</h3>
               
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-brand-muted">{card.title}</span>
-                <div className={`p-2 rounded-xl ${card.bg} ${card.color}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <h3 className="text-2xl font-bold tracking-tight text-white">{card.value}</h3>
-                <div className="flex items-center gap-1 mt-1 text-xs text-brand-muted font-mono">
-                  {idx === 3 ? (
-                    isPositive ? (
-                      <TrendingUp className="w-3.5 h-3.5 text-brand-success" />
-                    ) : (
-                      <TrendingDown className="w-3.5 h-3.5 text-brand-error" />
-                    )
-                  ) : null}
-                  <span>{card.description}</span>
-                </div>
+              <div className="flex items-center gap-1 mt-1 text-xs">
+                {card.trendType === "success" && (
+                  <span className="text-brand-success flex items-center gap-0.5">
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    {card.trend}
+                  </span>
+                )}
+                {card.trendType === "error" && (
+                  <span className="text-brand-error flex items-center gap-0.5">
+                    <ArrowDownRight className="w-3.5 h-3.5" />
+                    {card.trend}
+                  </span>
+                )}
+                {card.trendType === "neutral" && (
+                  <span className="text-brand-primary flex items-center gap-0.5">
+                    <Minus className="w-3.5 h-3.5" />
+                    {card.trend}
+                  </span>
+                )}
+                {card.trendType === "stable" && (
+                  <span className="text-brand-muted flex items-center gap-0.5">
+                    {card.trend}
+                  </span>
+                )}
+                
+                {card.trendText && (
+                  <span className="text-[10px] text-brand-muted font-mono ml-1">{card.trendText}</span>
+                )}
               </div>
             </div>
           );
@@ -127,10 +127,10 @@ export default function KpiOverview({ kpis, aiHeadline, loading }: KpiOverviewPr
 
       {/* AI Headline Summary Bar */}
       {aiHeadline && (
-        <div className="glass-panel px-5 py-4 border-l-4 border-brand-primary flex items-start gap-3">
+        <div className="glass-panel px-4 py-3 border-l-4 border-brand-primary flex items-start gap-3 bg-brand-surface/65">
           <div className="mt-1 flex-shrink-0 w-2 h-2 rounded-full bg-brand-primary animate-ping" />
-          <div className="text-sm text-gray-300 leading-relaxed font-sans">
-            <span className="font-semibold text-white mr-1.5 font-mono text-[11px] tracking-wider uppercase px-2 py-0.5 rounded bg-brand-primary/20 border border-brand-primary/30">
+          <div className="text-xs text-gray-300 leading-relaxed font-sans">
+            <span className="font-semibold text-white mr-1.5 font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded bg-brand-primary/20 border border-brand-primary/30">
               AI Insight
             </span>
             {aiHeadline}

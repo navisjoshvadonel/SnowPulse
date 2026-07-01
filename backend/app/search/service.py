@@ -18,7 +18,8 @@ class SearchService:
         try:
             self.client = meilisearch.Client(MEILI_HOST, MEILI_MASTER_KEY, timeout=2.0)
             self.enabled = True
-            self.bootstrap_indices()
+            if os.getenv("ENV") != "testing":
+                self.bootstrap_indices()
             logger.info(f"Meilisearch client connected to host: {MEILI_HOST}")
         except Exception as e:
             self.client = None

@@ -7,6 +7,7 @@ from typing import BinaryIO
 from minio import Minio
 from minio.commonconfig import ENABLED
 from minio.error import S3Error
+import urllib3
 
 logger = logging.getLogger("snowpulse.storage")
 
@@ -22,15 +23,22 @@ class StorageService:
     """
     def __init__(self):
         try:
+            # Set a connection timeout of 2 seconds to fail fast if MinIO is offline
+            timeout = urllib3.Timeout(connect=2.0, read=5.0)
+            retries = urllib3.Retry(total=2, backoff_factor=0.2)
+            http_client = urllib3.PoolManager(timeout=timeout, retries=retries)
+
             self.client = Minio(
                 MINIO_ENDPOINT,
                 access_key=MINIO_ACCESS_KEY,
                 secret_key=MINIO_SECRET_KEY,
-                secure=MINIO_SECURE
+                secure=MINIO_SECURE,
+                http_client=http_client
             )
             self.enabled = True
             logger.info(f"MinIO storage client connected to endpoint: {MINIO_ENDPOINT}")
-            self.bootstrap_buckets()
+            if os.getenv("ENV") != "testing":
+                self.bootstrap_buckets()
         except Exception as e:
             self.client = None
             self.enabled = False

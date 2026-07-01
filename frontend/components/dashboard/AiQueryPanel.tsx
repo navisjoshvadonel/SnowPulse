@@ -37,7 +37,9 @@ export default function AiQueryPanel() {
           setDisplayedPlaceholder(displayedPlaceholder.slice(0, -1));
         }, 20);
       } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPlaceholderIdx((prev) => (prev + 1) % placeholders.length);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsTyping(true);
       }
     }

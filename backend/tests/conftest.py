@@ -2,8 +2,6 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 # Configure testing env vars
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -12,8 +10,9 @@ os.environ["JWT_REFRESH_SECRET_KEY"] = "testrefreshsecretkeytestrefreshsecretkey
 os.environ["ENV"] = "testing"
 
 from backend.app.auth import create_access_token
-from backend.app.database import Base, get_db, engine, SessionLocal
+from backend.app.database import Base, SessionLocal, engine, get_db
 from backend.app.main import app
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():

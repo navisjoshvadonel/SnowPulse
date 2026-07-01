@@ -4,10 +4,10 @@ import os
 from datetime import timedelta
 from typing import BinaryIO
 
+import urllib3
 from minio import Minio
 from minio.commonconfig import ENABLED
 from minio.error import S3Error
-import urllib3
 
 logger = logging.getLogger("snowpulse.storage")
 

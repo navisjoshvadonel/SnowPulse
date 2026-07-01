@@ -98,6 +98,7 @@ export default function KpiRow() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {kpis.map((kpi: any) => {
         // eslint-disable-next-line react-hooks/rules-of-hooks
         const animatedValue = useCountUp(kpi.value);

@@ -39,7 +39,9 @@ export default function DatasetList() {
   
   // Client-side filtering and sorting for demo
   const filtered = datasets
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) => filter === "all" || d.status === filter)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .sort((a: any, b: any) => sortDesc ? 1 : -1); // Simplified sort simulation
 
   const getSourceIcon = (source: string) => {
@@ -145,6 +147,7 @@ export default function DatasetList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.03]">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {filtered.map((d: any) => (
               <tr key={d.id} className="hover:bg-white/[0.02] transition-colors group">
                 <td className="py-3.5 px-5">

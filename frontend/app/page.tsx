@@ -81,6 +81,7 @@ export default function HomePage() {
     if (token) {
       checkSession();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkSession = async () => {

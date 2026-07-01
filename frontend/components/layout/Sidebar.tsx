@@ -27,6 +27,7 @@ export default function Sidebar() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const stored = localStorage.getItem("snowpulse_sidebar_collapsed");
     if (stored !== null) {

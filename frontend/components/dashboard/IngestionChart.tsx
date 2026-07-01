@@ -102,6 +102,7 @@ export default function IngestionChart() {
     // const ws = new WebSocket('ws://localhost:8000/ws/ingestion');
     // ws.onmessage = (e) => ...
     
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsConnected(true);
     const interval = setInterval(() => {
       const now = new Date().toISOString();

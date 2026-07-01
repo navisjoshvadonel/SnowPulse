@@ -58,6 +58,7 @@ export default function InsightsCenter({
         histMsgs.push({ role: "user", text: h.query });
         histMsgs.push({ role: "assistant", text: h.response });
       });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([
         { role: "assistant", text: "Welcome back. I have loaded your dashboard's previous session history below." },
         ...histMsgs

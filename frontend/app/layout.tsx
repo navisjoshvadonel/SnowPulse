@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 // Layout Components
@@ -8,15 +9,14 @@ import TopNavBar from "@/components/layout/TopNavBar";
 import Sidebar from "@/components/layout/Sidebar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// NOTE: switched from next/font/google to the `geist` package.
+// next/font/google fetches font files from fonts.googleapis.com at BUILD
+// time — this breaks on any network-restricted CI runner or Docker
+// build sandbox (exactly what was failing here). The `geist` package
+// ships the same fonts as local files, so the build never touches the
+// network.
+const geistSans = GeistSans;
+const geistMono = GeistMono;
 
 export const metadata: Metadata = {
   title: "SnowPulse Dashboard",

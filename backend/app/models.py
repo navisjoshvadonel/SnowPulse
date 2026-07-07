@@ -15,6 +15,8 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    failed_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)
 
     # GDPR Privacy Purge - CASCADE deletes dashboard instances and token sessions
     dashboards = relationship("UserDashboard", back_populates="owner", cascade="all, delete-orphan")

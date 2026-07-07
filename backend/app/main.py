@@ -1,9 +1,11 @@
 import datetime
+import os
 import time
 import uuid
 from typing import Any
 
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -57,8 +59,7 @@ gemini_service = GeminiService()
 class QueryRequest(BaseModel):
     query: str
 
-# Initialize database schemas
-Base.metadata.create_all(bind=engine)
+# Database schema now managed by Alembic
 
 app = FastAPI(
     title="SnowPulse AI Secure Backend",
@@ -71,13 +72,25 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS setup: allow credentials to enable secure HttpOnly cookie transport
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080"
+).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Something went wrong. Please try again."},
+    )
 
 from .ai.routes import router as ai_router
 
@@ -125,6 +138,17 @@ def bootstrap_shared_datasets():
     On startup, verify if some shared datasets exist.
     If not, create them so multiple tenants have shared access to the same analytics datasets.
     """
+    if os.getenv("ENV") == "production":
+        unsafe_defaults = {
+            "DB_PASSWORD": "change_me_in_production",
+            "REDIS_PASSWORD": "change_me_in_production",
+            "MEILI_MASTER_KEY": "change_me_in_production",
+            "MINIO_ROOT_PASSWORD": "change_me_in_production",
+            "GRAFANA_PASSWORD": "admin",
+        }
+        for key, bad_value in unsafe_defaults.items():
+            if os.getenv(key) == bad_value:
+                raise RuntimeError(f"Refusing to start: {key} is still the default placeholder.")
     db = next(get_db())
     try:
         if db.query(Dataset).count() == 0:
@@ -187,12 +211,30 @@ def login_user(
     and sets a long-lived refresh token in an HttpOnly cookie.
     """
     user = db.query(User).filter(User.email == form_data.username).first()
+
+    if user and user.locked_until and user.locked_until > datetime.datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account locked due to too many failed attempts. Try again later."
+        )
+
     if not user or not verify_password(form_data.password, user.hashed_password):
+        if user:
+            user.failed_attempts = (user.failed_attempts or 0) + 1
+            if user.failed_attempts >= 5:
+                user.locked_until = datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+            db.commit()
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    if user.failed_attempts > 0 or user.locked_until is not None:
+        user.failed_attempts = 0
+        user.locked_until = None
+        db.commit()
 
     # 1. Create short-lived access token
     access_token = create_access_token(data={"sub": user.email})
@@ -217,7 +259,9 @@ def login_user(
 
 
 @app.post("/api/auth/refresh", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def refresh_access_token(
+    request: Request,
     response: Response,
     refresh_token: str | None = Cookie(None),
     db: Session = Depends(get_db)

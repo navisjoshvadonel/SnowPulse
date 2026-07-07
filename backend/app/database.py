@@ -6,6 +6,9 @@ from sqlalchemy.pool import StaticPool
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./snowpulse.db")
 
+if os.getenv("ENV") == "production" and DATABASE_URL.startswith("sqlite"):
+    raise RuntimeError("Refusing to run SQLite in production. Set DATABASE_URL to Postgres.")
+
 # For SQLite, we need to allow multithreaded access
 connect_args = {}
 poolclass = None

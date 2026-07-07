@@ -13,7 +13,7 @@ COPY package*.json ./
 # Use BuildKit cache mount for npm downloads
 RUN --mount=type=cache,target=/root/.npm \
     npm config set cache /root/.npm && \
-    npm ci --omit=dev
+    npm ci
 
 # Copy source code
 COPY . .

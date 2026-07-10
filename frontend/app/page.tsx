@@ -75,27 +75,34 @@ export default function HomePage() {
   const [uploading, setUploading] = useState(false);
   const [showFullInsightsModal, setShowFullInsightsModal] = useState(false);
 
-  // Auto session check on mount
-  useEffect(() => {
-    const token = localStorage.getItem("snow_access_token");
-    if (token) {
-      checkSession();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleSelectDataset = async (datasetId: number, name: string) => {
+    setSelectedDatasetId(datasetId);
+    setSelectedDatasetName(name);
+    setSelectedRegion(null);
+    setLoadingDashboard(true);
 
-  const checkSession = async () => {
     try {
-      const res = await apiService.getMe();
-      if (res.ok) {
-        const userData = await res.json();
-        setUser({ email: userData.email });
-        fetchDatasets();
-      } else {
-        localStorage.removeItem("snow_access_token");
+      // 1. Fetch analytical calculations
+      const sumRes = await apiService.getAnalyticsSummary(datasetId);
+      if (sumRes.ok) {
+        const summary = await sumRes.json();
+        setKpis(summary.kpis);
+        setTrends(summary.trends);
+        setGeoData(summary.geo);
+        setAnomalies(summary.anomalies);
+        setCorrelations(summary.correlations);
       }
-    } catch (e) {
-      console.error("Session check failed", e);
+
+      // 2. Fetch AI-generated insights
+      const insRes = await apiService.getAnalyticsInsights(datasetId);
+      if (insRes.ok) {
+        const insights = await insRes.json();
+        setAiInsights(insights);
+      }
+    } catch (err) {
+      console.error("Dashboard render failed", err);
+    } finally {
+      setLoadingDashboard(false);
     }
   };
 
@@ -127,6 +134,46 @@ export default function HomePage() {
       setLoadingDatasets(false);
     }
   };
+
+  const checkSession = async () => {
+    try {
+      const res = await apiService.getMe();
+      if (res.ok) {
+        const userData = await res.json();
+        setUser({ email: userData.email });
+        fetchDatasets();
+      } else {
+        localStorage.removeItem("snow_access_token");
+      }
+    } catch (e) {
+      console.error("Session check failed", e);
+    }
+  };
+
+  // Auto session check on mount. Runs once: this only ever needs to fire
+  // when the component first mounts and a token is already present in
+  // storage (e.g. the user refreshed the page). checkSession/fetchDatasets
+  // are plain closures re-created every render, not stable references, so
+  // they're deliberately excluded from the dep array — including them
+  // would re-run this on every render instead of only on mount.
+  //
+  // react-hooks/set-state-in-effect fires here because checkSession chains
+  // setUser -> fetchDatasets -> several more setState calls. That's a
+  // legitimate bounded "check auth, then load initial data" boot sequence,
+  // not an update loop: it runs exactly once, only on mount, and only
+  // when a token already exists. The rule's real recommendation is to
+  // replace manual effect-driven fetching with a data library — this repo
+  // already depends on `swr`, so migrating this flow (and fetchDatasets/
+  // handleSelectDataset) to useSWR is the correct long-term fix and would
+  // remove the need for this suppression entirely.
+  useEffect(() => {
+    const token = localStorage.getItem("snow_access_token");
+    if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      checkSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,37 +292,6 @@ export default function HomePage() {
       setUploadError("Network connection error uploading dataset.");
     } finally {
       setUploading(false);
-    }
-  };
-
-  const handleSelectDataset = async (datasetId: number, name: string) => {
-    setSelectedDatasetId(datasetId);
-    setSelectedDatasetName(name);
-    setSelectedRegion(null);
-    setLoadingDashboard(true);
-
-    try {
-      // 1. Fetch analytical calculations
-      const sumRes = await apiService.getAnalyticsSummary(datasetId);
-      if (sumRes.ok) {
-        const summary = await sumRes.json();
-        setKpis(summary.kpis);
-        setTrends(summary.trends);
-        setGeoData(summary.geo);
-        setAnomalies(summary.anomalies);
-        setCorrelations(summary.correlations);
-      }
-
-      // 2. Fetch AI-generated insights
-      const insRes = await apiService.getAnalyticsInsights(datasetId);
-      if (insRes.ok) {
-        const insights = await insRes.json();
-        setAiInsights(insights);
-      }
-    } catch (err) {
-      console.error("Dashboard render failed", err);
-    } finally {
-      setLoadingDashboard(false);
     }
   };
 

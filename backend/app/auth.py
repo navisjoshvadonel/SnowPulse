@@ -14,6 +14,7 @@ import bcrypt
 from fastapi import Response
 from jose import jwt
 
+
 def _require_secret(env_name: str) -> str:
     value = os.getenv(env_name)
     if not value or len(value) < 32:

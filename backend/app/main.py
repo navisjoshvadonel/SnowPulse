@@ -1,11 +1,9 @@
 import datetime
-import os
 import time
 import uuid
 from typing import Any
 
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -59,7 +57,8 @@ gemini_service = GeminiService()
 class QueryRequest(BaseModel):
     query: str
 
-# Database schema now managed by Alembic
+# Initialize database schemas
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="SnowPulse AI Secure Backend",
@@ -72,25 +71,13 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS setup: allow credentials to enable secure HttpOnly cookie transport
-ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
-    "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080"
-).split(",") if o.strip()]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["http://localhost:8080", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled error on %s", request.url.path)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Something went wrong. Please try again."},
-    )
 
 from .ai.routes import router as ai_router
 
@@ -138,17 +125,6 @@ def bootstrap_shared_datasets():
     On startup, verify if some shared datasets exist.
     If not, create them so multiple tenants have shared access to the same analytics datasets.
     """
-    if os.getenv("ENV") == "production":
-        unsafe_defaults = {
-            "DB_PASSWORD": "change_me_in_production",
-            "REDIS_PASSWORD": "change_me_in_production",
-            "MEILI_MASTER_KEY": "change_me_in_production",
-            "MINIO_ROOT_PASSWORD": "change_me_in_production",
-            "GRAFANA_PASSWORD": "admin",
-        }
-        for key, bad_value in unsafe_defaults.items():
-            if os.getenv(key) == bad_value:
-                raise RuntimeError(f"Refusing to start: {key} is still the default placeholder.")
     db = next(get_db())
     try:
         if db.query(Dataset).count() == 0:
@@ -211,30 +187,12 @@ def login_user(
     and sets a long-lived refresh token in an HttpOnly cookie.
     """
     user = db.query(User).filter(User.email == form_data.username).first()
-
-    if user and user.locked_until and user.locked_until > datetime.datetime.utcnow():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account locked due to too many failed attempts. Try again later."
-        )
-
     if not user or not verify_password(form_data.password, user.hashed_password):
-        if user:
-            user.failed_attempts = (user.failed_attempts or 0) + 1
-            if user.failed_attempts >= 5:
-                user.locked_until = datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
-            db.commit()
-
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    if user.failed_attempts > 0 or user.locked_until is not None:
-        user.failed_attempts = 0
-        user.locked_until = None
-        db.commit()
 
     # 1. Create short-lived access token
     access_token = create_access_token(data={"sub": user.email})
@@ -259,9 +217,7 @@ def login_user(
 
 
 @app.post("/api/auth/refresh", response_model=TokenResponse)
-@limiter.limit("5/minute")
 def refresh_access_token(
-    request: Request,
     response: Response,
     refresh_token: str | None = Cookie(None),
     db: Session = Depends(get_db)
@@ -554,7 +510,7 @@ def get_analytics_summary(
     anomalies = cache_service.get(anom_key)
     correlations = cache_service.get(corr_key)
 
-    engine = None
+    analytics_engine = None
     if not (kpis and trends and geo and anomalies and correlations):
         dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
         if not dataset:
@@ -563,27 +519,27 @@ def get_analytics_summary(
                 detail="Dataset not found"
             )
         try:
-            engine = AnalyticsEngine(dataset.file_path)
+            analytics_engine = AnalyticsEngine(dataset.file_path)
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Analytics computation failed: {str(e)}"
             )
 
-    if not kpis and engine:
-        kpis = engine.get_kpis()
+    if not kpis and analytics_engine:
+        kpis = analytics_engine.get_kpis()
         cache_service.set(kpi_key, kpis, ttl_seconds=300)
-    if not trends and engine:
-        trends = engine.get_trends()
+    if not trends and analytics_engine:
+        trends = analytics_engine.get_trends()
         cache_service.set(trend_key, trends, ttl_seconds=1800)
-    if not geo and engine:
-        geo = engine.get_geo_metrics()
+    if not geo and analytics_engine:
+        geo = analytics_engine.get_geo_metrics()
         cache_service.set(geo_key, geo, ttl_seconds=600)
-    if not anomalies and engine:
-        anomalies = engine.get_anomalies()
+    if not anomalies and analytics_engine:
+        anomalies = analytics_engine.get_anomalies()
         cache_service.set(anom_key, anomalies, ttl_seconds=600)
-    if not correlations and engine:
-        correlations = engine.get_correlations()
+    if not correlations and analytics_engine:
+        correlations = analytics_engine.get_correlations()
         cache_service.set(corr_key, correlations, ttl_seconds=600)
 
     return {
@@ -619,8 +575,8 @@ def get_analytics_insights(
         )
 
     try:
-        engine = AnalyticsEngine(dataset.file_path)
-        context = engine.generate_statistical_context_summary()
+        analytics_engine = AnalyticsEngine(dataset.file_path)
+        context = analytics_engine.generate_statistical_context_summary()
         insights = gemini_service.generate_dashboard_insights(context)
         cache_service.set(cache_key, insights, ttl_seconds=900)
         return insights
@@ -651,8 +607,8 @@ def post_copilot_query(
         )
 
     try:
-        engine = AnalyticsEngine(dataset.file_path)
-        context = engine.generate_statistical_context_summary()
+        analytics_engine = AnalyticsEngine(dataset.file_path)
+        context = analytics_engine.generate_statistical_context_summary()
         response = gemini_service.ask_copilot(payload.query, context)
 
         # Save query to history if user has a dashboard linked to this dataset

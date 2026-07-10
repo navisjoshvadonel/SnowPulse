@@ -119,35 +119,6 @@ async def log_request_middleware(request: Request, call_next):
     return response
 
 
-@app.on_event("startup")
-def bootstrap_shared_datasets():
-    """
-    On startup, verify if some shared datasets exist.
-    If not, create them so multiple tenants have shared access to the same analytics datasets.
-    """
-    db = next(get_db())
-    try:
-        if db.query(Dataset).count() == 0:
-            default_datasets = [
-                Dataset(
-                    name="Global Sales Performance",
-                    description="Standard transactions and regional metrics dataset containing columns for Date, Revenue, and Outliers.",
-                    file_path="./test_sales_data.csv"
-                ),
-                Dataset(
-                    name="Marketing Operations Matrix",
-                    description="Shared marketing dataset containing campaign spend statistics, click-through rates, and conversion metrics.",
-                    file_path="./test_marketing_data.csv"
-                )
-            ]
-            db.add_all(default_datasets)
-            db.commit()
-    except Exception as e:
-        print(f"Error bootstrapping data: {e}")
-    finally:
-        db.close()
-
-
 # --- AUTHENTICATION ENDPOINTS ---
 
 @app.post("/api/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -298,10 +269,37 @@ def get_datasets(
     db: Session = Depends(get_db)
 ):
     """
-    Fetch all shared datasets.
-    Requires any active registered user credentials to read metadata.
+    Fetch user's private datasets.
     """
-    return db.query(Dataset).all()
+    return db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
+
+
+@app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dataset(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a specific dataset and its physical file if the user owns it.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    # Delete from MinIO
+    if dataset.file_path.startswith("minio://datasets/"):
+        filename = dataset.file_path.replace("minio://datasets/", "")
+        try:
+            storage_service.delete_file("datasets", filename)
+        except Exception as e:
+            logger.warning(f"Failed to delete file {filename} from storage: {e}")
+
+    db.delete(dataset)
+    db.commit()
+    return {"detail": "Dataset deleted"}
 
 
 @app.get("/api/dashboards", response_model=list[DashboardResponse])
@@ -463,6 +461,7 @@ async def upload_dataset(
 
     # 2. Save metadata in DB
     db_dataset = Dataset(
+        owner_id=current_user.id,
         name=file.filename.rsplit('.', 1)[0],
         description=f"Uploaded by {current_user.email} (In-flight validation)",
         file_path=f"minio://datasets/{file_key}"
@@ -512,7 +511,9 @@ def get_analytics_summary(
 
     analytics_engine = None
     if not (kpis and trends and geo and anomalies and correlations):
-        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+        dataset = db.query(Dataset).filter(
+            Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+        ).first()
         if not dataset:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -567,7 +568,9 @@ def get_analytics_insights(
     if insights:
         return insights
 
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -599,7 +602,9 @@ def post_copilot_query(
     """
     Pose natural language queries to the Gemini Copilot.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -810,7 +815,9 @@ async def trigger_forecast_training(
     """
     Trigger time-series forecast model training for a dataset as a background task.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -836,7 +843,9 @@ def get_forecast_predictions(
     """
     Retrieve future forecast projections and explanations using the best trained model.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -866,7 +875,9 @@ async def trigger_ml_training(
     """
     Trigger training for a specific Scikit-Learn task (clustering, classification, regression, anomalies) as a background task.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -892,7 +903,9 @@ def run_ml_inference(
     """
     Serve predictions using the latest trained model registered for a task type.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -921,7 +934,9 @@ def get_dataset_insights(
     """
     Retrieve all structured, categorized insights and actionable recommendations for a dataset.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -937,7 +952,9 @@ async def trigger_insights_generation(
     """
     Manually enqueue a background job to run analytical insight scans and recommendations.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

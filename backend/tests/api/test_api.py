@@ -45,6 +45,7 @@ def test_dashboard_tenant_isolation(client, db, test_user, auth_headers):
 
     # Create dataset
     dataset = Dataset(
+        owner_id=test_user.id,
         name="test_sales_data.csv",
         file_path="test_sales_data.csv"
     )
@@ -85,6 +86,7 @@ def test_dashboard_tenant_isolation(client, db, test_user, auth_headers):
 def test_analytics_summary_with_real_csv(client, db, test_user, auth_headers):
     # Register dataset in DB pointing to real local test_sales_data.csv
     dataset = Dataset(
+        owner_id=test_user.id,
         name="test_sales_data.csv",
         file_path="test_sales_data.csv"
     )
@@ -104,6 +106,7 @@ def test_analytics_summary_with_real_csv(client, db, test_user, auth_headers):
 def test_gdpr_forget_me(client, db, test_user, auth_headers):
     # Create dataset and dashboard for test_user
     dataset = Dataset(
+        owner_id=test_user.id,
         name="test_sales_data.csv",
         file_path="test_sales_data.csv"
     )

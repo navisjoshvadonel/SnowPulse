@@ -21,18 +21,21 @@ class User(Base):
     # GDPR Privacy Purge - CASCADE deletes dashboard instances and token sessions
     dashboards = relationship("UserDashboard", back_populates="owner", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    datasets = relationship("Dataset", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Dataset(Base):
     __tablename__ = "datasets"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, index=True, nullable=False)
     description = Column(String, nullable=True)
     file_path = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    # Shared relationship - multiple dashboards can query/reference the same dataset
+    # Relationships
+    owner = relationship("User", back_populates="datasets")
     dashboards = relationship("UserDashboard", back_populates="dataset")
     insights = relationship("Insight", back_populates="dataset", cascade="all, delete-orphan")
 

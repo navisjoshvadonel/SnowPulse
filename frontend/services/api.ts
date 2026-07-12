@@ -84,6 +84,10 @@ export const apiService = {
     return fetchAPI("/api/datasets");
   },
 
+  async getDatasetSchema(datasetId: number) {
+    return fetchAPI(`/api/datasets/${datasetId}/schema`);
+  },
+
   async uploadDataset(file: File) {
     const formData = new FormData();
     formData.append("file", file);
@@ -93,6 +97,24 @@ export const apiService = {
       body: formData,
     });
   },
+
+  // Forecasting
+  async getForecastPredict(datasetId: number, steps: number = 30) {
+    return fetchAPI(`/api/forecast/predict/${datasetId}?steps=${steps}`);
+  },
+
+  async trainForecast(datasetId: number, targetCol: string, steps: number = 30) {
+    return fetchAPI(
+      `/api/forecast/train/${datasetId}?target_col=${encodeURIComponent(targetCol)}&steps=${steps}`,
+      { method: "POST" }
+    );
+  },
+
+  // ML training history / scores
+  async getMlHistory(datasetId: number, taskType: string) {
+    return fetchAPI(`/api/ml/history/${datasetId}?task_type=${encodeURIComponent(taskType)}`);
+  },
+
 
   // Dashboards
   async getDashboards() {

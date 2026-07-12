@@ -4,8 +4,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-ENV NEXT_TELEMETRY_DISABLED=1 \
-    NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copy package files first for better cache layer
 COPY package*.json ./

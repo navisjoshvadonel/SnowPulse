@@ -5,7 +5,6 @@ import {
   LayoutDashboard, 
   Database, 
   BrainCircuit, 
-  GitMerge, 
   Activity, 
   ChevronLeft, 
   ChevronRight,
@@ -13,53 +12,60 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const navItems = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "datasets", label: "Datasets", icon: Database },
-  { id: "ai-query", label: "AI Query", icon: BrainCircuit },
-  { id: "pipelines", label: "Pipelines", icon: GitMerge },
-  { id: "health", label: "System Health", icon: Activity },
+export type SnowSection = "dashboard" | "dataset-overview" | "snow-ai" | "prediction";
+
+interface SidebarProps {
+  active: SnowSection;
+  onNavigate: (section: SnowSection) => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}
+
+const navItems: { id: SnowSection; label: string; icon: React.ElementType }[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "dataset-overview", label: "Dataset Overview", icon: Database },
+  { id: "snow-ai", label: "Snow AI", icon: BrainCircuit },
+  { id: "prediction", label: "Future Prediction", icon: Activity },
 ];
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [activeItem, setActiveItem] = useState("overview");
+export default function Sidebar({ active, onNavigate, collapsed, onToggleCollapsed }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-    const stored = localStorage.getItem("snowpulse_sidebar_collapsed");
-    if (stored !== null) {
-      setCollapsed(stored === "true");
-    }
+    const handle = requestAnimationFrame(() => {
+      setMounted(true);
+    });
+    return () => cancelAnimationFrame(handle);
   }, []);
 
-  const toggleCollapsed = () => {
-    const newVal = !collapsed;
-    setCollapsed(newVal);
-    localStorage.setItem("snowpulse_sidebar_collapsed", String(newVal));
-  };
+  const width = collapsed ? 64 : 220;
 
   // Prevent hydration mismatch on initial render
-  if (!mounted) return <div className="fixed top-[64px] left-0 bottom-[48px] w-[220px] bg-white/[0.02]" />;
+  if (!mounted) {
+    return (
+      <div 
+        className="fixed top-[64px] left-0 bottom-[48px] bg-white/[0.02] border-r border-white/[0.08]" 
+        style={{ width }} 
+      />
+    );
+  }
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 64 : 220 }}
+      animate={{ width }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="fixed top-[64px] left-0 bottom-[48px] z-30 bg-white/[0.02] backdrop-blur-md border-r border-white/[0.08] flex flex-col justify-between overflow-hidden"
     >
       <div className="py-6 flex flex-col gap-2 px-3">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeItem === item.id;
+          const isActive = active === item.id;
           
           return (
             <button
               key={item.id}
-              onClick={() => setActiveItem(item.id)}
+              onClick={() => onNavigate(item.id)}
               className={`
                 relative flex items-center h-10 rounded-lg cursor-pointer transition-all duration-200 group
                 ${collapsed ? 'justify-center px-0' : 'px-3'}
@@ -111,7 +117,7 @@ export default function Sidebar() {
 
         {/* Collapse Toggle */}
         <button
-          onClick={toggleCollapsed}
+          onClick={onToggleCollapsed}
           className={`
             flex items-center h-8 rounded-lg cursor-pointer transition-all duration-200 text-white/40 hover:text-white/70 hover:bg-white/[0.04]
             ${collapsed ? 'justify-center px-0' : 'px-3'}

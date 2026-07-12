@@ -6,7 +6,6 @@ import "./globals.css";
 // Layout Components
 import AmbientBackground from "@/components/layout/AmbientBackground";
 import TopNavBar from "@/components/layout/TopNavBar";
-import Sidebar from "@/components/layout/Sidebar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 
 // NOTE: switched from next/font/google to the `geist` package.
@@ -36,10 +35,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col text-white bg-black">
         <AmbientBackground />
         <TopNavBar />
-        <Sidebar />
         
-        {/* Main Content Area - padded to avoid nav/sidebar/footer */}
-        <main className="flex-1 relative z-10 pt-[64px] pb-[48px] pl-[64px] lg:pl-[220px] transition-all duration-300">
+        {/* Main Content Area - padded to avoid nav/footer */}
+        <main className="flex-1 relative z-10 pt-[64px] pb-[48px] transition-all duration-300">
           {children}
         </main>
         

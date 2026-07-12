@@ -4,18 +4,47 @@ import HomePage from '@/app/page'
 import React from 'react'
 import { apiService } from '@/services/api'
 
-// Mock Lucide icons
-vi.mock('lucide-react', () => ({
-  Sparkles: () => <div data-testid="icon-sparkles" />,
-  Upload: () => <div data-testid="icon-upload" />,
-  FileText: () => <div data-testid="icon-filetext" />,
-  ChevronRight: () => <div data-testid="icon-chevronright" />,
-  LogOut: () => <div data-testid="icon-logout" />,
-  Trash2: () => <div data-testid="icon-trash" />,
-  BrainCircuit: () => <div data-testid="icon-braincircuit" />,
-  RefreshCw: () => <div data-testid="icon-refresh" />,
-  Layers: () => <div data-testid="icon-layers" />,
-}))
+// Mock Lucide icons statically so Vitest registers the exports
+vi.mock('lucide-react', () => {
+  const React = require('react');
+  const mockExports: Record<string, any> = {};
+  const icons = [
+    'Calendar', 'RefreshCw', 'Search', 'Bell', 'ChevronDown', 'User', 'Settings', 'LogOut',
+    'Activity', 'Database', 'Server', 'ExternalLink', 'Globe', 'Filter', 'ArrowUpRight',
+    'ArrowDownRight', 'Minus', 'Brain', 'Target', 'ServerCog', 'Hash', 'Tag', 'MapPin',
+    'AlertCircle', 'Sparkles', 'Send', 'Bot', 'Loader2', 'AlertTriangle', 'TrendingUp',
+    'MessageSquare', 'CheckSquare', 'BrainCircuit', 'FileText', 'ChevronRight', 'ChevronLeft',
+    'Trash2', 'Layers', 'LayoutDashboard', 'Briefcase'
+  ];
+  icons.forEach(icon => {
+    mockExports[icon] = (props: any) => React.createElement('div', { 'data-testid': `icon-${icon.toLowerCase()}`, ...props });
+  });
+  return mockExports;
+})
+
+// Mock framer-motion to render plain elements in JSDOM and strip animation props
+vi.mock('framer-motion', () => {
+  const React = require('react');
+  const dummy = ({ children, ...props }: any) => {
+    const {
+      initial,
+      animate,
+      exit,
+      transition,
+      variants,
+      layout,
+      layoutId,
+      ...cleanProps
+    } = props;
+    return React.createElement('div', cleanProps, children);
+  };
+  return {
+    motion: new Proxy({}, {
+      get: () => dummy,
+    }),
+    AnimatePresence: ({ children }: any) => children,
+  };
+})
 
 // Mock API service
 vi.mock('@/services/api', () => ({
@@ -121,7 +150,7 @@ test('transitions from empty state to dashboard panels on dataset selection', as
   await waitFor(() => {
     expect(screen.getByText('Sales_Data.csv')).toBeInTheDocument()
   })
-  
+
   // Click on the dataset to load the dashboard
   fireEvent.click(screen.getByText('Sales_Data.csv'))
   
@@ -130,6 +159,20 @@ test('transitions from empty state to dashboard panels on dataset selection', as
     expect(screen.getByTestId('kpi-overview')).toBeInTheDocument()
     expect(screen.getByTestId('trend-visuals')).toBeInTheDocument()
     expect(screen.getByTestId('geo-map')).toBeInTheDocument()
+  })
+
+  // Wait for sidebar to be mounted (requestAnimationFrame)
+  let snowAiBtn: HTMLElement;
+  await waitFor(() => {
+    snowAiBtn = screen.getByText('Snow AI')
+    expect(snowAiBtn).toBeInTheDocument()
+  })
+
+  // Navigate to the Snow AI panel via sidebar
+  fireEvent.click(snowAiBtn!)
+
+  // Verify that the Insights Center is rendered in the Snow AI view
+  await waitFor(() => {
     expect(screen.getByTestId('insights-center')).toBeInTheDocument()
   })
 })

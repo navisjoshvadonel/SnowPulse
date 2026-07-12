@@ -33,6 +33,7 @@ from .jobs.manager import JobManager
 from .limiter import limiter
 from .logging_config import configure_logging, logger
 from .ml.serving import MLServing
+from .ml.registry import ModelRegistry
 from .models import Dataset, Insight, RefreshToken, User, UserDashboard
 from .monitoring import get_metrics_response, run_liveness_check, run_readiness_check
 from .schemas import (
@@ -272,6 +273,72 @@ def get_datasets(
     Fetch user's private datasets.
     """
     return db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
+
+
+@app.get("/api/datasets/{dataset_id}/schema")
+def get_dataset_schema(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Column-level profile of a dataset: name, inferred type, null count,
+    and (for numeric columns) min/max/mean — plus which columns the
+    analytics engine already treats as the primary metric/date/category.
+    Powers the Dataset Overview page.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    try:
+        engine = AnalyticsEngine(dataset.file_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not read dataset: {e}")
+
+    columns = []
+    for col in engine.headers:
+        series = engine.df[col]
+        col_info = {
+            "name": col,
+            "null_count": int(series.null_count()),
+            "role": (
+                "metric" if col == engine.metric_col else
+                "date" if col == engine.date_col else
+                "category" if col == engine.category_col else
+                "geo" if col in engine.geo_cols else
+                "numeric" if col in engine.numeric_cols else
+                "categorical"
+            ),
+        }
+        if col in engine.numeric_cols or col == engine.metric_col:
+            non_null = series.drop_nulls()
+            if len(non_null) > 0:
+                col_info["min"] = float(non_null.min())
+                col_info["max"] = float(non_null.max())
+                col_info["mean"] = round(float(non_null.mean()), 2)
+        columns.append(col_info)
+
+    date_range = None
+    if engine.date_col:
+        dates = engine.df[engine.date_col].drop_nulls()
+        if len(dates) > 0:
+            date_range = {"start": str(dates.min()), "end": str(dates.max())}
+
+    return {
+        "dataset_id": dataset.id,
+        "name": dataset.name,
+        "description": dataset.description,
+        "row_count": engine.num_rows,
+        "column_count": len(engine.headers),
+        "date_range": date_range,
+        "primary_metric": engine.metric_col,
+        "primary_date": engine.date_col,
+        "primary_category": engine.category_col,
+        "columns": columns,
+    }
 
 
 @app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -921,6 +988,31 @@ def run_ml_inference(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ml/history/{dataset_id}")
+def get_ml_training_history(
+    dataset_id: int,
+    task_type: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns the training run history (with real metrics — r2, accuracy,
+    silhouette score, etc., whichever apply to task_type) for a dataset's
+    ML models. Powers the score panel on Future Prediction.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    history = ModelRegistry.get_training_history(dataset_id, task_type)
+    if not history:
+        return {"dataset_id": dataset_id, "task_type": task_type, "runs": []}
+
+    return {"dataset_id": dataset_id, "task_type": task_type, "runs": history}
 
 
 # --- INSIGHTS AUTOMATION API ---

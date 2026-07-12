@@ -134,3 +134,55 @@ def test_gdpr_forget_me(client, db, test_user, auth_headers):
 
     purged_dashboard = db.query(UserDashboard).filter(UserDashboard.id == dashboard.id).first()
     assert purged_dashboard is None
+
+
+def test_dataset_schema(client, db, test_user, auth_headers):
+    dataset = Dataset(
+        owner_id=test_user.id,
+        name="test_sales_data.csv",
+        file_path="test_sales_data.csv"
+    )
+    db.add(dataset)
+    db.commit()
+    db.refresh(dataset)
+
+    response = client.get(f"/api/datasets/{dataset.id}/schema", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["dataset_id"] == dataset.id
+    assert data["name"] == dataset.name
+    assert "row_count" in data
+    assert "column_count" in data
+    assert "columns" in data
+    assert len(data["columns"]) > 0
+    for col in data["columns"]:
+        assert "name" in col
+        assert "null_count" in col
+        assert "role" in col
+
+    # Unauthorized/not found check
+    response = client.get("/api/datasets/9999/schema", headers=auth_headers)
+    assert response.status_code == 404
+
+
+def test_ml_training_history_empty(client, db, test_user, auth_headers):
+    dataset = Dataset(
+        owner_id=test_user.id,
+        name="test_sales_data.csv",
+        file_path="test_sales_data.csv"
+    )
+    db.add(dataset)
+    db.commit()
+    db.refresh(dataset)
+
+    response = client.get(f"/api/ml/history/{dataset.id}?task_type=forecasting", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["dataset_id"] == dataset.id
+    assert data["task_type"] == "forecasting"
+    assert data["runs"] == []
+
+    # Unauthorized/not found check
+    response = client.get(f"/api/ml/history/9999?task_type=forecasting", headers=auth_headers)
+    assert response.status_code == 404
+

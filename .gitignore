@@ -9,3 +9,19 @@ npm_cache/
 pip_temp/
 uploads/
 *.db
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+
+# SSL keys & certificates
+*.pem
+*.key
+*.crt
+*.cert
+

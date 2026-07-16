@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import time
 import uuid
@@ -58,13 +59,31 @@ gemini_service = GeminiService()
 class QueryRequest(BaseModel):
     query: str
 
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI lifespan events: triggers background warming of Ollama LLM models on startup.
+    """
+    logger.info("system.startup", message="Initializing SnowPulse AI Gateway model warmup...")
+    # Pre-pull required Ollama models in the background to prevent cold-starts
+    from .ai.gateway.client import OllamaClient
+    client = OllamaClient()
+    asyncio.create_task(client.ensure_model_pulled(client.primary_model))
+    asyncio.create_task(client.ensure_model_pulled(client.fallback_1))
+    asyncio.create_task(client.ensure_model_pulled(client.fallback_2))
+    yield
+
 # Initialize database schemas
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="SnowPulse AI Secure Backend",
     description="Multi-tenant backend demonstrating strict user isolation, cookie-based refresh tokens, and GDPR compliance.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # SlowAPI setup
@@ -83,6 +102,8 @@ app.add_middleware(
 from .ai.routes import router as ai_router
 
 app.include_router(ai_router)
+
+
 
 # Structured Logging Middleware
 @app.middleware("http")

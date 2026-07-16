@@ -17,6 +17,12 @@ FORBIDDEN_SQL_KEYWORDS = re.compile(
     re.IGNORECASE
 )
 
+# Regex to detect queries targeting sensitive database tables
+SENSITIVE_TABLES = re.compile(
+    r"\b(users|refresh_tokens|user_dashboards|semantic_memory)\b",
+    re.IGNORECASE
+)
+
 class SecurityAlertException(Exception):
     pass
 
@@ -39,7 +45,12 @@ def sanitize_and_validate_sql(sql_query: str) -> str:
     if FORBIDDEN_SQL_KEYWORDS.search(clean_query):
         raise SecurityAlertException("Access Denied: Destructive operations or database modifications detected in query.")
 
+    # Check for queries targeting sensitive system tables
+    if SENSITIVE_TABLES.search(clean_query):
+        raise SecurityAlertException("Access Denied: Querying sensitive system tables (users, tokens, dashboards, memory) is forbidden.")
+
     return clean_query
+
 
 class DatabaseTools:
     @staticmethod

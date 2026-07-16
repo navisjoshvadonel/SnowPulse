@@ -101,15 +101,19 @@ async def test_vector_store_memory_add_and_search(db_session):
 # 3. Test SQL Security rules
 def test_sql_security_sanitization():
     # Safe queries
-    assert sanitize_and_validate_sql("SELECT * FROM users;") == "SELECT * FROM users;"
+    assert sanitize_and_validate_sql("SELECT * FROM datasets;") == "SELECT * FROM datasets;"
     assert sanitize_and_validate_sql("  SELECT count(id) FROM datasets; -- test comment") == "SELECT count(id) FROM datasets;"
 
-    # Toxic queries (should raise exceptions)
+    # Toxic/forbidden queries (should raise exceptions)
     with pytest.raises(SecurityAlertException):
-        sanitize_and_validate_sql("DELETE FROM users;")
+        sanitize_and_validate_sql("SELECT * FROM users;")
 
     with pytest.raises(SecurityAlertException):
-        sanitize_and_validate_sql("SELECT * FROM users; DROP TABLE user_dashboards;")
+        sanitize_and_validate_sql("DELETE FROM datasets;")
+
+    with pytest.raises(SecurityAlertException):
+        sanitize_and_validate_sql("SELECT * FROM datasets; DROP TABLE user_dashboards;")
+
 
     with pytest.raises(SecurityAlertException):
         sanitize_and_validate_sql("INSERT INTO datasets (name) VALUES ('x');")

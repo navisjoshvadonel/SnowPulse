@@ -32,8 +32,8 @@ from .forecasting.predictor import ForecastingPredictor
 from .jobs.manager import JobManager
 from .limiter import limiter
 from .logging_config import configure_logging, logger
-from .ml.serving import MLServing
 from .ml.registry import ModelRegistry
+from .ml.serving import MLServing
 from .models import Dataset, Insight, RefreshToken, User, UserDashboard
 from .monitoring import get_metrics_response, run_liveness_check, run_readiness_check
 from .schemas import (

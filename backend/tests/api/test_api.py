@@ -183,6 +183,6 @@ def test_ml_training_history_empty(client, db, test_user, auth_headers):
     assert data["runs"] == []
 
     # Unauthorized/not found check
-    response = client.get(f"/api/ml/history/9999?task_type=forecasting", headers=auth_headers)
+    response = client.get("/api/ml/history/9999?task_type=forecasting", headers=auth_headers)
     assert response.status_code == 404
 

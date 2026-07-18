@@ -4,10 +4,14 @@ import pytest
 from app.ai.evaluation.evaluator import AIEvaluator
 from app.ai.gateway.client import OllamaClient
 from app.ai.memory.vector_store import SemanticMemory, VectorStore
-from app.ai.tools.database_tools import DatabaseTools, SecurityAlertException, sanitize_and_validate_sql
+from app.ai.tools.database_tools import (
+    DatabaseTools,
+    SecurityAlertException,
+    sanitize_and_validate_sql,
+)
 from app.ai.workflows.reports import ReportGenerator
 from app.database import Base
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 # Create an in-memory SQLite database for testing Vector Store
@@ -166,4 +170,3 @@ def test_overlap_calculation():
     non_overlap = AIEvaluator.calculate_overlap_coefficient("Completely different topic of discussion.", "Sales, revenue, growth, metrics.")
     assert non_overlap == 0.0
 
-from sqlalchemy import text

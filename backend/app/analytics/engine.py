@@ -216,7 +216,7 @@ class AnalyticsEngine:
         # Group by regional column and sum primary metric
         grouped = self.df.group_by(active_geo_col).agg([
             pl.col(self.metric_col).sum().alias("value"),
-            pl.count().alias("count")
+            pl.len().alias("count")
         ]).sort("value", descending=True)
 
         result = []

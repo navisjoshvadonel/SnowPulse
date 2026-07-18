@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 
 from ...logging_config import logger
 from ...storage.service import storage_service
@@ -29,8 +30,8 @@ class ExecutivePDF(FPDF):
         self.draw_footer_divider()
         self.set_font("helvetica", "I", 8)
         self.set_text_color(140, 140, 140)
-        self.cell(0, 8, "CONFIDENTIAL  -  FOR INTERNAL USE ONLY", ln=0, align="L")
-        self.cell(0, 8, f"Page {self.page_no()}/{{nb}}", ln=1, align="R")
+        self.cell(0, 8, "CONFIDENTIAL  -  FOR INTERNAL USE ONLY", new_x=XPos.RIGHT, new_y=YPos.TOP, align="L")
+        self.cell(0, 8, f"Page {self.page_no()}/{{nb}}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
 
     def draw_header_divider(self):
         self.set_draw_color(31, 41, 55) # Sleek slate dark

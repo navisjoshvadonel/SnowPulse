@@ -19,9 +19,14 @@ class AnalyticsEngine:
             file_bytes = storage_service.get_file(bucket, key)
             self.df = pl.read_csv(io.BytesIO(file_bytes))
         else:
-            if not os.path.exists(file_path):
-                raise FileNotFoundError(f"Dataset file not found at {file_path}")
-            self.df = pl.read_csv(file_path)
+            resolved_path = file_path
+            if not os.path.exists(resolved_path):
+                backend_path = os.path.join("backend", file_path)
+                if os.path.exists(backend_path):
+                    resolved_path = backend_path
+                else:
+                    raise FileNotFoundError(f"Dataset file not found at {file_path}")
+            self.df = pl.read_csv(resolved_path)
 
         self.headers = self.df.columns
         self.num_rows = self.df.height

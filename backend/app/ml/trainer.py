@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 import numpy as np
@@ -40,7 +41,14 @@ class MLTrainer:
             from ..validation.quality.quality_scorer import DataQualityScorer
             self.df = DataQualityScorer.read_file_to_pandas(file_bytes, parts[1])
         else:
-            self.df = pd.read_csv(ds.file_path)
+            resolved_path = ds.file_path
+            if not os.path.exists(resolved_path):
+                backend_path = os.path.join("backend", ds.file_path)
+                if os.path.exists(backend_path):
+                    resolved_path = backend_path
+                else:
+                    raise FileNotFoundError(f"Dataset file not found at {ds.file_path}")
+            self.df = pd.read_csv(resolved_path)
 
     def _get_column_types(self) -> dict[str, list]:
         """

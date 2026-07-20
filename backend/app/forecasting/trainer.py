@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 import warnings
 from typing import Any
 
@@ -39,7 +40,14 @@ class ForecastingTrainer:
             from ..validation.quality.quality_scorer import DataQualityScorer
             self.df = DataQualityScorer.read_file_to_pandas(file_bytes, key)
         else:
-            self.df = pd.read_csv(ds.file_path)
+            resolved_path = ds.file_path
+            if not os.path.exists(resolved_path):
+                backend_path = os.path.join("backend", ds.file_path)
+                if os.path.exists(backend_path):
+                    resolved_path = backend_path
+                else:
+                    raise FileNotFoundError(f"Dataset file not found at {ds.file_path}")
+            self.df = pd.read_csv(resolved_path)
 
     def _prepare_time_series(self, target_col: str, date_col: str = None) -> pd.Series:
         """

@@ -25,3 +25,11 @@ uploads/
 *.crt
 *.cert
 
+# Test coverage and static caches
+.coverage
+coverage.xml
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+

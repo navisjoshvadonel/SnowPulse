@@ -765,6 +765,7 @@ export default function HomePage() {
 
             {activeSection === "prediction" && (
               <PredictionPanel
+                datasetId={selectedDatasetId!}
                 forecast={forecast}
                 trainingHistory={trainingHistory}
                 loading={loadingPrediction}

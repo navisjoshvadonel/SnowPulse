@@ -953,15 +953,22 @@ def get_forecast_predictions(
 
 # --- MACHINE LEARNING PLATFORM API ---
 
+class MLTrainRequest(BaseModel):
+    task_type: str = "auto"
+    target_col: str | None = None
+
 @app.post("/api/ml/train/{dataset_id}")
-async def trigger_ml_training(
+def trigger_ml_training(
     dataset_id: int,
-    task_type: str,  # segmentation, churn, revenue_prediction, anomaly
+    task_type: str = "auto",
+    target_col: str | None = None,
+    payload: MLTrainRequest | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Trigger training for a specific Scikit-Learn task (clustering, classification, regression, anomalies) as a background task.
+    Triggers universal AutoML training for any dataset with complex feature extraction,
+    auto task detection, model tournament selection, and explainability metrics.
     """
     dataset = db.query(Dataset).filter(
         Dataset.id == dataset_id, Dataset.owner_id == current_user.id
@@ -969,15 +976,18 @@ async def trigger_ml_training(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
+    selected_task = payload.task_type if payload and payload.task_type else task_type
+    selected_target = payload.target_col if payload and payload.target_col else target_col
+
     try:
-        job_id = await JobManager.submit_job(
-            "run_ml_training_task",
-            dataset_id=dataset_id,
-            task_type=task_type
-        )
-        return {"job_id": job_id, "status": "queued", "message": f"ML pipeline training for '{task_type}' initiated."}
+        from .ml.trainer import MLTrainer
+        trainer = MLTrainer(db=db, dataset_id=dataset_id)
+        results = trainer.train_model(task_type=selected_task, target_col=selected_target)
+        return results
     except Exception as e:
+        logger.error(f"ML AutoML training failed for dataset {dataset_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.post("/api/ml/predict/{dataset_id}")

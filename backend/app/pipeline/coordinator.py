@@ -130,19 +130,20 @@ class PipelineCoordinator:
             if row_count >= 10:
                 try:
                     ml_trainer = MLTrainer(db=self.db, dataset_id=self.dataset_id)
-                    # Train segmentation (clustering) and anomaly models as standard platform steps
+                    auto_metrics = ml_trainer.train_model(task_type="auto")
                     seg_metrics = ml_trainer.train_model(task_type="segmentation")
                     anom_metrics = ml_trainer.train_model(task_type="anomaly")
 
                     stages_completed["machine_learning"] = {
+                        "auto": auto_metrics,
                         "segmentation": seg_metrics,
-                        "anomaly": anom_metrics
+                        "anomaly": anom_metrics,
                     }
                 except Exception as mle:
                     logger.warning(f"ML pipelines step failed (skipped): {mle}")
                     stages_completed["machine_learning"] = {"status": "failed", "reason": str(mle)}
             else:
-                stages_completed["machine_learning"] = {"status": "skipped", "reason": "Insufficient numeric data"}
+                stages_completed["machine_learning"] = {"status": "skipped", "reason": "Insufficient data"}
 
             # Stage 7: Automated Scored Insights Scanners
             JobManager.update_progress(self.job_id, 90, "Stage 7: Triggering AI recommendation scorer...")

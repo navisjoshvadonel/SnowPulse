@@ -115,6 +115,24 @@ export const apiService = {
     return fetchAPI(`/api/ml/history/${datasetId}?task_type=${encodeURIComponent(taskType)}`);
   },
 
+  // AutoML Training Engine
+  async trainMlModel(datasetId: number, taskType: string = "auto", targetCol?: string) {
+    return fetchAPI(`/api/ml/train/${datasetId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_type: taskType, target_col: targetCol || null }),
+    });
+  },
+
+  // ML Serving Inferences
+  async predictMlModel(datasetId: number, taskType: string, inputRecords: Record<string, any>[]) {
+    return fetchAPI(`/api/ml/predict/${datasetId}?task_type=${encodeURIComponent(taskType)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(inputRecords),
+    });
+  },
+
 
   // Dashboards
   async getDashboards() {

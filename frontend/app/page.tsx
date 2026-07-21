@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Upload, FileText, ChevronRight, LogOut, Trash2, BrainCircuit, RefreshCw, Layers } from "lucide-react";
+import {
+  Sparkles,
+  Upload,
+  FileText,
+  ChevronRight,
+  LogOut,
+  Trash2,
+  BrainCircuit,
+  RefreshCw,
+  Layers,
+} from "lucide-react";
 import { apiService } from "@/services/api";
 import KpiOverview from "@/components/executive-overview/KpiOverview";
 import TrendVisuals from "@/components/performance-trends/TrendVisuals";
@@ -11,8 +21,180 @@ import DonutChart from "@/components/executive-overview/DonutChart";
 import Sidebar, { SnowSection } from "@/components/layout/Sidebar";
 import DatasetOverviewPanel from "@/components/dashboard/DatasetOverviewPanel";
 import PredictionPanel from "@/components/dashboard/PredictionPanel";
+import TopNavBar from "@/components/layout/TopNavBar";
+import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 
-// Premium Snowflake 3D Logo Component
+// ─────────────────────────────────────────────────────
+//  MOCK DATA GENERATORS (offline-first, no backend)
+// ─────────────────────────────────────────────────────
+
+function generateMockKpis() {
+  return {
+    total_value: 4_282_104,
+    mean_value: 14.2,
+    std_dev: 3.1,
+    growth_rate: 12.4,
+    total_records: 1842,
+    unique_categories: 7,
+    unique_regions: 5,
+    quality_score: 98.2,
+    metric_name: "revenue",
+  };
+}
+
+function generateMockTrends() {
+  const dates: string[] = [];
+  const values: number[] = [];
+  const moving_average: number[] = [];
+
+  const now = new Date();
+  let base = 80_000;
+  let ma = 78_000;
+
+  for (let i = 120; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().split("T")[0]);
+
+    const noise = (Math.random() - 0.45) * 8_000;
+    base = Math.max(50_000, base + noise + 400);
+    values.push(Math.round(base));
+
+    const maNoise = (Math.random() - 0.5) * 3_000;
+    ma = Math.max(45_000, ma + maNoise + 350);
+    moving_average.push(Math.round(ma));
+  }
+
+  return { dates, values, moving_average, metric: "revenue" };
+}
+
+function generateMockGeo() {
+  return [
+    { region: "Enterprise AI", value: 5_250_000 },
+    { region: "SaaS Growth", value: 3_875_000 },
+    { region: "API Retail", value: 2_250_000 },
+    { region: "Consumer", value: 1_500_000 },
+    { region: "Other", value: 625_000 },
+  ];
+}
+
+function generateMockAnomalies() {
+  return [
+    {
+      date: "2025-06-15",
+      value: 142_350,
+      z_score: 3.8,
+      severity: "High",
+      region: "APAC",
+      category: "Revenue spike",
+      explanation: "Unusual revenue spike detected in APAC region — 3.8σ above mean.",
+      impact: "Positive outlier — investigate cause for replication.",
+    },
+    {
+      date: "2025-07-02",
+      value: 28_700,
+      z_score: -2.9,
+      severity: "Medium",
+      region: "MEA",
+      category: "Demand drop",
+      explanation: "Demand dip in MEA consistent with seasonal shipping delay.",
+      impact: "Revenue impact: -$12.4k. Monitor for 2 more weeks.",
+    },
+  ];
+}
+
+function generateMockInsights() {
+  return {
+    headline:
+      "Revenue growth of +12.4% MoM driven by Enterprise AI segment. Prediction accuracy at 98.2% — AI model optimized on latest training run.",
+    trends:
+      "Growth trajectory is linear with seasonal acceleration in Q3. Recommend increased capacity for Enterprise AI workloads.",
+    geo: "Enterprise AI leads at 42% share. SaaS Growth at 31% with upward trajectory.",
+    recommendations: [
+      "Scale Enterprise AI cluster capacity by 20% to handle projected Q4 load surge.",
+      "Run targeted SaaS Growth campaigns to capture the 9% untapped mid-market segment.",
+      "Optimize API Retail latency — current 142ms is 18% above SLA threshold.",
+      "Schedule dataset integrity scan — 2 null anomalies detected in source CSV.",
+    ],
+  };
+}
+
+function generateMockSchema() {
+  return {
+    dataset_id: 1,
+    name: "Sample Analytics (Mock)",
+    description: "Auto-generated sample dataset for development and demonstration purposes",
+    row_count: 15_840,
+    column_count: 12,
+    date_range: { start: "2024-01-01", end: "2025-07-15" },
+    primary_metric: "revenue",
+    primary_date: "date",
+    primary_category: "segment",
+    columns: [
+      { name: "date", role: "date" as const, null_count: 0 },
+      { name: "revenue", role: "metric" as const, null_count: 0, min: 12000, max: 285000, mean: 58420 },
+      { name: "segment", role: "category" as const, null_count: 0 },
+      { name: "region", role: "geo" as const, null_count: 0 },
+      { name: "active_users", role: "numeric" as const, null_count: 0, min: 120, max: 4850, mean: 1842 },
+      { name: "query_latency_ms", role: "numeric" as const, null_count: 0, min: 80, max: 420, mean: 142 },
+      { name: "model_accuracy", role: "metric" as const, null_count: 0, min: 91.2, max: 98.2, mean: 95.4 },
+      { name: "node_count", role: "numeric" as const, null_count: 0, min: 800, max: 2100, mean: 1350 },
+      { name: "churn_rate", role: "numeric" as const, null_count: 2 },
+      { name: "plan_type", role: "categorical" as const, null_count: 0 },
+      { name: "country", role: "geo" as const, null_count: 0 },
+      { name: "mrr", role: "metric" as const, null_count: 0, min: 2500, max: 48000, mean: 12800 },
+    ],
+  };
+}
+
+function generateMockForecast() {
+  const historical_dates: string[] = [];
+  const historical_values: number[] = [];
+  let base = 70_000;
+  const now = new Date();
+
+  for (let i = 30; i >= 1; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    historical_dates.push(d.toISOString().split("T")[0]);
+    base += (Math.random() - 0.4) * 5000 + 600;
+    historical_values.push(Math.round(base));
+  }
+
+  const future_dates: string[] = [];
+  const forecast_values: number[] = [];
+  const lower_bounds: number[] = [];
+  const upper_bounds: number[] = [];
+
+  for (let i = 1; i <= 14; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    future_dates.push(d.toISOString().split("T")[0]);
+    const fv = base + i * 900 + (Math.random() - 0.5) * 3000;
+    forecast_values.push(Math.round(fv));
+    const variance = 8000 + i * 600;
+    lower_bounds.push(Math.round(fv - variance));
+    upper_bounds.push(Math.round(fv + variance));
+  }
+
+  return {
+    target_column: "revenue",
+    model_type: "Linear Regression",
+    historical_dates,
+    historical_values,
+    future_dates,
+    forecast_values,
+    lower_bounds,
+    upper_bounds,
+    explanation:
+      "The linear regression model was trained on 30 days of historical revenue data. The positive slope (+$900/day) reflects sustained organic growth. Confidence intervals widen over time as uncertainty compounds.",
+  };
+}
+
+// ─────────────────────────────────────────────────────
+//  AUTH PAGE LOGO
+// ─────────────────────────────────────────────────────
+
 function SnowflakeLogo({ className = "w-8 h-8" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -27,30 +209,32 @@ function SnowflakeLogo({ className = "w-8 h-8" }: { className?: string }) {
         </filter>
       </defs>
       <g filter="url(#shadow)">
-        {/* Main Axes */}
         <line x1="50" y1="10" x2="50" y2="90" stroke="url(#snowGlow)" strokeWidth="4" strokeLinecap="round" />
         <line x1="10" y1="50" x2="90" y2="50" stroke="url(#snowGlow)" strokeWidth="4" strokeLinecap="round" />
         <line x1="21.7" y1="21.7" x2="78.3" y2="78.3" stroke="url(#snowGlow)" strokeWidth="4" strokeLinecap="round" />
         <line x1="21.7" y1="78.3" x2="78.3" y2="21.7" stroke="url(#snowGlow)" strokeWidth="4" strokeLinecap="round" />
-        
-        {/* Center Crystal Hexagon */}
-        <polygon points="50,40 58.7,45 58.7,55 50,60 41.3,55 41.3,45" stroke="url(#snowGlow)" strokeWidth="2.5" fill="rgba(129, 140, 248, 0.1)" />
-
-        {/* Diagonal Branches */}
+        <polygon
+          points="50,40 58.7,45 58.7,55 50,60 41.3,55 41.3,45"
+          stroke="url(#snowGlow)"
+          strokeWidth="2.5"
+          fill="rgba(129, 140, 248, 0.1)"
+        />
         <path d="M 50,22 L 44,16 M 50,22 L 56,16" stroke="url(#snowGlow)" strokeWidth="3" strokeLinecap="round" />
         <path d="M 50,78 L 44,84 M 50,78 L 56,84" stroke="url(#snowGlow)" strokeWidth="3" strokeLinecap="round" />
         <path d="M 22,50 L 16,44 M 22,50 L 16,56" stroke="url(#snowGlow)" strokeWidth="3" strokeLinecap="round" />
         <path d="M 78,50 L 84,44 M 78,50 L 84,56" stroke="url(#snowGlow)" strokeWidth="3" strokeLinecap="round" />
-
-        {/* Small Snowflake Sparkle Accents */}
         <circle cx="50" cy="50" r="1.5" fill="white" />
       </g>
     </svg>
   );
 }
 
+// ─────────────────────────────────────────────────────
+//  MAIN PAGE COMPONENT
+// ─────────────────────────────────────────────────────
+
 export default function HomePage() {
-  // Session / Auth State
+  // Auth state
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [emailInput, setEmailInput] = useState("");
@@ -58,20 +242,18 @@ export default function HomePage() {
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  // App/Dashboard state
+  // App state
   const [datasets, setDatasets] = useState<{ id: number; name: string; description: string }[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
   const [selectedDatasetName, setSelectedDatasetName] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
 
-  // Dashboard Data State
+  // Dashboard data
   const [kpis, setKpis] = useState<any>(null);
   const [trends, setTrends] = useState<any>(null);
   const [geoData, setGeoData] = useState<any>(null);
   const [anomalies, setAnomalies] = useState<any>(null);
-  const [correlations, setCorrelations] = useState<any>(null);
   const [aiInsights, setAiInsights] = useState<any>(null);
-  
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingDatasets, setLoadingDatasets] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -88,6 +270,18 @@ export default function HomePage() {
   const [trainingHistory, setTrainingHistory] = useState<any[]>([]);
   const [loadingPrediction, setLoadingPrediction] = useState(false);
 
+  // Top nav tab state
+  const [navTab, setNavTab] = useState<"overview" | "reports" | "analytics">("overview");
+
+  // ── Load mock data (offline-first) ──────────────────
+  const loadMockDashboard = () => {
+    setKpis(generateMockKpis());
+    setTrends(generateMockTrends());
+    setGeoData(generateMockGeo());
+    setAnomalies(generateMockAnomalies());
+    setAiInsights(generateMockInsights());
+  };
+
   const handleSelectDataset = async (datasetId: number, name: string) => {
     setSelectedDatasetId(datasetId);
     setSelectedDatasetName(name);
@@ -95,7 +289,6 @@ export default function HomePage() {
     setLoadingDashboard(true);
 
     try {
-      // 1. Fetch analytical calculations
       const sumRes = await apiService.getAnalyticsSummary(datasetId);
       if (sumRes.ok) {
         const summary = await sumRes.json();
@@ -103,17 +296,18 @@ export default function HomePage() {
         setTrends(summary.trends);
         setGeoData(summary.geo);
         setAnomalies(summary.anomalies);
-        setCorrelations(summary.correlations);
+      } else {
+        loadMockDashboard();
       }
-
-      // 2. Fetch AI-generated insights
       const insRes = await apiService.getAnalyticsInsights(datasetId);
       if (insRes.ok) {
         const insights = await insRes.json();
         setAiInsights(insights);
+      } else {
+        setAiInsights(generateMockInsights());
       }
-    } catch (err) {
-      console.error("Dashboard render failed", err);
+    } catch {
+      loadMockDashboard();
     } finally {
       setLoadingDashboard(false);
     }
@@ -125,27 +319,29 @@ export default function HomePage() {
       const res = await apiService.getDatasets();
       if (res.ok) {
         const list = await res.json();
-        setDatasets(list);
-        if (list.length > 0 && selectedDatasetId === null) {
+        if (Array.isArray(list) && list.length > 0) {
+          setDatasets(list);
           handleSelectDataset(list[0].id, list[0].name);
-        } else if (list.length === 0) {
-          // Mock data bypass for development
-          setDatasets([{ id: 1, name: "Sample Analytics (Mock)", description: "Auto-generated sample dataset for development" }]);
-          handleSelectDataset(1, "Sample Analytics (Mock)");
+        } else {
+          useMockDataset();
         }
       } else {
-        // Mock data bypass for development
-        setDatasets([{ id: 1, name: "Sample Analytics (Mock)", description: "Auto-generated sample dataset for development" }]);
-        handleSelectDataset(1, "Sample Analytics (Mock)");
+        useMockDataset();
       }
-    } catch (e) {
-      console.error("Failed to load datasets", e);
-      // Mock data bypass for development
-      setDatasets([{ id: 1, name: "Sample Analytics (Mock)", description: "Auto-generated sample dataset for development" }]);
-      handleSelectDataset(1, "Sample Analytics (Mock)");
+    } catch {
+      useMockDataset();
     } finally {
       setLoadingDatasets(false);
     }
+  };
+
+  const useMockDataset = () => {
+    const mock = [{ id: 1, name: "Sample Analytics (Mock)", description: "Auto-generated sample dataset" }];
+    setDatasets(mock);
+    setSelectedDatasetId(1);
+    setSelectedDatasetName("Sample Analytics (Mock)");
+    loadMockDashboard();
+    setLoadingDashboard(false);
   };
 
   const checkSession = async () => {
@@ -153,39 +349,24 @@ export default function HomePage() {
       const res = await apiService.getMe();
       if (res.ok) {
         const userData = await res.json();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUser({ email: userData.email });
         fetchDatasets();
       } else {
         localStorage.removeItem("snow_access_token");
       }
-    } catch (e) {
-      console.error("Session check failed", e);
+    } catch {
+      // No backend — silently proceed
     }
   };
 
-  // Auto session check on mount. Runs once: this only ever needs to fire
-  // when the component first mounts and a token is already present in
-  // storage (e.g. the user refreshed the page). checkSession/fetchDatasets
-  // are plain closures re-created every render, not stable references, so
-  // they're deliberately excluded from the dep array — including them
-  // would re-run this on every render instead of only on mount.
-  //
-  // react-hooks/set-state-in-effect fires here because checkSession chains
-  // setUser -> fetchDatasets -> several more setState calls. That's a
-  // legitimate bounded "check auth, then load initial data" boot sequence,
-  // not an update loop: it runs exactly once, only on mount, and only
-  // when a token already exists. The rule's real recommendation is to
-  // replace manual effect-driven fetching with a data library — this repo
-  // already depends on `swr`, so migrating this flow (and fetchDatasets/
-  // handleSelectDataset) to useSWR is the correct long-term fix and would
-  // remove the need for this suppression entirely.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const token = localStorage.getItem("snow_access_token");
     if (token) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       checkSession();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -194,10 +375,11 @@ export default function HomePage() {
     if (activeSection === "dataset-overview") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingSchema(true);
-      apiService.getDatasetSchema(selectedDatasetId)
-        .then((res) => res.ok ? res.json() : null)
+      apiService
+        .getDatasetSchema(selectedDatasetId)
+        .then((res) => (res.ok ? res.json() : generateMockSchema()))
         .then(setDatasetSchema)
-        .catch((e) => console.error("Failed to load schema", e))
+        .catch(() => setDatasetSchema(generateMockSchema()))
         .finally(() => setLoadingSchema(false));
     }
 
@@ -205,14 +387,19 @@ export default function HomePage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingPrediction(true);
       Promise.all([
-        apiService.getForecastPredict(selectedDatasetId).then((r) => (r.ok ? r.json() : null)),
-        apiService.getMlHistory(selectedDatasetId, "revenue_prediction").then((r) => (r.ok ? r.json() : { runs: [] })),
+        apiService.getForecastPredict(selectedDatasetId).then((r) => (r.ok ? r.json() : generateMockForecast())),
+        apiService
+          .getMlHistory(selectedDatasetId, "revenue_prediction")
+          .then((r) => (r.ok ? r.json() : { runs: [] })),
       ])
         .then(([forecastData, historyData]) => {
           setForecast(forecastData);
           setTrainingHistory(historyData?.runs || []);
         })
-        .catch((e) => console.error("Failed to load prediction data", e))
+        .catch(() => {
+          setForecast(generateMockForecast());
+          setTrainingHistory([]);
+        })
         .finally(() => setLoadingPrediction(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -221,56 +408,16 @@ export default function HomePage() {
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailInput.trim() || !passwordInput.trim()) return;
-
     setAuthError("");
     setAuthLoading(true);
 
     try {
       if (authMode === "register") {
-        const res = await apiService.register(emailInput, passwordInput);
-        if (res.ok) {
-          // Auto log in after register
-          setAuthMode("login");
-          triggerLoginFlow();
-        } else {
-          // Fallback for development/offline mode
-          setAuthMode("login");
-          triggerLoginFlow();
-        }
-      } else {
-        triggerLoginFlow();
+        await apiService.register(emailInput, passwordInput).catch(() => {});
       }
-    } catch (err) {
-      setAuthError("Failed to connect to backend service.");
-      setAuthLoading(false);
-    }
-  };
-
-  const triggerLoginFlow = async () => {
-    try {
-      const form = new FormData();
-      form.append("username", emailInput);
-      form.append("password", passwordInput);
-
-      const res = await apiService.login(form);
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem("snow_access_token", data.access_token);
-        setUser({ email: emailInput });
-        setEmailInput("");
-        setPasswordInput("");
-        fetchDatasets();
-      } else {
-        // Fallback for development/offline mode
-        localStorage.setItem("snow_access_token", "dev_mock_token");
-        setUser({ email: emailInput });
-        setEmailInput("");
-        setPasswordInput("");
-        fetchDatasets();
-      }
-    } catch (err) {
-      // Fallback for development/offline mode
-      localStorage.setItem("snow_access_token", "dev_mock_token");
+      await triggerLoginFlow();
+    } catch {
+      // Offline mode — accept any credentials
       setUser({ email: emailInput });
       setEmailInput("");
       setPasswordInput("");
@@ -280,10 +427,32 @@ export default function HomePage() {
     }
   };
 
-  const handleLogout = async () => {
+  const triggerLoginFlow = async () => {
     try {
-      await apiService.logout();
-    } catch (e) {}
+      const form = new FormData();
+      form.append("username", emailInput);
+      form.append("password", passwordInput);
+      const res = await apiService.login(form);
+
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem("snow_access_token", data.access_token);
+      } else {
+        localStorage.setItem("snow_access_token", "dev_mock_token");
+      }
+    } catch {
+      localStorage.setItem("snow_access_token", "dev_mock_token");
+    }
+
+    setUser({ email: emailInput });
+    setEmailInput("");
+    setPasswordInput("");
+    fetchDatasets();
+  };
+
+  const handleLogout = async () => {
+    try { await apiService.logout(); } catch { /* ignore */ }
+    localStorage.removeItem("snow_access_token");
     setUser(null);
     setSelectedDatasetId(null);
     setKpis(null);
@@ -294,108 +463,112 @@ export default function HomePage() {
   };
 
   const handlePurgeAccount = async () => {
-    if (!window.confirm("WARNING: This will permanently delete your account, credentials, and dashboards in compliance with GDPR. Are you sure?")) return;
-
-    try {
-      await apiService.purgeAccount();
-      setUser(null);
-      setSelectedDatasetId(null);
-    } catch (e) {
-      alert("Purge failed. Server was unreachable.");
-    }
+    if (!window.confirm("WARNING: This will permanently delete your account and data (GDPR). Proceed?")) return;
+    try { await apiService.purgeAccount(); } catch { /* ignore */ }
+    setUser(null);
+    setSelectedDatasetId(null);
   };
 
-  // CSV Drag and Drop Upload Handler
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     const file = files[0];
     if (!file.name.endsWith(".csv")) {
       setUploadError("Only CSV format datasets are supported.");
       return;
     }
-
     setUploadError("");
     setUploading(true);
-
     try {
       const res = await apiService.uploadDataset(file);
       if (res.ok) {
         const dataset = await res.json();
-        // Refresh list
         await fetchDatasets();
-        // Select it immediately
         handleSelectDataset(dataset.id, dataset.name);
       } else {
-        const err = await res.json();
-        setUploadError(err.detail || "Failed to parse CSV dataset.");
+        const err = await res.json().catch(() => ({}));
+        setUploadError((err as any).detail || "Failed to parse CSV dataset.");
       }
-    } catch (err) {
-      setUploadError("Network connection error uploading dataset.");
+    } catch {
+      setUploadError("Network connection unavailable. Running in offline mode.");
     } finally {
       setUploading(false);
     }
   };
 
-  // Local filtering helper to compute dynamic KPI values if a region filter is active
+  // Region filter multiplier
   const getFilteredKpis = () => {
     if (!kpis) return null;
     if (!selectedRegion) return kpis;
-
-    // Simulate real-time region filters by adjusting metric shares based on selected region
-    const multiplier = selectedRegion === "North America" ? 0.35 : selectedRegion === "Europe" ? 0.25 : selectedRegion === "APAC" ? 0.40 : 0.15;
+    const mult =
+      selectedRegion === "North America"
+        ? 0.35
+        : selectedRegion === "Europe"
+        ? 0.25
+        : selectedRegion === "APAC"
+        ? 0.4
+        : 0.15;
     return {
       ...kpis,
-      total_value: kpis.total_value * multiplier,
-      total_records: Math.round(kpis.total_records * multiplier),
-      growth_rate: kpis.growth_rate * (multiplier + 0.8), // Slightly modify growth rate
-      metric_name: `${kpis.metric_name} (${selectedRegion})`
+      total_value: Math.round(kpis.total_value * mult),
+      total_records: Math.round(kpis.total_records * mult),
+      growth_rate: kpis.growth_rate * (mult + 0.8),
+      metric_name: `${kpis.metric_name} (${selectedRegion})`,
     };
   };
 
-  // --- RENDERING 1: LOGGED OUT / AUTH PAGE ---
+  const sidebarWidth = sidebarCollapsed ? 64 : 220;
+
+  // ─── RENDER: AUTH PAGE ───────────────────────────────────────────
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative overflow-hidden">
-        {/* Glow circles behind card */}
-        <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-brand-primary/10 rounded-full filter blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-brand-success/5 rounded-full filter blur-[100px] pointer-events-none" />
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden" style={{ background: "#0d0f14" }}>
+        <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] rounded-full pointer-events-none"
+          style={{ background: "rgba(80,99,244,0.08)", filter: "blur(100px)" }} />
+        <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] rounded-full pointer-events-none"
+          style={{ background: "rgba(16,185,129,0.05)", filter: "blur(100px)" }} />
 
-        <div className="w-full max-w-[420px] glass-panel p-8 relative">
+        <div className="w-full max-w-[420px] rounded-2xl p-8 relative"
+          style={{ background: "rgba(18,21,30,0.70)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(20px)" }}>
           <div className="flex flex-col items-center mb-6">
             <SnowflakeLogo className="w-14 h-14 animate-spin-slow mb-4" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">SNOW Intelligence</h1>
-            <p className="text-xs text-brand-muted mt-1 font-mono">Modern Executive-Grade AI Analytics</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Insight AI</h1>
+            <p className="text-xs text-white/35 mt-1 font-mono">Executive-Grade AI Analytics Platform</p>
           </div>
 
           <form onSubmit={handleAuthSubmit} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-mono text-brand-muted uppercase tracking-wider mb-1.5">Email Address</label>
+              <label className="block text-[11px] font-mono text-white/40 uppercase tracking-wider mb-1.5">
+                Email Address
+              </label>
               <input
                 type="email"
                 required
                 placeholder="name@company.com"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full bg-black/30 border border-white/5 text-sm text-white rounded-lg px-3.5 py-2.5 outline-none focus:border-brand-primary/40 font-sans"
+                className="w-full text-sm text-white rounded-lg px-3.5 py-2.5 outline-none font-sans"
+                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}
               />
             </div>
-
             <div>
-              <label className="block text-[11px] font-mono text-brand-muted uppercase tracking-wider mb-1.5">Password</label>
+              <label className="block text-[11px] font-mono text-white/40 uppercase tracking-wider mb-1.5">
+                Password
+              </label>
               <input
                 type="password"
                 required
                 placeholder="••••••••"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full bg-black/30 border border-white/5 text-sm text-white rounded-lg px-3.5 py-2.5 outline-none focus:border-brand-primary/40 font-sans"
+                className="w-full text-sm text-white rounded-lg px-3.5 py-2.5 outline-none font-sans"
+                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}
               />
             </div>
 
             {authError && (
-              <div className="text-xs text-brand-error bg-brand-error/10 border border-brand-error/15 rounded-lg p-3 leading-relaxed font-sans">
+              <div className="text-xs text-red-400 rounded-lg p-3 leading-relaxed"
+                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}>
                 {authError}
               </div>
             )}
@@ -403,7 +576,8 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full bg-brand-primary text-white rounded-lg py-2.5 text-xs font-semibold hover:bg-brand-primary/85 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full text-white rounded-lg py-2.5 text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              style={{ background: "linear-gradient(135deg, #5063f4 0%, #7c3aed 100%)" }}
             >
               {authLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -413,13 +587,10 @@ export default function HomePage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-5 text-center">
             <button
-              onClick={() => {
-                setAuthMode(authMode === "login" ? "register" : "login");
-                setAuthError("");
-              }}
-              className="text-xs text-brand-muted hover:text-white transition-all font-mono"
+              onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(""); }}
+              className="text-xs text-white/30 hover:text-white transition-all font-mono"
             >
               {authMode === "login" ? "Don't have an account? Sign up" : "Already registered? Sign in"}
             </button>
@@ -429,103 +600,94 @@ export default function HomePage() {
     );
   }
 
-  // --- RENDERING 2: LOGGED IN BUT NO DATASET ACTIVE (Empty State Workflow) ---
+  // ─── RENDER: EMPTY STATE (NO DATASET) ───────────────────────────
   if (selectedDatasetId === null) {
     return (
-      <div className="min-h-screen flex flex-col p-6 max-w-5xl mx-auto justify-between bg-background">
-        {/* Header */}
+      <div className="min-h-screen flex flex-col p-6 max-w-5xl mx-auto justify-between" style={{ background: "#0d0f14" }}>
         <header className="flex items-center justify-between py-4 border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <SnowflakeLogo className="w-7 h-7" />
-            <span className="font-bold text-white tracking-tight">SNOW</span>
+            <span className="font-bold text-white tracking-tight">Insight AI</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-brand-muted font-mono">{user.email}</span>
-            <button onClick={handleLogout} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all cursor-pointer">
+            <span className="text-xs text-white/30 font-mono">{user.email}</span>
+            <button onClick={handleLogout} className="p-2 rounded-lg text-gray-300 hover:text-white transition-all cursor-pointer"
+              style={{ background: "rgba(255,255,255,0.05)" }}>
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </header>
 
-        {/* Empty State Ingestion Box */}
         <main className="flex-1 my-16 flex flex-col lg:flex-row gap-10 items-center justify-center">
-          {/* Left panel instructions */}
           <div className="max-w-[420px] space-y-5 text-center lg:text-left">
-            <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 text-brand-primary border border-indigo-500/20">
+            <div className="inline-flex p-3 rounded-2xl text-brand-primary"
+              style={{ background: "rgba(80,99,244,0.1)", border: "1px solid rgba(80,99,244,0.2)" }}>
               <Layers className="w-6 h-6" />
             </div>
             <h2 className="text-3xl font-extrabold tracking-tight text-white leading-tight">Unlock AI Analytics</h2>
-            <p className="text-sm text-brand-muted leading-relaxed">
-              Upload a business spreadsheet in CSV format or choose from shared datasets to populate your executive cockpit instantly.
+            <p className="text-sm text-white/40 leading-relaxed">
+              Upload a business CSV or choose from shared datasets to populate your AI analytics cockpit.
             </p>
-            <div className="pt-2 flex items-center justify-center lg:justify-start gap-4 text-xs font-mono text-brand-muted">
-              <span>✓ Polars powered</span>
-              <span>✓ Gemini Flash</span>
-              <span>✓ Encrypted session</span>
+            <div className="flex items-center gap-4 text-xs font-mono text-white/25">
+              <span>✓ Offline-first</span>
+              <span>✓ Mock AI engine</span>
+              <span>✓ No backend needed</span>
             </div>
           </div>
 
-          {/* Right panel choices */}
           <div className="w-full max-w-[460px] space-y-6">
-            {/* Drag & Drop Upload Container */}
-            <div className="glass-panel p-8 text-center relative border-dashed hover:border-brand-primary/30 transition-all">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                id="csv-upload"
-                className="hidden"
-                disabled={uploading}
-              />
-              <label htmlFor="csv-upload" className="cursor-pointer flex flex-col items-center justify-center space-y-3.5">
-                <div className="p-3.5 rounded-full bg-brand-primary/10 text-brand-primary group-hover:scale-115 transition-transform duration-300">
-                  {uploading ? (
-                    <RefreshCw className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <Upload className="w-6 h-6" />
-                  )}
+            {/* Upload */}
+            <div className="rounded-xl p-8 text-center border-dashed transition-all"
+              style={{ background: "rgba(18,21,30,0.65)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+              <input type="file" accept=".csv" onChange={handleFileUpload} id="csv-upload" className="hidden" disabled={uploading} />
+              <label htmlFor="csv-upload" className="cursor-pointer flex flex-col items-center space-y-3.5">
+                <div className="p-3.5 rounded-full text-brand-primary" style={{ background: "rgba(80,99,244,0.1)" }}>
+                  {uploading ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
                 </div>
                 <div>
                   <span className="text-sm font-semibold text-white block">Upload business CSV</span>
-                  <span className="text-xs text-brand-muted mt-1 block">Drop your sales, customer, or metric CSV sheet here</span>
+                  <span className="text-xs text-white/30 mt-1 block">Drop your sales, customer, or metric CSV here</span>
                 </div>
               </label>
-              
               {uploadError && (
-                <div className="text-xs text-brand-error mt-4 bg-brand-error/10 border border-brand-error/15 rounded-lg p-2.5">
+                <div className="text-xs text-red-400 mt-4 rounded-lg p-2.5"
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}>
                   {uploadError}
                 </div>
               )}
             </div>
 
-            {/* List existing datasets */}
-            <div className="glass-panel p-5 space-y-3.5">
-              <p className="text-[10px] text-brand-muted font-bold tracking-wider uppercase font-mono">Pre-loaded / Shared Datasets</p>
-              
+            {/* Pre-loaded datasets */}
+            <div className="rounded-xl p-5 space-y-3.5"
+              style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p className="text-[10px] text-white/30 font-bold tracking-wider uppercase font-mono">
+                Pre-loaded / Shared Datasets
+              </p>
               {loadingDatasets ? (
                 <div className="flex items-center justify-center py-4">
                   <RefreshCw className="w-5 h-5 animate-spin text-brand-primary" />
                 </div>
               ) : datasets.length === 0 ? (
-                <p className="text-xs text-brand-muted font-mono">No datasets available. Ingest one above.</p>
+                <p className="text-xs text-white/30 font-mono">No datasets available. Ingest one above.</p>
               ) : (
                 <div className="space-y-2">
                   {datasets.map((d) => (
                     <button
                       key={d.id}
                       onClick={() => handleSelectDataset(d.id, d.name)}
-                      className="w-full text-left p-3 rounded-xl bg-white/2 hover:bg-white/4 border border-white/2 hover:border-white/5 transition-all flex items-center justify-between group interactive-element"
+                      className="w-full text-left p-3 rounded-xl transition-all flex items-center justify-between group interactive-element"
+                      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-brand-primary/10 text-brand-primary">
+                        <div className="p-2 rounded-lg text-brand-primary" style={{ background: "rgba(80,99,244,0.1)" }}>
                           <FileText className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="text-xs font-semibold text-white block group-hover:text-brand-primary transition-colors">{d.name}</span>
-                          <span className="text-[10px] text-brand-muted mt-0.5 block truncate max-w-[200px]">{d.description}</span>
+                          <span className="text-xs font-semibold text-white block">{d.name}</span>
+                          <span className="text-[10px] text-white/30 mt-0.5 block truncate max-w-[200px]">{d.description}</span>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-brand-muted group-hover:text-white transition-all transform group-hover:translate-x-0.5" />
+                      <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white transition-all" />
                     </button>
                   ))}
                 </div>
@@ -534,10 +696,9 @@ export default function HomePage() {
           </div>
         </main>
 
-        {/* Footer Purge Controls */}
-        <footer className="py-4 border-t border-white/5 flex items-center justify-between text-xs text-brand-muted">
-          <span>SNOW Core Engine v1.0.0</span>
-          <button onClick={handlePurgeAccount} className="flex items-center gap-1 hover:text-brand-error transition-all font-mono text-[10px]">
+        <footer className="py-4 border-t border-white/5 flex items-center justify-between text-xs text-white/20">
+          <span>Insight AI v2.0.0 — Offline Mode</span>
+          <button onClick={handlePurgeAccount} className="flex items-center gap-1 hover:text-red-400 transition-all font-mono text-[10px]">
             <Trash2 className="w-3.5 h-3.5" />
             GDPR Purge Account
           </button>
@@ -546,133 +707,105 @@ export default function HomePage() {
     );
   }
 
-  // --- RENDERING 3: MAIN EXECUTIVE DASHBOARD RENDER (4 PANELS) ---
+  // ─── RENDER: MAIN DASHBOARD ──────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{ background: "#0d0f14" }}>
+      {/* Fixed Sidebar */}
       <Sidebar
         active={activeSection}
         onNavigate={setActiveSection}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        datasetName={selectedDatasetName}
       />
+
+      {/* Fixed Top Nav */}
+      <TopNavBar
+        activeTab={navTab}
+        onTabChange={setNavTab}
+        onChangeDataset={() => setSelectedDatasetId(null)}
+        onLogout={handleLogout}
+        userEmail={user.email}
+      />
+
+      {/* Fixed Footer */}
+      <SystemHealthFooter />
+
+      {/* Main Content — offset by sidebar + header + footer */}
       <div
-        className={`transition-all duration-200 p-6 space-y-6 max-w-7xl mx-auto ${
-          sidebarCollapsed ? "pl-[64px]" : "pl-[240px]"
-        }`}
+        className="min-h-screen transition-all duration-[280ms]"
+        style={{
+          paddingLeft: sidebarWidth,
+          paddingTop: 64,
+          paddingBottom: 48,
+        }}
       >
-        {/* Top Navigation matches layout mockup */}
-        <header className="flex items-center justify-between pb-4 border-b border-white/5 mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-brand-primary/15 border border-brand-primary/20 flex items-center justify-center text-brand-primary">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v5.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 013 18.375v-5.25zM9.75 8.625c0-.621.504-1.125 1.125-1.125h-2.25c-.621 0-1.125.504-1.125 1.125v9.75c0 .621.504 1.125 1.125 1.125h2.25a1.125 1.125 0 001.125-1.125v-9.75zM16.5 4.125c0-.621.504-1.125 1.125-1.125h-2.25C14.779 3 14.25 3.504 14.25 4.125v14.25c0 .621.504 1.125 1.125 1.125h2.25a1.125 1.125 0 001.125-1.125V4.125z" />
-              </svg>
+        <div className="p-5 space-y-4 max-w-[1400px] mx-auto">
+
+          {loadingDashboard ? (
+            <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
+              <div className="w-8 h-8 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
+              <span className="text-xs text-white/30 font-mono">Processing dataset with AI engine...</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[15px] font-semibold text-white tracking-wide">Insight AI</span>
-              <span className="text-[10px] text-brand-muted font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                {selectedDatasetName}
-              </span>
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* ── DASHBOARD SECTION ── */}
+              {activeSection === "dashboard" && (
+                <div className="space-y-4">
+                  {/* Row 1: KPI Cards */}
+                  <KpiOverview
+                    kpis={getFilteredKpis()}
+                    aiHeadline={aiInsights?.headline || null}
+                    loading={false}
+                  />
 
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSelectedDatasetId(null)}
-              className="text-[11px] font-mono px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-300 transition-all border border-white/5 cursor-pointer"
-            >
-              Change Dataset
-            </button>
-            
-            <div className="flex items-center gap-3 text-brand-muted">
-              <button className="hover:text-white transition-colors cursor-pointer" title="Search">
-                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-              </button>
-              
-              <button className="hover:text-white transition-colors relative cursor-pointer" title="Notifications">
-                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                </svg>
-                <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
-              </button>
-
-              <div 
-                onClick={handleLogout}
-                className="w-7 h-7 rounded-full bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-xs font-semibold text-brand-primary cursor-pointer hover:bg-brand-primary/20 transition-all font-mono"
-                title="Log Out (Click to exit)"
-              >
-                {user?.email ? user.email.slice(0, 2).toUpperCase() : "JD"}
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {loadingDashboard ? (
-          <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="w-8 h-8 animate-spin text-brand-primary" />
-            <span className="text-xs text-brand-muted font-mono">Parsing with Polars, summarizing with Gemini...</span>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {activeSection === "dashboard" && (
-              <>
-                {/* Row 1: KPI Metric Cards (100% width) */}
-                <KpiOverview
-                  kpis={getFilteredKpis()}
-                  aiHeadline={aiInsights?.headline || null}
-                  loading={loadingDashboard}
-                />
-
-                {/* Row 2: Trend Line Chart (2/3 width) & Segment Donut Chart (1/3 width) */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                  <div className="lg:col-span-8">
-                    <TrendVisuals
-                      trends={trends}
-                      aiTrendNote={aiInsights?.trends || null}
-                      loading={loadingDashboard}
-                    />
+                  {/* Row 2: Performance Analytics + Segment Donut */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    <div className="lg:col-span-8">
+                      <TrendVisuals
+                        trends={trends}
+                        aiTrendNote={aiInsights?.trends || null}
+                        loading={false}
+                      />
+                    </div>
+                    <div className="lg:col-span-4">
+                      <DonutChart
+                        data={
+                          geoData
+                            ? geoData.slice(0, 5).map((g: any) => ({ name: g.region, value: g.value }))
+                            : []
+                        }
+                        title="Top segment shares"
+                        loading={false}
+                      />
+                    </div>
                   </div>
-                  
-                  <div className="lg:col-span-4">
-                    <DonutChart
-                      data={
-                        geoData
-                          ? geoData.slice(0, 5).map((g: any) => ({ name: g.region, value: g.value }))
-                          : []
-                      }
-                      title="Top segment shares"
-                      loading={loadingDashboard}
-                    />
-                  </div>
-                </div>
 
-                {/* Row 3: Recent Activity (2/3 width) & AI Insights List (1/3 width) */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                  {/* Recent Activity Table Card */}
-                  <div className="lg:col-span-8 glass-panel p-5 bg-brand-surface flex flex-col justify-between min-h-[300px]">
-                    <div>
-                      <p className="text-sm font-medium text-white mb-4">Recent activity</p>
+                  {/* Row 3: Recent Activity + AI Insights */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    {/* Recent Activity Table */}
+                    <div className="lg:col-span-8 rounded-xl p-5"
+                      style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <p className="text-sm font-semibold text-white mb-4">Recent activity</p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left border-collapse">
                           <thead>
-                            <tr className="border-b border-white/5 text-brand-muted uppercase font-mono text-[9px] tracking-wider">
+                            <tr className="border-b border-white/[0.05] text-white/25 uppercase font-mono text-[9px] tracking-wider">
                               <th className="py-2.5 font-medium">Activity</th>
                               <th className="py-2.5 font-medium text-right">Status</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white/5">
+                          <tbody className="divide-y divide-white/[0.03]">
                             {anomalies && anomalies.length > 0 ? (
                               anomalies.slice(0, 4).map((anomaly: any, idx: number) => (
-                                <tr key={idx} className="hover:bg-white/1 transition-colors">
-                                  <td className="py-3 text-gray-200 font-sans">
-                                    Anomaly flagged in <span className="font-semibold text-brand-primary">{anomaly.region || "Global"}</span> ({anomaly.category || "General"})
+                                <tr key={idx} className="hover:bg-white/[0.01] transition-colors">
+                                  <td className="py-3 text-white/70">
+                                    Anomaly detected in{" "}
+                                    <span className="font-semibold text-brand-primary">{anomaly.region || "Global"}</span>{" "}
+                                    ({anomaly.category || "General"})
                                   </td>
-                                  <td className={`py-3 text-right font-mono font-medium ${
-                                    anomaly.severity === "Critical" || anomaly.severity === "High"
-                                      ? "text-brand-error"
-                                      : "text-brand-warning"
+                                  <td className={`py-3 text-right font-mono font-semibold ${
+                                    anomaly.severity === "High" ? "text-red-400" : "text-yellow-400"
                                   }`}>
                                     {anomaly.severity} Alert
                                   </td>
@@ -680,21 +813,21 @@ export default function HomePage() {
                               ))
                             ) : (
                               <>
-                                <tr className="hover:bg-white/1 transition-colors">
-                                  <td className="py-3 text-gray-200 font-sans">Sales forecast projection update</td>
-                                  <td className="py-3 text-right font-mono font-medium text-brand-success">Completed</td>
+                                <tr className="hover:bg-white/[0.01] transition-colors">
+                                  <td className="py-3 text-white/60">Sales forecast projection update</td>
+                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
                                 </tr>
-                                <tr className="hover:bg-white/1 transition-colors">
-                                  <td className="py-3 text-gray-200 font-sans">System dataset scan and integrity check</td>
-                                  <td className="py-3 text-right font-mono font-medium text-brand-success">Completed</td>
+                                <tr className="hover:bg-white/[0.01] transition-colors">
+                                  <td className="py-3 text-white/60">System dataset scan and integrity check</td>
+                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
                                 </tr>
-                                <tr className="hover:bg-white/1 transition-colors">
-                                  <td className="py-3 text-gray-200 font-sans">Category correlation analysis compilation</td>
-                                  <td className="py-3 text-right font-mono font-medium text-brand-success">Completed</td>
+                                <tr className="hover:bg-white/[0.01] transition-colors">
+                                  <td className="py-3 text-white/60">Category correlation analysis compilation</td>
+                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
                                 </tr>
-                                <tr className="hover:bg-white/1 transition-colors">
-                                  <td className="py-3 text-gray-200 font-sans">Geographic hub distribution map verification</td>
-                                  <td className="py-3 text-right font-mono font-medium text-brand-success">Completed</td>
+                                <tr className="hover:bg-white/[0.01] transition-colors">
+                                  <td className="py-3 text-white/60">Geographic hub distribution verification</td>
+                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
                                 </tr>
                               </>
                             )}
@@ -702,104 +835,130 @@ export default function HomePage() {
                         </table>
                       </div>
                     </div>
-                  </div>
 
-                  {/* AI Insights List Card */}
-                  <div className="lg:col-span-4 glass-panel p-5 bg-brand-surface flex flex-col justify-between min-h-[300px]">
-                    <div className="space-y-4">
-                      <p className="text-sm font-medium text-white">AI insights</p>
-                      
-                      <div className="space-y-2.5">
-                        <div className="bg-[#12141c]/80 border border-white/5 rounded-xl p-3">
+                    {/* AI Insights Card */}
+                    <div className="lg:col-span-4 rounded-xl p-5 flex flex-col justify-between"
+                      style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)", minHeight: 280 }}>
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold text-white">AI insights</p>
+                        <div className="rounded-xl p-3"
+                          style={{ background: "rgba(10,11,18,0.7)", border: "1px solid rgba(255,255,255,0.05)" }}>
                           <p className="text-xs font-semibold text-brand-primary mb-1">Key Observation</p>
-                          <p className="text-[11px] text-brand-muted leading-relaxed">
-                            {aiInsights?.recommendations?.[0] || "Anomaly profiles suggest minor regional variances. Operational density remains stable overall."}
+                          <p className="text-[11px] text-white/45 leading-relaxed">
+                            {aiInsights?.recommendations?.[0] ||
+                              "Anomaly profiles suggest minor regional variances. Operational density remains stable."}
                           </p>
                         </div>
-                        
-                        <div className="bg-[#12141c]/80 border border-white/5 rounded-xl p-3">
+                        <div className="rounded-xl p-3"
+                          style={{ background: "rgba(10,11,18,0.7)", border: "1px solid rgba(255,255,255,0.05)" }}>
                           <p className="text-xs font-semibold text-brand-primary mb-1">Strategy Focus</p>
-                          <p className="text-[11px] text-brand-muted leading-relaxed">
-                            {aiInsights?.recommendations?.[1] || "Execute automated scaling or region-specific promotion to balance growth across categories."}
+                          <p className="text-[11px] text-white/45 leading-relaxed">
+                            {aiInsights?.recommendations?.[1] ||
+                              "Execute automated scaling or region-specific promotion to balance growth."}
                           </p>
                         </div>
                       </div>
+                      <button
+                        onClick={() => setShowFullInsightsModal(true)}
+                        className="w-full mt-4 py-2.5 rounded-lg text-brand-primary text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer font-mono"
+                        style={{ background: "rgba(80,99,244,0.08)", border: "1px solid rgba(80,99,244,0.2)" }}
+                      >
+                        View full analysis ↗
+                      </button>
                     </div>
+                  </div>
 
-                    <button
-                      onClick={() => setShowFullInsightsModal(true)}
-                      className="w-full mt-4 py-2.5 rounded-lg bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary text-xs font-semibold tracking-wide border border-brand-primary/20 hover:border-brand-primary/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-mono"
-                    >
-                      View full analysis ↗
-                    </button>
+                  {/* Row 4: Geographic Map */}
+                  <div className="w-full">
+                    <GeographicMap
+                      geoData={geoData}
+                      aiGeoNote={aiInsights?.geo || null}
+                      loading={false}
+                      selectedRegion={selectedRegion}
+                      onSelectRegion={setSelectedRegion}
+                    />
                   </div>
                 </div>
+              )}
 
-                {/* Geographic Map Card */}
-                <div className="w-full">
-                  <GeographicMap
-                    geoData={geoData}
-                    aiGeoNote={aiInsights?.geo || null}
-                    loading={loadingDashboard}
-                    selectedRegion={selectedRegion}
-                    onSelectRegion={setSelectedRegion}
+              {/* ── DATASET OVERVIEW SECTION ── */}
+              {activeSection === "dataset-overview" && (
+                <DatasetOverviewPanel schema={datasetSchema} loading={loadingSchema} />
+              )}
+
+              {/* ── SNOW AI SECTION ── */}
+              {activeSection === "snow-ai" && (
+                <div className="max-w-4xl mx-auto">
+                  <InsightsCenter
+                    datasetId={selectedDatasetId}
+                    anomalies={anomalies}
+                    recommendations={aiInsights?.recommendations || null}
+                    loading={false}
                   />
                 </div>
-              </>
-            )}
+              )}
 
-            {activeSection === "dataset-overview" && (
-              <DatasetOverviewPanel schema={datasetSchema} loading={loadingSchema} />
-            )}
-
-            {activeSection === "snow-ai" && (
-              <div className="max-w-4xl mx-auto">
-                <InsightsCenter
-                  datasetId={selectedDatasetId!}
-                  anomalies={anomalies}
-                  recommendations={aiInsights?.recommendations || null}
-                  loading={loadingDashboard}
+              {/* ── FUTURE PREDICTION SECTION ── */}
+              {activeSection === "prediction" && (
+                <PredictionPanel
+                  datasetId={selectedDatasetId}
+                  forecast={forecast}
+                  trainingHistory={trainingHistory}
+                  loading={loadingPrediction}
                 />
-              </div>
-            )}
+              )}
 
-            {activeSection === "prediction" && (
-              <PredictionPanel
-                datasetId={selectedDatasetId!}
-                forecast={forecast}
-                trainingHistory={trainingHistory}
-                loading={loadingPrediction}
-              />
-            )}
-          </div>
-        )}
+              {/* ── PRODUCTION ENV (placeholder) ── */}
+              {activeSection === "production-env" && (
+                <div className="rounded-xl p-8 text-center"
+                  style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <Sparkles className="w-8 h-8 text-brand-primary mx-auto mb-3" />
+                  <h3 className="text-base font-semibold text-white mb-2">Production Environment</h3>
+                  <p className="text-xs text-white/35">
+                    Connect your production data pipelines and deployment targets here.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-      
-      {/* Floating Detailed AI Analysis Modal */}
+
+      {/* ── Full AI Analysis Modal ── */}
       {showFullInsightsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md transition-all">
-          <div className="w-full max-w-5xl h-[85vh] bg-[#090a0f] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#12141c]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }}
+        >
+          <div
+            className="w-full max-w-5xl flex flex-col overflow-hidden rounded-2xl"
+            style={{
+              height: "85vh",
+              background: "#090a10",
+              border: "1px solid rgba(255,255,255,0.09)",
+              boxShadow: "0 40px 80px rgba(0,0,0,0.7)",
+            }}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0"
+              style={{ background: "#12151e" }}>
               <div className="flex items-center gap-2">
                 <BrainCircuit className="w-5 h-5 text-brand-primary animate-pulse" />
                 <span className="font-semibold text-white">SNOW Intelligence Copilot & Insights</span>
               </div>
               <button
                 onClick={() => setShowFullInsightsModal(false)}
-                className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg border border-white/5 transition-all cursor-pointer font-mono"
+                className="px-3 py-1.5 text-xs text-white/50 hover:text-white rounded-lg transition-all cursor-pointer font-mono"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}
               >
                 Close Panel
               </button>
             </div>
-            
-            {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-6 bg-[#090a0f]/50">
+            <div className="flex-1 overflow-y-auto p-6">
               <InsightsCenter
-                datasetId={selectedDatasetId!}
+                datasetId={selectedDatasetId}
                 anomalies={anomalies}
                 recommendations={aiInsights?.recommendations || null}
-                loading={loadingDashboard}
+                loading={false}
               />
             </div>
           </div>
@@ -808,4 +967,3 @@ export default function HomePage() {
     </div>
   );
 }
-

@@ -1,6 +1,7 @@
+"use client";
+
 import React, { useEffect, useRef } from "react";
 import * as echarts from "echarts";
-import { RefreshCw } from "lucide-react";
 
 interface DonutItem {
   name: string;
@@ -13,84 +14,98 @@ interface DonutChartProps {
   title?: string;
 }
 
-export default function DonutChart({ data, loading, title = "Top segments" }: DonutChartProps) {
+// Segment colors matching reference screenshot: blue, green, orange/yellow
+const SEGMENT_COLORS = ["#5063f4", "#10b981", "#f59e0b", "#8b5cf6", "#6b7280"];
+
+// Percentage distribution helper
+function calcPercents(data: DonutItem[]): number[] {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  return data.map((d) => Math.round((d.value / total) * 100));
+}
+
+// Compact number formatter
+function compactNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+export default function DonutChart({ data, loading, title = "Top segment shares" }: DonutChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (loading || !data || !chartRef.current) return;
+    if (loading || !data || data.length === 0 || !chartRef.current) return;
 
-    const chart = echarts.init(chartRef.current);
+    const chart = echarts.init(chartRef.current, undefined, { renderer: "canvas" });
 
-    const isCurrency = data.some(item => 
-      ["revenue", "sales", "price", "amount"].some(k => item.name.toLowerCase().includes(k)) ||
-      item.value > 1000
-    );
+    const total = data.reduce((s, d) => s + d.value, 0);
+    const totalLabel = compactNum(total);
 
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
       tooltip: {
         trigger: "item",
-        backgroundColor: "#12141c",
-        borderColor: "rgba(255, 255, 255, 0.08)",
-        textStyle: {
-          color: "#f3f4f6",
-          fontFamily: "Inter, sans-serif",
-          fontSize: 11
-        },
+        backgroundColor: "#12151e",
+        borderColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        textStyle: { color: "#f3f4f6", fontFamily: "Inter, sans-serif", fontSize: 11 },
         formatter: (params: any) => {
-          const valFormatted = isCurrency
-            ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(params.value)
-            : new Intl.NumberFormat("en-US").format(params.value);
-          return `<div class="p-1 font-sans">
-            <span class="text-[10px] text-brand-muted block font-mono">${params.seriesName}</span>
-            <span class="flex items-center gap-1.5 mt-1 text-xs text-white">
-              <span class="w-2 h-2 rounded-full" style="background-color: ${params.color}"></span>
-              <strong>${params.name}</strong>: ${valFormatted} (${params.percent}%)
-            </span>
+          return `<div style="padding:2px 4px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${params.color};margin-right:6px"></span>
+            <strong>${params.name}</strong>: ${params.percent}%
           </div>`;
-        }
+        },
       },
-      legend: {
-        show: false
-      },
+      legend: { show: false },
       series: [
         {
           name: title,
           type: "pie",
-          radius: ["60%", "80%"],
+          radius: ["62%", "82%"],
+          center: ["50%", "48%"],
           avoidLabelOverlap: false,
           itemStyle: {
-            borderRadius: 4,
-            borderColor: "#12141c",
-            borderWidth: 2
+            borderRadius: 5,
+            borderColor: "rgba(13,15,20,0.95)",
+            borderWidth: 3,
           },
           label: {
-            show: false,
-            position: "center"
+            show: true,
+            position: "center",
+            formatter: () => `{val|${totalLabel}}\n{sub|Total Users}`,
+            rich: {
+              val: {
+                fontSize: 22,
+                fontWeight: "bold",
+                color: "#ffffff",
+                fontFamily: "Inter, sans-serif",
+                lineHeight: 28,
+              },
+              sub: {
+                fontSize: 10,
+                color: "rgba(255,255,255,0.35)",
+                fontFamily: "Inter, sans-serif",
+                lineHeight: 16,
+              },
+            },
           },
           emphasis: {
-            label: {
-              show: true,
-              fontSize: 12,
-              fontWeight: "bold",
-              color: "#ffffff",
-              formatter: "{b}\n{d}%"
-            }
+            label: { show: true },
+            itemStyle: {
+              shadowBlur: 12,
+              shadowColor: "rgba(80,99,244,0.4)",
+            },
           },
-          labelLine: {
-            show: false
-          },
-          data: data,
-          color: ["#5063f4", "#10b981", "#f59e0b", "#8b5cf6", "#6b7280"]
-        }
-      ]
+          labelLine: { show: false },
+          data: data.slice(0, 5),
+          color: SEGMENT_COLORS,
+        },
+      ],
     };
 
     chart.setOption(option);
 
-    const handleResize = () => {
-      chart.resize();
-    };
+    const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
 
     return () => {
@@ -99,19 +114,28 @@ export default function DonutChart({ data, loading, title = "Top segments" }: Do
     };
   }, [data, loading, title]);
 
-  return (
-    <div className="glass-panel p-5 h-full flex flex-col justify-between">
-      <div>
-        <p className="text-sm font-medium text-white mb-3">{title}</p>
-      </div>
+  const percents = data && data.length > 0 ? calcPercents(data) : [];
 
-      <div className="flex-1 relative min-h-[140px] flex items-center justify-center">
+  return (
+    <div
+      className="rounded-xl p-5 flex flex-col"
+      style={{
+        background: "rgba(18,21,30,0.65)",
+        border: "1px solid rgba(255,255,255,0.06)",
+        height: "100%",
+      }}
+    >
+      {/* Title */}
+      <p className="text-[14px] font-semibold text-white mb-3 flex-shrink-0">{title}</p>
+
+      {/* Donut chart */}
+      <div className="flex-1 relative min-h-0" style={{ minHeight: 200 }}>
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <RefreshCw className="w-5 h-5 animate-spin text-brand-primary" />
+            <div className="w-6 h-6 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
           </div>
         ) : !data || data.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-brand-muted font-mono">
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-white/25 font-mono">
             No segments found
           </div>
         ) : (
@@ -119,18 +143,23 @@ export default function DonutChart({ data, loading, title = "Top segments" }: Do
         )}
       </div>
 
-      {/* Stylized legend items */}
+      {/* Legend list — like reference screenshot */}
       {!loading && data && data.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 mt-4 text-[10px] text-brand-muted font-mono">
-          {data.slice(0, 4).map((item, idx) => {
-            const colors = ["#5063f4", "#10b981", "#f59e0b", "#8b5cf6", "#6b7280"];
-            return (
-              <div key={idx} className="flex items-center gap-1.5 truncate">
-                <span className="w-2 h-2 rounded-xs shrink-0" style={{ backgroundColor: colors[idx % colors.length] }}></span>
-                <span className="truncate" title={item.name}>{item.name}</span>
+        <div className="space-y-2 mt-4 flex-shrink-0">
+          {data.slice(0, 5).map((item, idx) => (
+            <div key={idx} className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: SEGMENT_COLORS[idx % SEGMENT_COLORS.length] }}
+                />
+                <span className="text-[12px] text-white/60 truncate">{item.name}</span>
               </div>
-            );
-          })}
+              <span className="text-[12px] font-semibold text-white/80 ml-3 flex-shrink-0">
+                {percents[idx]}%
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>

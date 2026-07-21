@@ -4,7 +4,7 @@ import { Globe, RefreshCw, Filter } from "lucide-react";
 interface GeoItem {
   region: string;
   value: number;
-  count: number;
+  count?: number;
 }
 
 interface GeographicMapProps {
@@ -172,7 +172,7 @@ export default function GeographicMap({
                 {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(hoveredData.value)}
               </p>
               <div className="flex items-center justify-between text-[9px] text-brand-muted mt-1 font-mono">
-                <span>{hoveredData.count} records</span>
+                <span>{hoveredData.count ?? 0} records</span>
                 <span>{((hoveredData.value / totalGeoValue) * 100).toFixed(0)}% share</span>
               </div>
             </div>

@@ -5,13 +5,11 @@ import { Search, Bell, Settings, LogOut, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TopNavBarProps {
-  onChangeDataset?: () => void;
   onLogout?: () => void;
   userEmail?: string;
 }
 
 export default function TopNavBar({
-  onChangeDataset,
   onLogout,
   userEmail = "user@example.com",
 }: TopNavBarProps) {
@@ -42,21 +40,6 @@ export default function TopNavBar({
           <Search size={14} />
           <span className="text-xs font-sans">Search insights...</span>
         </div>
-
-        {/* Change Dataset */}
-        <button
-          onClick={onChangeDataset}
-          className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all cursor-pointer"
-          style={{
-            background: "linear-gradient(135deg, #5063f4 0%, #7c3aed 100%)",
-            boxShadow: "0 0 16px rgba(80,99,244,0.35)",
-          }}
-        >
-          Change Dataset
-        </button>
-
-        {/* Divider */}
-        <div className="w-px h-5 bg-white/10" />
 
         {/* Bell */}
         <button className="relative p-1.5 text-white/40 hover:text-white/80 transition-colors cursor-pointer">

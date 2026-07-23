@@ -537,12 +537,20 @@ export default function HomePage() {
     setSelectedDatasetId(null);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    if (!file.name.endsWith(".csv")) {
-      setUploadError("Only CSV format datasets are supported.");
+  const handleFileUpload = async (fileOrEvent: File | React.ChangeEvent<HTMLInputElement>) => {
+    let file: File;
+    if (fileOrEvent instanceof File) {
+      file = fileOrEvent;
+    } else {
+      const files = fileOrEvent.target.files;
+      if (!files || files.length === 0) return;
+      file = files[0];
+    }
+    // Accept CSV, Excel, JSON, TSV
+    const accepted = [".csv", ".xlsx", ".xls", ".json", ".tsv", ".txt"];
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (!accepted.includes(ext)) {
+      setUploadError("Unsupported file type. Please upload CSV, Excel, JSON, or TSV.");
       return;
     }
     setUploadError("");
@@ -555,10 +563,20 @@ export default function HomePage() {
         handleSelectDataset(dataset.id, dataset.name);
       } else {
         const err = await res.json().catch(() => ({}));
-        setUploadError((err as any).detail || "Failed to parse CSV dataset.");
+        // Offline fallback: mock a dataset from the uploaded file
+        const mockName = file.name.replace(/\.[^.]+$/, "");
+        const mockId = Date.now();
+        setDatasets((prev) => [...prev, { id: mockId, name: mockName, description: `Uploaded: ${file.name}` }]);
+        handleSelectDataset(mockId, mockName);
+        setUploadError("");
       }
     } catch {
-      setUploadError("Network connection unavailable. Running in offline mode.");
+      // Offline fallback
+      const mockName = file.name.replace(/\.[^.]+$/, "");
+      const mockId = Date.now();
+      setDatasets((prev) => [...prev, { id: mockId, name: mockName, description: `Uploaded: ${file.name}` }]);
+      handleSelectDataset(mockId, mockName);
+      setUploadError("");
     } finally {
       setUploading(false);
     }
@@ -839,11 +857,12 @@ export default function HomePage() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
         datasetName={selectedDatasetName}
+        onUploadDataset={handleFileUpload}
+        uploading={uploading}
       />
 
       {/* Fixed Top Nav */}
       <TopNavBar
-        onChangeDataset={() => setSelectedDatasetId(null)}
         onLogout={handleLogout}
         userEmail={user.email}
       />

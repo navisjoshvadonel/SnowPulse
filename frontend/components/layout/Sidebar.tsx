@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Database,
@@ -11,8 +11,10 @@ import {
   Settings,
   HelpCircle,
   Briefcase,
+  UploadCloud,
+  FileSpreadsheet,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export type SnowSection =
   | "dashboard"
@@ -27,9 +29,10 @@ interface SidebarProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   datasetName?: string;
+  onUploadDataset?: (file: File) => void;
+  uploading?: boolean;
 }
 
-// Snowflake logo matching the reference screenshot
 function SnowflakeIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -71,8 +74,12 @@ export default function Sidebar({
   collapsed,
   onToggleCollapsed,
   datasetName = "SAMPLE ANALYTICS\n(MOCK)",
+  onUploadDataset,
+  uploading = false,
 }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handle = requestAnimationFrame(() => setMounted(true));
@@ -80,6 +87,18 @@ export default function Sidebar({
   }, []);
 
   const width = collapsed ? 64 : 220;
+
+  const handleFile = (file: File | null | undefined) => {
+    if (!file) return;
+    onUploadDataset?.(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+  };
 
   if (!mounted) {
     return (
@@ -118,6 +137,73 @@ export default function Sidebar({
         )}
       </div>
 
+      {/* ── Upload Dataset Section ── */}
+      <div
+        className={`flex-shrink-0 border-b border-white/[0.06] ${collapsed ? "px-1.5 py-2" : "px-3 py-3"}`}
+      >
+        {collapsed ? (
+          /* Collapsed: just an icon button */
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            title="Upload Dataset"
+            className="w-full flex items-center justify-center p-2 rounded-lg text-white/40 hover:text-brand-primary hover:bg-brand-primary/10 transition-all cursor-pointer"
+          >
+            {uploading ? (
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                <UploadCloud size={17} />
+              </motion.div>
+            ) : (
+              <UploadCloud size={17} />
+            )}
+          </button>
+        ) : (
+          /* Expanded: full drop zone */
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-xl px-3 py-3 cursor-pointer transition-all flex flex-col items-center gap-1.5 text-center"
+            style={{
+              background: dragOver
+                ? "rgba(80,99,244,0.12)"
+                : "rgba(255,255,255,0.02)",
+              border: dragOver
+                ? "1.5px dashed rgba(80,99,244,0.6)"
+                : "1.5px dashed rgba(255,255,255,0.07)",
+            }}
+          >
+            {uploading ? (
+              <>
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                  <UploadCloud size={18} className="text-brand-primary" />
+                </motion.div>
+                <p className="text-[10px] text-white/40 font-mono leading-snug">Uploading…</p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <UploadCloud size={15} className="text-brand-primary flex-shrink-0" />
+                  <FileSpreadsheet size={13} className="text-white/30 flex-shrink-0" />
+                </div>
+                <p className="text-[11px] font-semibold text-white/70 leading-tight">Upload Dataset</p>
+                <p className="text-[9px] text-white/30 font-mono leading-snug">
+                  CSV, Excel, JSON, TSV
+                </p>
+              </>
+            )}
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.xlsx,.xls,.json,.tsv,.txt"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0])}
+        />
+      </div>
+
       {/* ── Nav Items ── */}
       <nav className="flex-1 py-4 flex flex-col gap-0.5 px-2 overflow-y-auto">
         {navItems.map((item) => {
@@ -133,7 +219,6 @@ export default function Sidebar({
                 collapsed ? "justify-center px-0 w-full" : "px-3 w-full"
               }`}
             >
-              {/* Active indicator bar */}
               {isActive && (
                 <motion.div
                   layoutId="activeBar"
@@ -154,7 +239,6 @@ export default function Sidebar({
 
       {/* ── Bottom Controls ── */}
       <div className="flex flex-col gap-0.5 px-2 pb-3 border-t border-white/[0.06] pt-3 flex-shrink-0">
-        {/* Settings */}
         <button
           className={`sidebar-nav-item ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
           title={collapsed ? "Settings" : undefined}
@@ -163,7 +247,6 @@ export default function Sidebar({
           {!collapsed && <span className="ml-3">Settings</span>}
         </button>
 
-        {/* Support */}
         <button
           className={`sidebar-nav-item ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
           title={collapsed ? "Support" : undefined}
@@ -172,7 +255,6 @@ export default function Sidebar({
           {!collapsed && <span className="ml-3">Support</span>}
         </button>
 
-        {/* Production Env */}
         <button
           onClick={() => onNavigate("production-env")}
           className={`sidebar-nav-item ${
@@ -184,7 +266,6 @@ export default function Sidebar({
           {!collapsed && <span className="ml-3">Production Env</span>}
         </button>
 
-        {/* Collapse Toggle */}
         <button
           onClick={onToggleCollapsed}
           className={`sidebar-nav-item mt-1 ${

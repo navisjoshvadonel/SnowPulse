@@ -110,7 +110,7 @@ export default function Sidebar({
         </div>
         {!collapsed && (
           <div className="overflow-hidden leading-tight">
-            <p className="text-[13px] font-bold text-white tracking-tight whitespace-nowrap">Insight AI</p>
+            <p className="text-[13px] font-bold text-white tracking-tight whitespace-nowrap">SnowPulse AI</p>
             <p className="text-[9px] text-white/35 font-mono whitespace-pre-line leading-snug mt-0.5">
               {datasetName}
             </p>

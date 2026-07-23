@@ -13,8 +13,8 @@ const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  title: "Insight AI — Executive Analytics Dashboard",
-  description: "Modern Executive-Grade AI Analytics Platform",
+  title: "SnowPulse AI — Executive Analytics Dashboard",
+  description: "Modern Executive-Grade SnowPulse AI Analytics Platform",
 };
 
 export default function RootLayout({

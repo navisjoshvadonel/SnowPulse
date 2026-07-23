@@ -265,6 +265,22 @@ export default function HomePage() {
     setTilt({ x: 0, y: 0 });
   };
 
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setAuthError("");
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setUser({ email: "developer@google.com" });
+      fetchDatasets();
+    } catch {
+      setAuthError("Google Sign-In failed.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   // App state
   const [datasets, setDatasets] = useState<{ id: number; name: string; description: string }[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
@@ -573,7 +589,7 @@ export default function HomePage() {
         >
           <div className="flex flex-col items-center mb-8">
             <SnowflakeLogo className="w-16 h-16 animate-spin-slow mb-5" />
-            <h1 className="text-3xl font-bold tracking-tight text-white select-none">Insight AI</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white select-none">SnowPulse AI</h1>
             <p className="text-sm text-white/35 mt-1.5 font-mono select-none">Executive-Grade AI Analytics Platform</p>
           </div>
 
@@ -628,6 +644,43 @@ export default function HomePage() {
             </button>
           </form>
 
+          {/* Divider */}
+          <div className="relative my-6 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/5"></div>
+            </div>
+            <span className="relative px-3 text-[10px] font-mono text-white/30 uppercase bg-[#0c0e12]/80 tracking-wider">
+              Or continue with
+            </span>
+          </div>
+
+          {/* Google Sign-in Button */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
+            className="w-full rounded-lg py-3 text-sm font-semibold transition-all flex items-center justify-center gap-3 cursor-pointer"
+            style={{
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              color: "#fff"
+            }}
+          >
+            {googleLoading ? (
+              <RefreshCw className="w-4.5 h-4.5 animate-spin text-white/40" />
+            ) : (
+              <>
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24">
+                  <path
+                    fill="#EA4335"
+                    d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.2-5.136 4.2A5.76 5.76 0 0 1 8.2 12.8a5.76 5.76 0 0 1 5.79-5.8c1.498 0 2.861.55 3.916 1.455l3.208-3.2A10.24 10.24 0 0 0 13.99 2 10.24 10.24 0 0 0 3.75 12.24a10.24 10.24 0 0 0 10.24 10.24c5.79 0 10.24-4.062 10.24-10.24 0-.693-.06-1.36-.182-1.955H12.24z"
+                  />
+                </svg>
+                <span>Google Sign In</span>
+              </>
+            )}
+          </button>
+
           <div className="mt-6 text-center">
             <button
               onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(""); }}
@@ -648,7 +701,7 @@ export default function HomePage() {
         <header className="flex items-center justify-between py-4 border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <SnowflakeLogo className="w-7 h-7" />
-            <span className="font-bold text-white tracking-tight">Insight AI</span>
+            <span className="font-bold text-white tracking-tight">SnowPulse AI</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-white/30 font-mono">{user.email}</span>
@@ -738,7 +791,7 @@ export default function HomePage() {
         </main>
 
         <footer className="py-4 border-t border-white/5 flex items-center justify-between text-xs text-white/20">
-          <span>Insight AI v2.0.0 — Offline Mode</span>
+          <span>SnowPulse AI v2.0.0 — Offline Mode</span>
           <button onClick={handlePurgeAccount} className="flex items-center gap-1 hover:text-red-400 transition-all font-mono text-[10px]">
             <Trash2 className="w-3.5 h-3.5" />
             GDPR Purge Account

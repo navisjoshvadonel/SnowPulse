@@ -25,6 +25,7 @@ import TopNavBar from "@/components/layout/TopNavBar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 import AnomalyBarChart from "@/components/dashboard/AnomalyBarChart";
 import DatasetProfileChart from "@/components/dashboard/DatasetProfileChart";
+import SnowfallStorm from "@/components/auth/SnowfallStorm";
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -525,14 +526,20 @@ export default function HomePage() {
   // ─── RENDER: AUTH PAGE ───────────────────────────────────────────
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden" style={{ background: "#0d0f14" }}>
-        <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] rounded-full pointer-events-none"
-          style={{ background: "rgba(80,99,244,0.08)", filter: "blur(100px)" }} />
-        <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] rounded-full pointer-events-none"
-          style={{ background: "rgba(16,185,129,0.05)", filter: "blur(100px)" }} />
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden" style={{ background: "#06070a" }}>
+        <SnowfallStorm />
+        <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full pointer-events-none z-0"
+          style={{ background: "rgba(80,99,244,0.06)", filter: "blur(120px)" }} />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full pointer-events-none z-0"
+          style={{ background: "rgba(16,185,129,0.03)", filter: "blur(120px)" }} />
 
-        <div className="w-full max-w-[420px] rounded-2xl p-8 relative"
-          style={{ background: "rgba(18,21,30,0.70)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(20px)" }}>
+        <div className="w-full max-w-[480px] rounded-2xl p-10 relative z-10"
+          style={{
+            background: "rgba(18,21,30,0.72)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            backdropFilter: "blur(24px)",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
+          }}>
           <div className="flex flex-col items-center mb-6">
             <SnowflakeLogo className="w-14 h-14 animate-spin-slow mb-4" />
             <h1 className="text-2xl font-bold tracking-tight text-white">Insight AI</h1>

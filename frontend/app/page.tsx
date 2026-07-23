@@ -533,22 +533,21 @@ export default function HomePage() {
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full pointer-events-none z-0"
           style={{ background: "rgba(16,185,129,0.03)", filter: "blur(120px)" }} />
 
-        <div className="w-full max-w-[480px] rounded-2xl p-10 relative z-10"
+        <div className="w-full max-w-[520px] rounded-3xl p-12 relative z-10"
           style={{
             background: "rgba(18,21,30,0.72)",
-            border: "1px solid rgba(255,255,255,0.08)",
             backdropFilter: "blur(24px)",
-            boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
+            boxShadow: "0 30px 60px rgba(0,0,0,0.6)"
           }}>
-          <div className="flex flex-col items-center mb-6">
-            <SnowflakeLogo className="w-14 h-14 animate-spin-slow mb-4" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">Insight AI</h1>
-            <p className="text-xs text-white/35 mt-1 font-mono">Executive-Grade AI Analytics Platform</p>
+          <div className="flex flex-col items-center mb-8">
+            <SnowflakeLogo className="w-16 h-16 animate-spin-slow mb-5" />
+            <h1 className="text-3xl font-bold tracking-tight text-white">Insight AI</h1>
+            <p className="text-sm text-white/35 mt-1.5 font-mono">Executive-Grade AI Analytics Platform</p>
           </div>
 
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
+          <form onSubmit={handleAuthSubmit} className="space-y-5">
             <div>
-              <label className="block text-[11px] font-mono text-white/40 uppercase tracking-wider mb-1.5">
+              <label className="block text-[12px] font-mono text-white/40 uppercase tracking-wider mb-2">
                 Email Address
               </label>
               <input
@@ -557,12 +556,12 @@ export default function HomePage() {
                 placeholder="name@company.com"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full text-sm text-white rounded-lg px-3.5 py-2.5 outline-none font-sans"
-                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}
+                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans"
+                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)" }}
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono text-white/40 uppercase tracking-wider mb-1.5">
+              <label className="block text-[12px] font-mono text-white/40 uppercase tracking-wider mb-2">
                 Password
               </label>
               <input
@@ -571,8 +570,8 @@ export default function HomePage() {
                 placeholder="••••••••"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full text-sm text-white rounded-lg px-3.5 py-2.5 outline-none font-sans"
-                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}
+                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans"
+                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)" }}
               />
             </div>
 
@@ -586,7 +585,7 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full text-white rounded-lg py-2.5 text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full text-white rounded-lg py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer mt-3"
               style={{ background: "linear-gradient(135deg, #5063f4 0%, #7c3aed 100%)" }}
             >
               {authLoading ? (
@@ -597,10 +596,10 @@ export default function HomePage() {
             </button>
           </form>
 
-          <div className="mt-5 text-center">
+          <div className="mt-6 text-center">
             <button
               onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(""); }}
-              className="text-xs text-white/30 hover:text-white transition-all font-mono"
+              className="text-sm text-white/30 hover:text-white transition-all font-mono"
             >
               {authMode === "login" ? "Don't have an account? Sign up" : "Already registered? Sign in"}
             </button>

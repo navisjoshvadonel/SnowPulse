@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Hash, Calendar, Tag, MapPin, AlertCircle } from "lucide-react";
+import { Hash, Calendar, Tag, MapPin, AlertCircle, CheckCircle, Sparkles } from "lucide-react";
 
 interface ColumnInfo {
   name: string;
@@ -58,6 +58,8 @@ export default function DatasetOverviewPanel({ schema, loading }: DatasetOvervie
     );
   }
 
+  const preprocessingNeeded = schema.columns.some((c) => c.null_count > 0);
+
   const summaryCards = [
     { label: "Rows", value: schema.row_count.toLocaleString() },
     { label: "Columns", value: schema.column_count.toString() },
@@ -73,9 +75,26 @@ export default function DatasetOverviewPanel({ schema, loading }: DatasetOvervie
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">{schema.name}</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-white">{schema.name}</h2>
+          {preprocessingNeeded ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <AlertCircle size={12} />
+              Preprocessing Needed
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <CheckCircle size={12} />
+              Ready for Analysis
+            </span>
+          )}
+        </div>
+        
         {schema.description && (
-          <p className="text-sm text-white/50 mt-1">{schema.description}</p>
+          <div className="mt-3 flex items-start gap-2.5 bg-brand-primary/5 border border-brand-primary/10 rounded-lg p-3">
+            <Sparkles className="text-brand-primary mt-0.5 shrink-0" size={16} />
+            <p className="text-sm text-white/80 leading-relaxed font-medium">{schema.description}</p>
+          </div>
         )}
       </div>
 

@@ -27,6 +27,7 @@ import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 import AnomalyBarChart from "@/components/dashboard/AnomalyBarChart";
 import DatasetProfileChart from "@/components/dashboard/DatasetProfileChart";
 import SnowfallStorm from "@/components/auth/SnowfallStorm";
+import Papa from "papaparse";
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -312,8 +313,11 @@ export default function HomePage() {
   // App state
   const [datasets, setDatasets] = useState<{ id: number; name: string; description: string }[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
-  const [selectedDatasetName, setSelectedDatasetName] = useState("");
+  const [selectedDatasetName, setSelectedDatasetName] = useState("No dataset selected");
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+
+
+  const [dynamicSchemas, setDynamicSchemas] = useState<Record<number, any>>({});
 
   // Dashboard data
   const [kpis, setKpis] = useState<any>(null);
@@ -440,13 +444,19 @@ export default function HomePage() {
     if (!selectedDatasetId) return;
 
     setLoadingSchema(true);
+    if (dynamicSchemas[selectedDatasetId]) {
+      setDatasetSchema(dynamicSchemas[selectedDatasetId]);
+      setLoadingSchema(false);
+      return;
+    }
+
     apiService
       .getDatasetSchema(selectedDatasetId)
       .then((res) => (res.ok ? res.json() : generateMockSchema()))
       .then(setDatasetSchema)
       .catch(() => setDatasetSchema(generateMockSchema()))
       .finally(() => setLoadingSchema(false));
-  }, [selectedDatasetId]);
+  }, [selectedDatasetId, dynamicSchemas]);
 
   useEffect(() => {
     if (!selectedDatasetId) return;
@@ -555,6 +565,104 @@ export default function HomePage() {
     }
     setUploadError("");
     setUploading(true);
+
+    if (ext === ".csv") {
+      Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const data = results.data as Record<string, any>[];
+          const fields = results.meta.fields || [];
+          
+          const columns = fields.map(f => {
+            let nulls = 0;
+            let isNumeric = true;
+            let min = Infinity;
+            let max = -Infinity;
+            let sum = 0;
+            let count = 0;
+
+            for (const row of data) {
+              const val = row[f];
+              if (val === null || val === undefined || val === "") {
+                nulls++;
+              } else {
+                count++;
+                if (typeof val === 'number') {
+                  if (val < min) min = val;
+                  if (val > max) max = val;
+                  sum += val;
+                } else {
+                  isNumeric = false;
+                }
+              }
+            }
+
+            let role = "categorical";
+            if (isNumeric) role = "numeric";
+            if (f.toLowerCase().includes("date") || f.toLowerCase().includes("time")) role = "date";
+            if (f.toLowerCase().includes("country") || f.toLowerCase().includes("region")) role = "geo";
+            
+            const colInfo: any = { name: f, role, null_count: nulls };
+            if (isNumeric && count > 0) {
+              colInfo.min = min;
+              colInfo.max = max;
+              colInfo.mean = Math.round((sum / count) * 100) / 100;
+            }
+            return colInfo;
+          });
+
+          const schema = {
+            dataset_id: Date.now(),
+            name: file.name.replace(/\.[^.]+$/, ""),
+            description: "Analyzing dataset with local AI model...",
+            row_count: data.length,
+            column_count: fields.length,
+            date_range: null,
+            primary_metric: columns.find(c => c.role === "numeric")?.name || null,
+            primary_date: columns.find(c => c.role === "date")?.name || null,
+            primary_category: columns.find(c => c.role === "categorical")?.name || null,
+            columns
+          };
+
+          setDynamicSchemas(prev => ({ ...prev, [schema.dataset_id]: schema }));
+          setDatasets((prev) => [...prev, { id: schema.dataset_id, name: schema.name, description: `Uploaded: ${file.name}` }]);
+          handleSelectDataset(schema.dataset_id, schema.name);
+          setUploading(false);
+
+          // Start Web Worker to generate description using local LLM
+          try {
+            const worker = new Worker(new URL('./llm.worker.ts', import.meta.url));
+            const prompt = `Write a one sentence description of a business dataset containing these columns: ${fields.join(", ")}.`;
+            worker.postMessage({ text: prompt });
+            worker.onmessage = (e) => {
+              if (e.data.status === "complete") {
+                setDynamicSchemas(prev => ({
+                  ...prev,
+                  [schema.dataset_id]: {
+                    ...prev[schema.dataset_id],
+                    description: e.data.result
+                  }
+                }));
+                // Force state update if this is the active dataset
+                setDatasetSchema((prevSchema: any) => {
+                  if (prevSchema?.dataset_id === schema.dataset_id) {
+                    return { ...prevSchema, description: e.data.result };
+                  }
+                  return prevSchema;
+                });
+                worker.terminate();
+              }
+            };
+          } catch (err) {
+            console.error("Worker error:", err);
+          }
+        }
+      });
+      return;
+    }
+
     try {
       const res = await apiService.uploadDataset(file);
       if (res.ok) {
@@ -562,21 +670,16 @@ export default function HomePage() {
         await fetchDatasets();
         handleSelectDataset(dataset.id, dataset.name);
       } else {
-        const err = await res.json().catch(() => ({}));
-        // Offline fallback: mock a dataset from the uploaded file
         const mockName = file.name.replace(/\.[^.]+$/, "");
         const mockId = Date.now();
         setDatasets((prev) => [...prev, { id: mockId, name: mockName, description: `Uploaded: ${file.name}` }]);
         handleSelectDataset(mockId, mockName);
-        setUploadError("");
       }
     } catch {
-      // Offline fallback
       const mockName = file.name.replace(/\.[^.]+$/, "");
       const mockId = Date.now();
       setDatasets((prev) => [...prev, { id: mockId, name: mockName, description: `Uploaded: ${file.name}` }]);
       handleSelectDataset(mockId, mockName);
-      setUploadError("");
     } finally {
       setUploading(false);
     }

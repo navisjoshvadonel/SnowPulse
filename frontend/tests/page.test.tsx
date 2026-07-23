@@ -6,6 +6,7 @@ import { apiService } from '@/services/api'
 
 // Mock Lucide icons statically so Vitest registers the exports
 vi.mock('lucide-react', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');
   const mockExports: Record<string, any> = {};
   const icons = [
@@ -14,7 +15,8 @@ vi.mock('lucide-react', () => {
     'ArrowDownRight', 'Minus', 'Brain', 'Target', 'ServerCog', 'Hash', 'Tag', 'MapPin',
     'AlertCircle', 'Sparkles', 'Send', 'Bot', 'Loader2', 'AlertTriangle', 'TrendingUp',
     'MessageSquare', 'CheckSquare', 'BrainCircuit', 'FileText', 'ChevronRight', 'ChevronLeft',
-    'Trash2', 'Layers', 'LayoutDashboard', 'Briefcase'
+    'Trash2', 'Layers', 'LayoutDashboard', 'Briefcase', 'UploadCloud', 'FileSpreadsheet',
+    'CheckCircle', 'Upload', 'HelpCircle', 'Cloud', 'CheckCircle2', 'ArrowUpDown', 'Plus'
   ];
   icons.forEach(icon => {
     mockExports[icon] = (props: any) => React.createElement('div', { 'data-testid': `icon-${icon.toLowerCase()}`, ...props });
@@ -24,7 +26,9 @@ vi.mock('lucide-react', () => {
 
 // Mock framer-motion to render plain elements in JSDOM and strip animation props
 vi.mock('framer-motion', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dummy = ({ children, ...props }: any) => {
     const {
       initial,
@@ -59,7 +63,17 @@ vi.mock('@/services/api', () => ({
     uploadDataset: vi.fn(),
     createDashboard: vi.fn(),
     askCopilot: vi.fn(),
+    getDatasetSchema: vi.fn(),
+    getForecastPredict: vi.fn(),
+    getMlHistory: vi.fn(),
+    purgeAccount: vi.fn(),
   }
+}))
+
+// Mock Google OAuth
+vi.mock('@react-oauth/google', () => ({
+  GoogleOAuthProvider: ({ children }: any) => children,
+  useGoogleLogin: () => vi.fn(),
 }))
 
 // Mock components to simplify rendering
@@ -75,6 +89,15 @@ vi.mock('@/components/geo-intelligence/GeographicMap', () => ({
 vi.mock('@/components/ai-insights/InsightsCenter', () => ({
   default: () => <div data-testid="insights-center">Insights Center Component</div>
 }))
+vi.mock('@/components/dashboard/DatasetProfileChart', () => ({
+  default: () => <div data-testid="dataset-profile-chart">Dataset Profile Chart Component</div>
+}))
+vi.mock('@/components/dashboard/AnomalyBarChart', () => ({
+  default: () => <div data-testid="anomaly-bar-chart">Anomaly Bar Chart Component</div>
+}))
+vi.mock('@/components/executive-overview/DonutChart', () => ({
+  default: () => <div data-testid="donut-chart">Donut Chart Component</div>
+}))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -87,7 +110,7 @@ test('renders login form by default and switches to register mode', async () => 
   render(<HomePage />)
   
   // Title of the app
-  expect(screen.getByText('SNOW Intelligence')).toBeInTheDocument()
+  expect(screen.getByText('SnowPulse AI')).toBeInTheDocument()
   
   // Form fields
   expect(screen.getByPlaceholderText('name@company.com')).toBeInTheDocument()
@@ -141,6 +164,28 @@ test('transitions from empty state to dashboard panels on dataset selection', as
       trends: 'Upward trajectory',
       geo: 'North region leading',
       recommendations: []
+    })
+  })
+
+  apiService.getDatasetSchema = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({
+      name: 'Sales_Data',
+      columns: []
+    })
+  })
+
+  apiService.getForecastPredict = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({
+      forecast: []
+    })
+  })
+
+  apiService.getMlHistory = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({
+      runs: []
     })
   })
 

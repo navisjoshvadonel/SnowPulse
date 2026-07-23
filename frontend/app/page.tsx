@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Layers,
 } from "lucide-react";
+import { useGoogleLogin } from "@react-oauth/google";
 import { apiService } from "@/services/api";
 import KpiOverview from "@/components/executive-overview/KpiOverview";
 import TrendVisuals from "@/components/performance-trends/TrendVisuals";
@@ -267,18 +268,45 @@ export default function HomePage() {
 
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    setAuthError("");
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setUser({ email: "developer@google.com" });
-      fetchDatasets();
-    } catch {
-      setAuthError("Google Sign-In failed.");
-    } finally {
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setGoogleLoading(true);
+      setAuthError("");
+      try {
+        // Fetch Google user info from the token
+        const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        const profile = await res.json();
+        const email = profile.email || "google-user@gmail.com";
+        setUser({ email });
+        fetchDatasets();
+      } catch {
+        setAuthError("Google Sign-In failed. Please try again.");
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    onError: () => {
+      setAuthError("Google Sign-In was cancelled or failed.");
       setGoogleLoading(false);
+    },
+  });
+
+  const handleGoogleSignIn = () => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId || clientId === "YOUR_GOOGLE_CLIENT_ID_HERE") {
+      // Offline fallback: skip OAuth, log in as demo Google user
+      setGoogleLoading(true);
+      setTimeout(() => {
+        setUser({ email: "demo@snowpulse.ai" });
+        fetchDatasets();
+        setGoogleLoading(false);
+      }, 600);
+      return;
     }
+    setGoogleLoading(true);
+    googleLogin();
   };
 
   // App state
@@ -577,23 +605,23 @@ export default function HomePage() {
 
         <div
           ref={cardRef}
-          className="w-full max-w-[540px] rounded-3xl p-12 relative z-10"
+          className="w-full max-w-[440px] rounded-2xl p-8 relative z-10"
           style={{
-            background: "rgba(10, 12, 18, 0.45)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255, 255, 255, 0.04)",
-            boxShadow: "0 30px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+            background: "rgba(6, 8, 14, 0.22)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
             transform: `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
-            transition: "transform 0.15s ease-out, background 0.3s, border-color 0.3s",
+            transition: "transform 0.15s ease-out",
           }}
         >
-          <div className="flex flex-col items-center mb-8">
-            <SnowflakeLogo className="w-16 h-16 animate-spin-slow mb-5" />
-            <h1 className="text-3xl font-bold tracking-tight text-white select-none">SnowPulse AI</h1>
+          <div className="flex flex-col items-center mb-6">
+            <SnowflakeLogo className="w-12 h-12 animate-spin-slow mb-3" />
+            <h1 className="text-2xl font-bold tracking-tight text-white select-none">SnowPulse AI</h1>
             <p className="text-sm text-white/35 mt-1.5 font-mono select-none">Executive-Grade AI Analytics Platform</p>
           </div>
 
-          <form onSubmit={handleAuthSubmit} className="space-y-5">
+          <form onSubmit={handleAuthSubmit} className="space-y-4">
             <div>
               <label className="block text-[12px] font-mono text-white/40 uppercase tracking-wider mb-2 select-none">
                 Email Address
@@ -604,8 +632,8 @@ export default function HomePage() {
                 placeholder="name@company.com"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans transition-all focus:border-brand-primary/40"
-                style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.04)" }}
+                className="w-full text-sm text-white rounded-lg px-3.5 py-2.5 outline-none font-sans transition-all"
+                style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.05)" }}
               />
             </div>
             <div>
@@ -618,8 +646,8 @@ export default function HomePage() {
                 placeholder="••••••••"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans transition-all focus:border-brand-primary/40"
-                style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.04)" }}
+                className="w-full text-sm text-white rounded-lg px-3.5 py-2.5 outline-none font-sans transition-all"
+                style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.05)" }}
               />
             </div>
 

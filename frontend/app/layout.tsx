@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import AmbientBackground from "@/components/layout/AmbientBackground";
+import GoogleProvider from "@/components/auth/GoogleProvider";
 
 // NOTE: switched from next/font/google to the `geist` package.
 // next/font/google fetches font files from fonts.googleapis.com at BUILD
@@ -29,8 +30,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col text-white" style={{ background: "#0d0f14" }}>
         <AmbientBackground />
-        {/* Page component handles its own TopNavBar, Sidebar, and SystemHealthFooter */}
-        {children}
+        <GoogleProvider>
+          {/* Page component handles its own TopNavBar, Sidebar, and SystemHealthFooter */}
+          {children}
+        </GoogleProvider>
       </body>
     </html>
   );

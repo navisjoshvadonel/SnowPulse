@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles,
   Upload,
@@ -244,6 +244,26 @@ export default function HomePage() {
   const [passwordInput, setPasswordInput] = useState("");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleAuthMouseMove = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const cardCenterX = rect.left + rect.width / 2;
+    const cardCenterY = rect.top + rect.height / 2;
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+
+    const rotateX = -(mouseY - cardCenterY) / (rect.height / 2) * 8;
+    const rotateY = (mouseX - cardCenterX) / (rect.width / 2) * 8;
+
+    setTilt({ x: rotateX, y: rotateY });
+  };
+
+  const handleAuthMouseLeave = () => {
+    setTilt({ x: 0, y: 0 });
+  };
 
   // App state
   const [datasets, setDatasets] = useState<{ id: number; name: string; description: string }[]>([]);
@@ -526,28 +546,40 @@ export default function HomePage() {
   // ─── RENDER: AUTH PAGE ───────────────────────────────────────────
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden" style={{ background: "#06070a" }}>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
+        style={{ background: "#040508" }}
+        onMouseMove={handleAuthMouseMove}
+        onMouseLeave={handleAuthMouseLeave}
+      >
         <SnowfallStorm />
-        <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full pointer-events-none z-0"
-          style={{ background: "rgba(80,99,244,0.06)", filter: "blur(120px)" }} />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full pointer-events-none z-0"
-          style={{ background: "rgba(16,185,129,0.03)", filter: "blur(120px)" }} />
-
-        <div className="w-full max-w-[520px] rounded-3xl p-12 relative z-10"
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full pointer-events-none z-0"
           style={{
-            background: "rgba(18,21,30,0.72)",
-            backdropFilter: "blur(24px)",
-            boxShadow: "0 30px 60px rgba(0,0,0,0.6)"
-          }}>
+            background: "radial-gradient(circle, rgba(80,99,244,0.08) 0%, rgba(16,185,129,0.01) 70%, transparent 100%)",
+            filter: "blur(80px)"
+          }} />
+
+        <div
+          ref={cardRef}
+          className="w-full max-w-[540px] rounded-3xl p-12 relative z-10"
+          style={{
+            background: "rgba(10, 12, 18, 0.45)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 255, 255, 0.04)",
+            boxShadow: "0 30px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+            transform: `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+            transition: "transform 0.15s ease-out, background 0.3s, border-color 0.3s",
+          }}
+        >
           <div className="flex flex-col items-center mb-8">
             <SnowflakeLogo className="w-16 h-16 animate-spin-slow mb-5" />
-            <h1 className="text-3xl font-bold tracking-tight text-white">Insight AI</h1>
-            <p className="text-sm text-white/35 mt-1.5 font-mono">Executive-Grade AI Analytics Platform</p>
+            <h1 className="text-3xl font-bold tracking-tight text-white select-none">Insight AI</h1>
+            <p className="text-sm text-white/35 mt-1.5 font-mono select-none">Executive-Grade AI Analytics Platform</p>
           </div>
 
           <form onSubmit={handleAuthSubmit} className="space-y-5">
             <div>
-              <label className="block text-[12px] font-mono text-white/40 uppercase tracking-wider mb-2">
+              <label className="block text-[12px] font-mono text-white/40 uppercase tracking-wider mb-2 select-none">
                 Email Address
               </label>
               <input
@@ -556,12 +588,12 @@ export default function HomePage() {
                 placeholder="name@company.com"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans"
-                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)" }}
+                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans transition-all focus:border-brand-primary/40"
+                style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.04)" }}
               />
             </div>
             <div>
-              <label className="block text-[12px] font-mono text-white/40 uppercase tracking-wider mb-2">
+              <label className="block text-[12px] font-mono text-white/40 uppercase tracking-wider mb-2 select-none">
                 Password
               </label>
               <input
@@ -570,8 +602,8 @@ export default function HomePage() {
                 placeholder="••••••••"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans"
-                style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)" }}
+                className="w-full text-base text-white rounded-lg px-4 py-3 outline-none font-sans transition-all focus:border-brand-primary/40"
+                style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.04)" }}
               />
             </div>
 

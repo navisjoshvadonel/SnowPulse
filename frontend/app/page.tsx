@@ -843,8 +843,6 @@ export default function HomePage() {
 
       {/* Fixed Top Nav */}
       <TopNavBar
-        activeTab={navTab}
-        onTabChange={setNavTab}
         onChangeDataset={() => setSelectedDatasetId(null)}
         onLogout={handleLogout}
         userEmail={user.email}

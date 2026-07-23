@@ -1,38 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Bell, ChevronDown, Settings, LogOut, User } from "lucide-react";
+import { Search, Bell, Settings, LogOut, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TopNavBarProps {
-  activeTab?: "overview" | "reports" | "analytics";
-  onTabChange?: (tab: "overview" | "reports" | "analytics") => void;
   onChangeDataset?: () => void;
   onLogout?: () => void;
   userEmail?: string;
 }
 
 export default function TopNavBar({
-  activeTab = "overview",
-  onTabChange,
   onChangeDataset,
   onLogout,
   userEmail = "user@example.com",
 }: TopNavBarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const tabs = [
-    { id: "overview" as const, label: "Overview" },
-    { id: "reports" as const, label: "Reports" },
-    { id: "analytics" as const, label: "Analytics" },
-  ];
-
-  const initials = userEmail
-    ? userEmail.slice(0, 2).toUpperCase()
-    : "JD";
+  const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "JD";
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-[64px] z-40 flex items-center justify-between px-5"
+    <header
+      className="fixed top-0 left-0 right-0 h-[64px] z-40 flex items-center justify-between px-5"
       style={{
         background: "rgba(13,15,20,0.92)",
         backdropFilter: "blur(16px)",
@@ -43,25 +32,13 @@ export default function TopNavBar({
       {/* ── Left: empty space for sidebar logo area ── */}
       <div style={{ width: 220 }} className="flex-shrink-0" />
 
-      {/* ── Center: Tabs ── */}
-      <nav className="flex items-end gap-6 h-full">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange?.(tab.id)}
-            className={`pb-[18px] text-[13px] font-medium transition-all cursor-pointer ${
-              activeTab === tab.id ? "tab-active" : "tab-inactive"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      {/* ── Center: empty ── */}
+      <div className="flex-1" />
 
       {/* ── Right: Search + Actions ── */}
       <div className="flex items-center gap-3">
         {/* Search */}
-        <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-2 text-white/40 hover:text-white/70 transition-colors">
+        <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-2 text-white/40 hover:text-white/70 transition-colors cursor-pointer">
           <Search size={14} />
           <span className="text-xs font-sans">Search insights...</span>
         </div>
@@ -87,7 +64,7 @@ export default function TopNavBar({
           <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full border-2 border-[#0d0f14]" />
         </button>
 
-        {/* Avatar */}
+        {/* Avatar + dropdown */}
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -118,7 +95,7 @@ export default function TopNavBar({
               >
                 <div className="px-4 py-2.5 border-b border-white/[0.06] mb-1">
                   <p className="text-sm font-semibold text-white truncate">{userEmail}</p>
-                  <p className="text-[10px] text-white/40 font-mono mt-0.5">Admin · SnowPulse</p>
+                  <p className="text-[10px] text-white/40 font-mono mt-0.5">Admin · SnowPulse AI</p>
                 </div>
 
                 <button className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer">

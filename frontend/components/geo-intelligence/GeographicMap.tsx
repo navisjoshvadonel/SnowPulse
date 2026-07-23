@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
 import { Globe, RefreshCw, Filter } from "lucide-react";
+import * as echarts from "echarts";
 
 interface GeoItem {
   region: string;
@@ -22,7 +25,238 @@ export default function GeographicMap({
   selectedRegion,
   onSelectRegion,
 }: GeographicMapProps) {
-  const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  // Fallback mock regions if no geo columns are parsed
+  const activeGeo = geoData && geoData.length > 0 ? geoData : [
+    { region: "North America", value: 520138, count: 38 },
+    { region: "Europe", value: 312040, count: 26 },
+    { region: "APAC", value: 284925, count: 22 },
+    { region: "LATAM", value: 287614, count: 18 },
+    { region: "MEA", value: 142300, count: 12 },
+  ];
+
+  const totalGeoValue = activeGeo.reduce((sum, item) => sum + item.value, 0) || 1;
+  const maxVal = Math.max(...activeGeo.map((g) => g.value)) || 1;
+
+  // Region/country mapping
+  const regionToCountriesMap: Record<string, string[]> = {
+    "North America": ["United States", "Canada"],
+    "USA": ["United States"],
+    "Canada": ["Canada"],
+    "Mexico & Central America": ["Mexico"],
+    "Mexico": ["Mexico"],
+    "South America": ["Brazil"],
+    "Brazil": ["Brazil"],
+    "Latin America": ["Brazil", "Mexico"],
+    "LATAM": ["Brazil", "Mexico"],
+    "Europe": ["Germany", "United Kingdom"],
+    "Germany": ["Germany"],
+    "United Kingdom": ["United Kingdom"],
+    "UK": ["United Kingdom"],
+    "Russia": ["Russia"],
+    "Africa": ["Egypt", "South Africa"],
+    "South Africa": ["South Africa"],
+    "Egypt": ["Egypt"],
+    "Middle East": ["Saudi Arabia"],
+    "Saudi Arabia": ["Saudi Arabia"],
+    "China": ["China"],
+    "India": ["India"],
+    "Japan": ["Japan"],
+    "Australia": ["Australia"],
+    "China & East Asia": ["China"],
+    "India & South Asia": ["India"],
+    "APAC": ["China", "India", "Japan", "Australia"],
+    "MEA": ["Saudi Arabia", "Egypt", "South Africa"],
+  };
+
+  useEffect(() => {
+    if (loading || !chartRef.current) return;
+
+    if (chartInstance.current) {
+      chartInstance.current.dispose();
+      chartInstance.current = null;
+    }
+
+    // SVG World Map definition
+    const worldSvg = `<?xml version="1.0" encoding="utf-8"?>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+      <!-- Canada -->
+      <path id="Canada" name="Canada" d="M 80,60 L 240,40 L 280,60 L 260,110 L 210,120 L 140,110 L 80,100 Z" style="cursor:pointer;" />
+      <!-- United States -->
+      <path id="USA" name="United States" d="M 90,105 L 240,112 L 255,145 L 220,165 L 140,160 L 95,130 Z" style="cursor:pointer;" />
+      <!-- Mexico -->
+      <path id="Mexico" name="Mexico" d="M 95,135 L 140,165 L 155,200 L 130,225 L 105,190 Z" style="cursor:pointer;" />
+      <!-- Brazil -->
+      <path id="Brazil" name="Brazil" d="M 180,220 L 225,230 L 250,265 L 220,360 L 180,330 L 155,260 Z" style="cursor:pointer;" />
+      <!-- Greenland -->
+      <path id="Greenland" name="Greenland" d="M 280,30 L 340,20 L 320,60 L 290,50 Z" style="cursor:pointer;" />
+      <!-- United Kingdom -->
+      <path id="United Kingdom" name="United Kingdom" d="M 335,95 L 348,90 L 345,115 L 332,112 Z" style="cursor:pointer;" />
+      <!-- Germany -->
+      <path id="Germany" name="Germany" d="M 345,115 L 385,110 L 400,145 L 360,165 L 340,150 Z" style="cursor:pointer;" />
+      <!-- Russia -->
+      <path id="Russia" name="Russia" d="M 388,105 L 680,95 L 720,145 L 520,165 L 405,150 Z" style="cursor:pointer;" />
+      <!-- Egypt -->
+      <path id="Egypt" name="Egypt" d="M 350,185 L 480,175 L 490,230 L 390,260 L 340,240 Z" style="cursor:pointer;" />
+      <!-- South Africa -->
+      <path id="South Africa" name="South Africa" d="M 392,262 L 490,232 L 515,310 L 470,395 L 420,365 L 395,300 Z" style="cursor:pointer;" />
+      <!-- Saudi Arabia -->
+      <path id="Saudi Arabia" name="Saudi Arabia" d="M 470,178 L 520,178 L 530,215 L 485,230 Z" style="cursor:pointer;" />
+      <!-- India -->
+      <path id="India" name="India" d="M 535,200 L 585,205 L 575,250 L 545,250 Z" style="cursor:pointer;" />
+      <!-- China -->
+      <path id="China" name="China" d="M 532,142 L 670,140 L 690,210 L 610,235 L 540,205 Z" style="cursor:pointer;" />
+      <!-- Japan -->
+      <path id="Japan" name="Japan" d="M 700,135 L 715,140 L 708,175 L 695,170 Z" style="cursor:pointer;" />
+      <!-- Australia -->
+      <path id="Australia" name="Australia" d="M 640,310 L 740,325 L 730,380 L 630,365 Z" style="cursor:pointer;" />
+    </svg>`;
+
+    echarts.registerMap("world_svg", { svg: worldSvg });
+
+    // Map input dataset regions to countries for ECharts
+    const chartData: any[] = [];
+    activeGeo.forEach((item) => {
+      const regName = item.region || "";
+      const val = item.value || 0;
+
+      // Exact or loose match of region name to SVG countries
+      const directMatchKey = Object.keys(regionToCountriesMap).find(
+        (key) => key.toLowerCase() === regName.toLowerCase()
+      );
+
+      if (directMatchKey) {
+        regionToCountriesMap[directMatchKey].forEach((country) => {
+          chartData.push({
+            name: country,
+            value: val,
+            originalRegion: regName,
+            selected: selectedRegion === regName,
+          });
+        });
+      } else {
+        let matched = false;
+        for (const [key, countries] of Object.entries(regionToCountriesMap)) {
+          if (regName.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(regName.toLowerCase())) {
+            countries.forEach((country) => {
+              chartData.push({
+                name: country,
+                value: val,
+                originalRegion: regName,
+                selected: selectedRegion === regName,
+              });
+            });
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          chartData.push({
+            name: regName,
+            value: val,
+            originalRegion: regName,
+            selected: selectedRegion === regName,
+          });
+        }
+      }
+    });
+
+    const chart = echarts.init(chartRef.current, undefined, { renderer: "canvas" });
+    chartInstance.current = chart;
+
+    const option: echarts.EChartsOption = {
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "item",
+        backgroundColor: "#12151e",
+        borderColor: "rgba(255,255,255,0.08)",
+        borderWidth: 1,
+        textStyle: { color: "#f3f4f6", fontFamily: "Inter, sans-serif", fontSize: 11 },
+        formatter: (params: any) => {
+          if (params.data) {
+            const formattedVal = new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: "USD",
+              maximumFractionDigits: 0,
+            }).format(params.data.value);
+            return `<div style="padding:2px 4px">
+              <strong style="color:#fff">${params.name}</strong><br/>
+              <span style="color:rgba(255,255,255,0.5)">Region:</span> ${params.data.originalRegion}<br/>
+              <span style="color:#818cf8;font-weight:bold">${formattedVal}</span>
+            </div>`;
+          }
+          return `<div style="padding:2px 4px"><strong style="color:#fff">${params.name}</strong><br/><span style="color:rgba(255,255,255,0.3)">No Data</span></div>`;
+        },
+      },
+      visualMap: {
+        show: false,
+        min: 0,
+        max: maxVal,
+        inRange: {
+          color: [
+            "rgba(80, 99, 244, 0.15)", // Muted purple-blue
+            "rgba(80, 99, 244, 0.4)",
+            "rgba(80, 99, 244, 0.85)", // Vibrant brand color
+          ],
+        },
+      },
+      series: [
+        {
+          name: "World Map",
+          type: "map",
+          map: "world_svg",
+          roam: false,
+          selectedMode: "single",
+          itemStyle: {
+            areaColor: "rgba(255, 255, 255, 0.03)",
+            borderColor: "rgba(255, 255, 255, 0.08)",
+            borderWidth: 1,
+          },
+          emphasis: {
+            itemStyle: {
+              areaColor: "rgba(80, 99, 244, 0.35)",
+              borderColor: "rgba(80, 99, 244, 0.8)",
+            },
+            label: {
+              show: false,
+            },
+          },
+          select: {
+            itemStyle: {
+              areaColor: "rgba(80, 99, 244, 0.5)",
+              borderColor: "rgba(80, 99, 244, 1)",
+            },
+            label: {
+              show: false,
+            },
+          },
+          data: chartData,
+        },
+      ],
+    };
+
+    chart.setOption(option);
+
+    chart.on("click", (params: any) => {
+      if (params.data && params.data.originalRegion) {
+        const origReg = params.data.originalRegion;
+        onSelectRegion(selectedRegion === origReg ? null : origReg);
+      } else {
+        onSelectRegion(null);
+      }
+    });
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      chart.dispose();
+      chartInstance.current = null;
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [geoData, loading, selectedRegion]);
 
   if (loading) {
     return (
@@ -31,82 +265,6 @@ export default function GeographicMap({
       </div>
     );
   }
-
-  // Fallback mock regions if no geo columns are parsed
-  const activeGeo = geoData && geoData.length > 0 ? geoData : [
-    { region: "North America", value: 450000, count: 124 },
-    { region: "Europe", value: 320000, count: 86 },
-    { region: "APAC", value: 580000, count: 192 },
-    { region: "Latin America", value: 140000, count: 42 },
-    { region: "MEA", value: 950000, count: 99 },
-  ];
-
-  const totalGeoValue = activeGeo.reduce((sum, item) => sum + item.value, 0) || 1;
-
-  // Simple SVG paths representing a highly stylized, futuristic minimalist world map regions
-  const mapRegions = [
-    {
-      id: "North America",
-      name: "North America",
-      // Big polygon for North America
-      path: "M 30,30 L 80,30 L 100,60 L 70,80 L 40,80 Z M 25,20 L 45,20 L 40,30 L 20,30 Z",
-      center: { x: 60, y: 55 },
-    },
-    {
-      id: "Europe",
-      name: "Europe",
-      path: "M 130,40 L 170,30 L 180,60 L 140,70 L 130,55 Z",
-      center: { x: 155, y: 50 },
-    },
-    {
-      id: "APAC",
-      name: "Asia-Pacific",
-      path: "M 200,40 L 260,40 L 280,80 L 230,110 L 210,80 Z",
-      center: { x: 235, y: 70 },
-    },
-    {
-      id: "Latin America",
-      name: "Latin America",
-      path: "M 65,95 L 90,95 L 110,140 L 95,170 L 75,145 Z",
-      center: { x: 85, y: 130 },
-    },
-    {
-      id: "MEA",
-      name: "MEA",
-      path: "M 135,75 L 175,75 L 185,110 L 160,135 L 130,115 Z",
-      center: { x: 155, y: 100 },
-    },
-  ];
-
-  // Helper to map DB region name to SVG region ID
-  const findGeoValue = (regionId: string) => {
-    // Exact or loose match
-    const found = activeGeo.find(
-      (g) =>
-        g.region.toLowerCase().includes(regionId.toLowerCase()) ||
-        regionId.toLowerCase().includes(g.region.toLowerCase())
-    );
-    return found || { region: regionId, value: 0, count: 0 };
-  };
-
-  const getHeatColor = (value: number, maxVal: number, isActive: boolean) => {
-    if (value === 0) return "fill-gray-800/40 stroke-gray-700/50";
-    const pct = value / (maxVal || 1);
-    
-    if (isActive) {
-      if (pct > 0.6) return "fill-brand-primary/80 stroke-brand-primary";
-      if (pct > 0.3) return "fill-brand-primary/60 stroke-brand-primary/80";
-      return "fill-brand-primary/35 stroke-brand-primary/60";
-    }
-    
-    // Default muted warm copper/indigo heatmap colors for premium dark look
-    if (pct > 0.6) return "fill-indigo-600/50 hover:fill-indigo-500/70 stroke-indigo-400/30";
-    if (pct > 0.3) return "fill-indigo-700/30 hover:fill-indigo-600/50 stroke-indigo-500/20";
-    return "fill-indigo-900/20 hover:fill-indigo-850/40 stroke-indigo-700/10";
-  };
-
-  const maxVal = Math.max(...activeGeo.map((g) => g.value)) || 1;
-  const hoveredData = hoveredRegion ? findGeoValue(hoveredRegion) : null;
 
   return (
     <div className="glass-panel p-6 h-[440px] flex flex-col justify-between">
@@ -130,53 +288,9 @@ export default function GeographicMap({
       </div>
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-6 mt-4 items-center">
-        {/* SVG Interactive Map (3 cols) */}
+        {/* ECharts Interactive Map (3 cols) */}
         <div className="md:col-span-3 relative h-[220px] flex items-center justify-center bg-black/10 rounded-xl border border-white/3 overflow-hidden">
-          <svg viewBox="0 0 300 180" className="w-full h-full p-2 max-w-[340px]">
-            <g>
-              {mapRegions.map((r) => {
-                const geoInfo = findGeoValue(r.id);
-                const isSelected = selectedRegion === null || selectedRegion === r.id;
-                return (
-                  <g key={r.id}>
-                    <path
-                      d={r.path}
-                      className={`cursor-pointer transition-all duration-300 ${getHeatColor(
-                        geoInfo.value,
-                        maxVal,
-                        isSelected
-                      )}`}
-                      onClick={() => onSelectRegion(selectedRegion === r.id ? null : r.id)}
-                      onMouseEnter={() => setHoveredRegion(r.id)}
-                      onMouseLeave={() => setHoveredRegion(null)}
-                    />
-                    {geoInfo.value > 0 && (
-                      <circle
-                        cx={r.center.x}
-                        cy={r.center.y}
-                        r="3.5"
-                        className="fill-white pointer-events-none shadow"
-                      />
-                    )}
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-
-          {/* Interactive Tooltip Overlay */}
-          {hoveredRegion && hoveredData && (
-            <div className="absolute bottom-3 left-3 bg-[#12141c] border border-white/10 rounded-lg p-2.5 shadow-xl pointer-events-none min-w-[120px] font-sans">
-              <p className="text-[10px] text-brand-primary font-bold tracking-wide uppercase font-mono">{hoveredRegion}</p>
-              <p className="text-xs font-bold text-white mt-0.5">
-                {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(hoveredData.value)}
-              </p>
-              <div className="flex items-center justify-between text-[9px] text-brand-muted mt-1 font-mono">
-                <span>{hoveredData.count ?? 0} records</span>
-                <span>{((hoveredData.value / totalGeoValue) * 100).toFixed(0)}% share</span>
-              </div>
-            </div>
-          )}
+          <div ref={chartRef} className="w-full h-full" />
         </div>
 
         {/* Sidebar Leaderboard (2 cols) */}

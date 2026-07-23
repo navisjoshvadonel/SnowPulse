@@ -1,19 +1,20 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Standard helper to handle API calls with credentials (refresh token cookie support)
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE}${endpoint}`;
   
   // Try retrieving local access token if exists
-  const token = localStorage.getItem("snow_access_token");
+  const token = typeof window !== "undefined" ? localStorage.getItem("snow_access_token") : null;
   const headers = new Headers(options.headers || {});
   
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
   
-  const config = {
+  const config: RequestInit = {
     ...options,
+    credentials: "include",
     headers,
   };
   
@@ -24,19 +25,24 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     try {
       const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, {
         method: "POST",
+        credentials: "include",
         headers: config.headers,
       });
       
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json();
-        localStorage.setItem("snow_access_token", refreshData.access_token);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("snow_access_token", refreshData.access_token);
+        }
         
         // Re-execute request with new token
         headers.set("Authorization", `Bearer ${refreshData.access_token}`);
-        response = await fetch(url, { ...options, headers });
+        response = await fetch(url, { ...options, credentials: "include", headers });
       } else {
         // Refresh failed, clear access token
-        localStorage.removeItem("snow_access_token");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("snow_access_token");
+        }
       }
     } catch (e) {
       console.error("Token refresh failed", e);
@@ -60,6 +66,7 @@ export const apiService = {
     // fastapi OAuth2PasswordRequestForm accepts form-data urlencoded formats
     return fetch(`${API_BASE}/api/auth/login`, {
       method: "POST",
+      credentials: "include",
       body: formData,
     });
   },

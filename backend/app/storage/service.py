@@ -19,13 +19,16 @@ MINIO_SECURE = os.getenv("MINIO_SECURE", "False").lower() in ("true", "1", "t")
 
 class StorageService:
     """
-    Service layer wrapping the MinIO client for secure S3-compliant object storage.
+    Service layer wrapping the MinIO client for secure S3-compliant object storage,
+    with local disk fallback when MinIO is unreachable.
     """
     def __init__(self):
+        self.local_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "local_storage"))
+        os.makedirs(self.local_dir, exist_ok=True)
         try:
-            # Set a connection timeout of 2 seconds to fail fast if MinIO is offline
-            timeout = urllib3.Timeout(connect=2.0, read=5.0)
-            retries = urllib3.Retry(total=2, backoff_factor=0.2)
+            # Set a connection timeout of 1.0 second to fail fast if MinIO is offline
+            timeout = urllib3.Timeout(connect=1.0, read=2.0)
+            retries = urllib3.Retry(total=1, backoff_factor=0.1)
             http_client = urllib3.PoolManager(timeout=timeout, retries=retries)
 
             self.client = Minio(
@@ -36,13 +39,12 @@ class StorageService:
                 http_client=http_client
             )
             self.enabled = True
-            logger.info(f"MinIO storage client connected to endpoint: {MINIO_ENDPOINT}")
             if os.getenv("ENV") != "testing":
                 self.bootstrap_buckets()
         except Exception as e:
             self.client = None
             self.enabled = False
-            logger.error(f"Failed to initialize MinIO storage client: {e}")
+            logger.warning(f"MinIO storage client offline, using local fallback at {self.local_dir}: {e}")
 
     def bootstrap_buckets(self) -> None:
         """
@@ -55,12 +57,13 @@ class StorageService:
                     self.client.make_bucket(bucket)
                     logger.info(f"Created MinIO bucket: '{bucket}'")
 
-                    # Enable versioning on datasets and models
                     if bucket in ("datasets", "models"):
                         self.client.set_bucket_versioning(bucket, ENABLED)
                         logger.info(f"Enabled object versioning for bucket: '{bucket}'")
-            except S3Error as e:
-                logger.error(f"Error bootstrapping bucket '{bucket}': {e}")
+            except Exception as e:
+                logger.warning(f"MinIO bucket check failed for '{bucket}': {e}. Using local storage.")
+                self.enabled = False
+                break
 
     def upload_file(
         self,
@@ -72,56 +75,70 @@ class StorageService:
         metadata: dict[str, str] | None = None
     ) -> str:
         """
-        Uploads an object to the specified bucket and returns its path key.
+        Uploads an object to MinIO or saves to local storage directory.
         """
-        if not self.enabled or not self.client:
-            raise RuntimeError("Storage service is offline.")
-
         if isinstance(data, bytes):
-            data_stream = io.BytesIO(data)
-            length = len(data)
+            data_bytes = data
         else:
-            data_stream = data
+            data_bytes = data.read()
 
-        try:
-            # Add prefix/custom headers to metadata
-            custom_metadata = {}
-            if metadata:
-                for k, v in metadata.items():
-                    custom_metadata[f"x-amz-meta-{k.lower()}"] = str(v)
+        if self.enabled and self.client:
+            try:
+                data_stream = io.BytesIO(data_bytes)
+                custom_metadata = {}
+                if metadata:
+                    for k, v in metadata.items():
+                        custom_metadata[f"x-amz-meta-{k.lower()}"] = str(v)
 
-            self.client.put_object(
-                bucket_name=bucket_name,
-                object_name=object_name,
-                data=data_stream,
-                length=length if length >= 0 else -1,
-                part_size=10 * 1024 * 1024 if length < 0 else 0, # 10MB parts for streams
-                content_type=content_type,
-                metadata=custom_metadata
-            )
-            logger.info(f"Successfully uploaded {object_name} to bucket {bucket_name}")
-            return f"minio://{bucket_name}/{object_name}"
-        except S3Error as e:
-            logger.error(f"MinIO upload error for {object_name}: {e}")
-            raise RuntimeError(f"Storage upload failed: {str(e)}")
+                self.client.put_object(
+                    bucket_name=bucket_name,
+                    object_name=object_name,
+                    data=data_stream,
+                    length=len(data_bytes),
+                    content_type=content_type,
+                    metadata=custom_metadata
+                )
+                logger.info(f"Successfully uploaded {object_name} to bucket {bucket_name}")
+                return f"minio://{bucket_name}/{object_name}"
+            except Exception as e:
+                logger.warning(f"MinIO upload error, falling back to disk: {e}")
+
+        # Local storage fallback
+        target_dir = os.path.join(self.local_dir, bucket_name)
+        os.makedirs(target_dir, exist_ok=True)
+        file_path = os.path.join(target_dir, object_name)
+        with open(file_path, "wb") as f:
+            f.write(data_bytes)
+        logger.info(f"Successfully saved {object_name} locally to {file_path}")
+        return file_path
 
     def get_file(self, bucket_name: str, object_name: str) -> bytes:
         """
-        Retrieves object raw bytes from S3.
+        Retrieves object raw bytes from MinIO or local storage directory.
         """
-        if not self.enabled or not self.client:
-            raise RuntimeError("Storage service is offline.")
-
-        try:
-            response = self.client.get_object(bucket_name, object_name)
+        if self.enabled and self.client:
             try:
-                return response.read()
-            finally:
-                response.close()
-                response.release_conn()
-        except S3Error as e:
-            logger.error(f"MinIO retrieve error for {bucket_name}/{object_name}: {e}")
-            raise RuntimeError(f"Storage download failed: {str(e)}")
+                response = self.client.get_object(bucket_name, object_name)
+                try:
+                    return response.read()
+                finally:
+                    response.close()
+                    response.release_conn()
+            except Exception as e:
+                logger.warning(f"MinIO retrieve error, trying local fallback: {e}")
+
+        # Local storage fallback
+        file_path = os.path.join(self.local_dir, bucket_name, object_name)
+        if os.path.exists(file_path):
+            with open(file_path, "rb") as f:
+                return f.read()
+        
+        # Direct path check
+        if os.path.exists(object_name):
+            with open(object_name, "rb") as f:
+                return f.read()
+
+        raise RuntimeError(f"File not found in MinIO or local storage: {bucket_name}/{object_name}")
 
     def get_signed_url(self, bucket_name: str, object_name: str, expires_in_seconds: int = 3600) -> str:
         """

@@ -733,7 +733,7 @@ export default function HomePage() {
 
       {/* Main Content — offset by sidebar + header + footer */}
       <div
-        className="min-h-screen transition-all duration-[280ms]"
+        className="min-h-screen transition-all duration-[280ms] relative z-10"
         style={{
           paddingLeft: sidebarWidth,
           paddingTop: 64,

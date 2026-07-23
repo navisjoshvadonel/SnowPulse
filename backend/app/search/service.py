@@ -54,8 +54,9 @@ class SearchService:
                 "category"
             ])
             logger.info("Meilisearch unified index 'snowpulse_resources' bootstrapped successfully.")
-        except MeilisearchError as e:
-            logger.error(f"Meilisearch index bootstrap failed: {e}")
+        except Exception as e:
+            self.enabled = False
+            logger.warning(f"Meilisearch host offline or bootstrap failed: {e}. Search service disabled.")
 
     def index_document(self, resource_type: str, document: dict[str, Any]) -> None:
         """

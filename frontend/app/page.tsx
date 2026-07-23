@@ -24,6 +24,7 @@ import PredictionPanel from "@/components/dashboard/PredictionPanel";
 import TopNavBar from "@/components/layout/TopNavBar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 import AnomalyBarChart from "@/components/dashboard/AnomalyBarChart";
+import DatasetProfileChart from "@/components/dashboard/DatasetProfileChart";
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -373,16 +374,17 @@ export default function HomePage() {
   useEffect(() => {
     if (!selectedDatasetId) return;
 
-    if (activeSection === "dataset-overview") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoadingSchema(true);
-      apiService
-        .getDatasetSchema(selectedDatasetId)
-        .then((res) => (res.ok ? res.json() : generateMockSchema()))
-        .then(setDatasetSchema)
-        .catch(() => setDatasetSchema(generateMockSchema()))
-        .finally(() => setLoadingSchema(false));
-    }
+    setLoadingSchema(true);
+    apiService
+      .getDatasetSchema(selectedDatasetId)
+      .then((res) => (res.ok ? res.json() : generateMockSchema()))
+      .then(setDatasetSchema)
+      .catch(() => setDatasetSchema(generateMockSchema()))
+      .finally(() => setLoadingSchema(false));
+  }, [selectedDatasetId]);
+
+  useEffect(() => {
+    if (!selectedDatasetId) return;
 
     if (activeSection === "prediction") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -789,35 +791,9 @@ export default function HomePage() {
                       <AnomalyBarChart anomalies={anomalies} loading={false} />
                     </div>
 
-                    {/* AI Insights Card */}
-                    <div className="lg:col-span-4 rounded-xl p-5 flex flex-col justify-between"
-                      style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)", minHeight: 280 }}>
-                      <div className="space-y-3">
-                        <p className="text-sm font-semibold text-white">AI insights</p>
-                        <div className="rounded-xl p-3"
-                          style={{ background: "rgba(10,11,18,0.7)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                          <p className="text-xs font-semibold text-brand-primary mb-1">Key Observation</p>
-                          <p className="text-[11px] text-white/45 leading-relaxed">
-                            {aiInsights?.recommendations?.[0] ||
-                              "Anomaly profiles suggest minor regional variances. Operational density remains stable."}
-                          </p>
-                        </div>
-                        <div className="rounded-xl p-3"
-                          style={{ background: "rgba(10,11,18,0.7)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                          <p className="text-xs font-semibold text-brand-primary mb-1">Strategy Focus</p>
-                          <p className="text-[11px] text-white/45 leading-relaxed">
-                            {aiInsights?.recommendations?.[1] ||
-                              "Execute automated scaling or region-specific promotion to balance growth."}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setShowFullInsightsModal(true)}
-                        className="w-full mt-4 py-2.5 rounded-lg text-brand-primary text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer font-mono"
-                        style={{ background: "rgba(80,99,244,0.08)", border: "1px solid rgba(80,99,244,0.2)" }}
-                      >
-                        View full analysis ↗
-                      </button>
+                    {/* Dataset Profile Chart */}
+                    <div className="lg:col-span-4">
+                      <DatasetProfileChart schema={datasetSchema} loading={loadingSchema} />
                     </div>
                   </div>
 

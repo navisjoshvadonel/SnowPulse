@@ -23,6 +23,7 @@ import DatasetOverviewPanel from "@/components/dashboard/DatasetOverviewPanel";
 import PredictionPanel from "@/components/dashboard/PredictionPanel";
 import TopNavBar from "@/components/layout/TopNavBar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
+import AnomalyBarChart from "@/components/dashboard/AnomalyBarChart";
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -783,57 +784,9 @@ export default function HomePage() {
 
                   {/* Row 3: Recent Activity + AI Insights */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    {/* Recent Activity Table */}
-                    <div className="lg:col-span-8 rounded-xl p-5"
-                      style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      <p className="text-sm font-semibold text-white mb-4">Recent activity</p>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/[0.05] text-white/25 uppercase font-mono text-[9px] tracking-wider">
-                              <th className="py-2.5 font-medium">Activity</th>
-                              <th className="py-2.5 font-medium text-right">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/[0.03]">
-                            {anomalies && anomalies.length > 0 ? (
-                              anomalies.slice(0, 4).map((anomaly: any, idx: number) => (
-                                <tr key={idx} className="hover:bg-white/[0.01] transition-colors">
-                                  <td className="py-3 text-white/70">
-                                    Anomaly detected in{" "}
-                                    <span className="font-semibold text-brand-primary">{anomaly.region || "Global"}</span>{" "}
-                                    ({anomaly.category || "General"})
-                                  </td>
-                                  <td className={`py-3 text-right font-mono font-semibold ${
-                                    anomaly.severity === "High" ? "text-red-400" : "text-yellow-400"
-                                  }`}>
-                                    {anomaly.severity} Alert
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <>
-                                <tr className="hover:bg-white/[0.01] transition-colors">
-                                  <td className="py-3 text-white/60">Sales forecast projection update</td>
-                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
-                                </tr>
-                                <tr className="hover:bg-white/[0.01] transition-colors">
-                                  <td className="py-3 text-white/60">System dataset scan and integrity check</td>
-                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
-                                </tr>
-                                <tr className="hover:bg-white/[0.01] transition-colors">
-                                  <td className="py-3 text-white/60">Category correlation analysis compilation</td>
-                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
-                                </tr>
-                                <tr className="hover:bg-white/[0.01] transition-colors">
-                                  <td className="py-3 text-white/60">Geographic hub distribution verification</td>
-                                  <td className="py-3 text-right font-mono font-semibold text-emerald-400">Completed</td>
-                                </tr>
-                              </>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                    {/* Anomaly Distribution Chart */}
+                    <div className="lg:col-span-8">
+                      <AnomalyBarChart anomalies={anomalies} loading={false} />
                     </div>
 
                     {/* AI Insights Card */}

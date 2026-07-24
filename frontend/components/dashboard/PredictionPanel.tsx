@@ -213,7 +213,7 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
   return (
     <div className="space-y-6">
       {/* AutoML Trainer Control Console */}
-      <div className="bg-gradient-to-br from-brand-surface/80 to-brand-surface/30 border border-white/10 rounded-xl p-5 shadow-2xl backdrop-blur-md">
+      <div className="relative bg-gradient-to-br from-brand-surface/80 to-brand-surface/30 border border-white/10 rounded-xl p-5 shadow-2xl backdrop-blur-md overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
@@ -248,13 +248,48 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
             <button
               onClick={handleRunAutoML}
               disabled={isTraining || !datasetId}
-              className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+              className="relative overflow-hidden group flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
             >
-              {isTraining ? <Sparkles className="animate-spin" size={14} /> : <Play size={14} />}
+              {/* Button shine effect */}
+              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite]" />
+              {isTraining ? <Sparkles className="animate-pulse" size={14} /> : <Play size={14} />}
               {isTraining ? "Training AI..." : "Run AutoML"}
             </button>
           </div>
         </div>
+
+        {/* Futuristic Training Overlay */}
+        {isTraining && (
+          <div className="absolute inset-0 z-10 bg-black/50 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center overflow-hidden border border-cyan-500/30">
+            <style>{`
+              @keyframes scanline {
+                0% { top: 0%; opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { top: 100%; opacity: 0; }
+              }
+              .animate-scanline {
+                animation: scanline 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+              }
+              @keyframes shimmer {
+                100% { transform: translateX(100%); }
+              }
+            `}</style>
+            <div className="absolute left-0 right-0 h-[2px] bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.8)] animate-scanline" />
+            
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-cyan-500/20 blur-xl animate-pulse" />
+              <Brain className="relative w-12 h-12 text-cyan-400 animate-pulse mb-3" />
+            </div>
+            
+            <p className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-widest uppercase animate-pulse">
+              Synthesizing Neural Weights...
+            </p>
+            <p className="text-[10px] text-cyan-200/50 font-mono mt-2 animate-pulse">
+              Optimizing {trainingTask} models across hyperparameters
+            </p>
+          </div>
+        )}
 
         {trainError && (
           <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400 mb-3">

@@ -24,6 +24,7 @@ interface ForecastOption {
 
 interface InsightsCenterProps {
   datasetId: number;
+  kpis?: any;
   anomalies: Anomaly[] | null;
   recommendations: string[] | null;
   initialHistory?: { query: string; timestamp: string; response: string }[];
@@ -32,6 +33,7 @@ interface InsightsCenterProps {
 
 export default function InsightsCenter({
   datasetId,
+  kpis,
   anomalies,
   recommendations,
   initialHistory = [],
@@ -202,8 +204,8 @@ export default function InsightsCenter({
   // Creates a clean futuristic prediction line with shadow bounds
   const getForecastPoints = () => {
     const points: ForecastPoint[] = [];
-    const baseVal = 120000;
-    const step = 4500;
+    const baseVal = kpis?.mean_value || 120000;
+    const step = baseVal * 0.0375;
     const dateToday = new Date();
     
     for (let i = 1; i <= 6; i++) {
@@ -211,14 +213,14 @@ export default function InsightsCenter({
       const dateStr = forecastDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
       
       let prediction = baseVal + (i * step);
-      let variance = 15000 + (i * 2000); // Uncertainty grows over time
+      let variance = (baseVal * 0.125) + (i * (baseVal * 0.016)); // Uncertainty grows over time
       
       if (forecastModel === "exponential") {
         prediction = baseVal * Math.pow(1.04, i);
         variance = prediction * 0.1 * i;
       } else if (forecastModel === "moving_avg") {
-        prediction = baseVal + Math.sin(i / 1.5) * 8000 + i * 2000;
-        variance = 12000 + (i * 2500);
+        prediction = baseVal + Math.sin(i / 1.5) * (baseVal * 0.066) + i * (baseVal * 0.016);
+        variance = (baseVal * 0.1) + (i * (baseVal * 0.02));
       }
 
       points.push({
@@ -407,9 +409,30 @@ export default function InsightsCenter({
             </div>
 
             {/* Visual SVG Forecasting Chart */}
-            <div className="flex-1 relative bg-black/10 rounded-xl border border-white/3 p-3 flex flex-col justify-between min-h-[160px]">
+            <div className="flex-1 relative bg-black/10 rounded-xl border border-white/5 p-3 flex flex-col justify-between min-h-[160px] overflow-hidden">
+              <style>{`
+                @keyframes drawLine {
+                  0% { stroke-dashoffset: 1000; opacity: 0; }
+                  10% { opacity: 1; }
+                  100% { stroke-dashoffset: 0; opacity: 1; }
+                }
+                @keyframes fadeUp {
+                  0% { transform: translateY(10px); opacity: 0; }
+                  100% { transform: translateY(0); opacity: 1; }
+                }
+                .animate-draw {
+                  stroke-dasharray: 1000;
+                  stroke-dashoffset: 1000;
+                  animation: drawLine 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                }
+                .animate-fade-up {
+                  opacity: 0;
+                  animation: fadeUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                }
+              `}</style>
+
               {/* Plot area */}
-              <div className="relative flex-1">
+              <div className="relative flex-1 animate-fade-up">
                 <svg viewBox="0 0 320 120" className="w-full h-full">
                   {/* Grid Lines */}
                   <line x1="0" y1="30" x2="320" y2="30" stroke="rgba(255,255,255,0.03)" strokeDasharray="3" />
@@ -417,30 +440,31 @@ export default function InsightsCenter({
 
                   {/* Confidence Interval Shadow Area */}
                   <path
-                    d={`M 10,${80 - (forecastPoints[0].prediction / 10000)} 
-                       L 70,${80 - (forecastPoints[1].upper / 20000)}
-                       L 130,${80 - (forecastPoints[2].upper / 20000)}
-                       L 190,${80 - (forecastPoints[3].upper / 20000)}
-                       L 250,${80 - (forecastPoints[4].upper / 20000)}
-                       L 310,${80 - (forecastPoints[5].upper / 20000)}
-                       L 310,${80 - (forecastPoints[5].lower / 20000)}
-                       L 250,${80 - (forecastPoints[4].lower / 20000)}
-                       L 190,${80 - (forecastPoints[3].lower / 20000)}
-                       L 130,${80 - (forecastPoints[2].lower / 20000)}
-                       L 70,${80 - (forecastPoints[1].lower / 20000)}
-                       L 10,${80 - (forecastPoints[0].prediction / 10000)} Z`}
+                    d={`M 10,${80 - (forecastPoints[0].prediction / (kpis?.mean_value || 120000) * 40)} 
+                       L 70,${80 - (forecastPoints[1].upper / (kpis?.mean_value || 120000) * 40)}
+                       L 130,${80 - (forecastPoints[2].upper / (kpis?.mean_value || 120000) * 40)}
+                       L 190,${80 - (forecastPoints[3].upper / (kpis?.mean_value || 120000) * 40)}
+                       L 250,${80 - (forecastPoints[4].upper / (kpis?.mean_value || 120000) * 40)}
+                       L 310,${80 - (forecastPoints[5].upper / (kpis?.mean_value || 120000) * 40)}
+                       L 310,${80 - (forecastPoints[5].lower / (kpis?.mean_value || 120000) * 40)}
+                       L 250,${80 - (forecastPoints[4].lower / (kpis?.mean_value || 120000) * 40)}
+                       L 190,${80 - (forecastPoints[3].lower / (kpis?.mean_value || 120000) * 40)}
+                       L 130,${80 - (forecastPoints[2].lower / (kpis?.mean_value || 120000) * 40)}
+                       L 70,${80 - (forecastPoints[1].lower / (kpis?.mean_value || 120000) * 40)}
+                       L 10,${80 - (forecastPoints[0].prediction / (kpis?.mean_value || 120000) * 40)} Z`}
                     className="fill-indigo-500/10 stroke-none"
+                    style={{ animation: 'fadeUp 1s ease-out 0.5s forwards', opacity: 0 }}
                   />
 
                   {/* Prediction Line */}
                   <path
-                    d={`M 10,${80 - (forecastPoints[0].prediction / 10000)} 
-                       L 70,${80 - (forecastPoints[1].prediction / 20000)}
-                       L 130,${80 - (forecastPoints[2].prediction / 20000)}
-                       L 190,${80 - (forecastPoints[3].prediction / 20000)}
-                       L 250,${80 - (forecastPoints[4].prediction / 20000)}
-                       L 310,${80 - (forecastPoints[5].prediction / 20000)}`}
-                    className="fill-none stroke-brand-primary stroke-[2] stroke-dasharray-[4]"
+                    d={`M 10,${80 - (forecastPoints[0].prediction / (kpis?.mean_value || 120000) * 40)} 
+                       L 70,${80 - (forecastPoints[1].prediction / (kpis?.mean_value || 120000) * 40)}
+                       L 130,${80 - (forecastPoints[2].prediction / (kpis?.mean_value || 120000) * 40)}
+                       L 190,${80 - (forecastPoints[3].prediction / (kpis?.mean_value || 120000) * 40)}
+                       L 250,${80 - (forecastPoints[4].prediction / (kpis?.mean_value || 120000) * 40)}
+                       L 310,${80 - (forecastPoints[5].prediction / (kpis?.mean_value || 120000) * 40)}`}
+                    className="fill-none stroke-brand-primary stroke-[2] animate-draw"
                   />
 
                   {/* Render Data Points */}
@@ -448,9 +472,10 @@ export default function InsightsCenter({
                     <circle
                       key={i}
                       cx={10 + i * 60}
-                      cy={80 - (pt.prediction / (i === 0 ? 10000 : 20000))}
+                      cy={80 - (pt.prediction / (kpis?.mean_value || 120000) * 40)}
                       r="3"
                       className="fill-white stroke-brand-primary stroke-[1.5]"
+                      style={{ animation: `fadeUp 0.5s ease-out ${1 + i * 0.15}s forwards`, opacity: 0 }}
                     />
                   ))}
                 </svg>
@@ -463,10 +488,10 @@ export default function InsightsCenter({
                 </div>
               </div>
 
-              <div className="mt-2 text-[10px] leading-relaxed text-brand-muted flex items-start gap-1 font-sans">
+              <div className="mt-2 text-[10px] leading-relaxed text-brand-muted flex items-start gap-1 font-sans animate-fade-up" style={{ animationDelay: '0.8s' }}>
                 <Sparkles className="w-3.5 h-3.5 text-brand-primary flex-shrink-0 mt-0.5" />
                 <span>
-                  Linear and seasonal projection flags a potential peak revenue limit of{" "}
+                  {forecastModel === "linear" ? "Linear projection" : forecastModel === "exponential" ? "Exponential projection" : "Seasonal projection"} flags a potential peak {kpis?.metric_name || "metric"} limit of{" "}
                   <strong className="text-white">
                     {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(forecastPoints[5].prediction)}
                   </strong>{" "}

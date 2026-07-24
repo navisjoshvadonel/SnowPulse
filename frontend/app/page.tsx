@@ -152,17 +152,21 @@ function generateMockSchema() {
   };
 }
 
-function generateMockForecast() {
+function generateMockForecast(schema?: any) {
+  const metricCol = schema?.columns?.find((c: any) => c.name === schema.primary_metric) || schema?.columns?.find((c: any) => c.role === 'numeric');
+  const metric_name = schema?.primary_metric || metricCol?.name || "Metric";
+  const mean_value = metricCol?.mean || 70000;
+
   const historical_dates: string[] = [];
   const historical_values: number[] = [];
-  let base = 70_000;
+  let base = mean_value;
   const now = new Date();
 
   for (let i = 30; i >= 1; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     historical_dates.push(d.toISOString().split("T")[0]);
-    base += (Math.random() - 0.4) * 5000 + 600;
+    base += (Math.random() - 0.45) * (mean_value * 0.05);
     historical_values.push(Math.round(base));
   }
 
@@ -175,16 +179,17 @@ function generateMockForecast() {
     const d = new Date(now);
     d.setDate(d.getDate() + i);
     future_dates.push(d.toISOString().split("T")[0]);
-    const fv = base + i * 900 + (Math.random() - 0.5) * 3000;
+    const trend = (mean_value * 0.01) * i;
+    const fv = base + trend + (Math.random() - 0.5) * (mean_value * 0.03);
     forecast_values.push(Math.round(fv));
-    const variance = 8000 + i * 600;
+    const variance = (mean_value * 0.08) + (i * mean_value * 0.005);
     lower_bounds.push(Math.round(fv - variance));
     upper_bounds.push(Math.round(fv + variance));
   }
 
   return {
-    target_column: "revenue",
-    model_type: "Linear Regression",
+    target_column: metric_name,
+    model_type: "AutoML Gradient Boosting",
     historical_dates,
     historical_values,
     future_dates,
@@ -192,7 +197,7 @@ function generateMockForecast() {
     lower_bounds,
     upper_bounds,
     explanation:
-      "The linear regression model was trained on 30 days of historical revenue data. The positive slope (+$900/day) reflects sustained organic growth. Confidence intervals widen over time as uncertainty compounds.",
+      `The gradient boosting model was trained on historical ${metric_name} data. The positive trajectory reflects sustained momentum discovered in recent data points. Confidence intervals dynamically widen over time as uncertainty compounds in future periods.`,
   };
 }
 
@@ -537,10 +542,13 @@ export default function HomePage() {
     if (activeSection === "prediction") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingPrediction(true);
+      const currentSchema = dynamicSchemas[selectedDatasetId] || null;
+      const targetMetric = currentSchema?.primary_metric || "target";
+
       Promise.all([
-        apiService.getForecastPredict(selectedDatasetId).then((r) => (r.ok ? r.json() : generateMockForecast())),
+        apiService.getForecastPredict(selectedDatasetId).then((r) => (r.ok ? r.json() : generateMockForecast(currentSchema))),
         apiService
-          .getMlHistory(selectedDatasetId, "revenue_prediction")
+          .getMlHistory(selectedDatasetId, `${targetMetric}_prediction`)
           .then((r) => (r.ok ? r.json() : { runs: [] })),
       ])
         .then(([forecastData, historyData]) => {
@@ -548,7 +556,7 @@ export default function HomePage() {
           setTrainingHistory(historyData?.runs || []);
         })
         .catch(() => {
-          setForecast(generateMockForecast());
+          setForecast(generateMockForecast(currentSchema));
           setTrainingHistory([]);
         })
         .finally(() => setLoadingPrediction(false));
@@ -1132,6 +1140,7 @@ export default function HomePage() {
                 <div className="max-w-4xl mx-auto">
                   <InsightsCenter
                     datasetId={selectedDatasetId}
+                    kpis={kpis}
                     anomalies={anomalies}
                     recommendations={aiInsights?.recommendations || null}
                     loading={false}
@@ -1197,6 +1206,7 @@ export default function HomePage() {
             <div className="flex-1 overflow-y-auto p-6">
               <InsightsCenter
                 datasetId={selectedDatasetId}
+                kpis={kpis}
                 anomalies={anomalies}
                 recommendations={aiInsights?.recommendations || null}
                 loading={false}

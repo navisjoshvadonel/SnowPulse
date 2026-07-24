@@ -107,40 +107,46 @@ export default function KpiOverview({ kpis, aiHeadline, loading }: KpiOverviewPr
   );
   const nodeSparkline = [900, 1050, 980, 1200, 1100, 1350, 1280, 1600, kpis.total_records];
   const accuracySparkline = [95, 96, 95.5, 97, 96.8, 97.5, 97.8, 98, kpis.quality_score];
-  const latencySparkline = [180, 170, 160, 165, 155, 148, 150, 143, 142];
+  const latencySparkline = [0.9, 0.8, 1.05, 0.95, 1.1, 0.85, 0.9, 0.95, 1.0].map(
+    (f) => kpis.mean_value * f
+  );
 
-  const isCurrency = ["revenue", "sales", "price", "amount"].some((k) =>
+  const isCurrency = ["revenue", "sales", "price", "amount", "mrr", "cost"].some((k) =>
     (kpis.metric_name || "").toLowerCase().includes(k)
   );
 
+  const metricTitle = kpis.metric_name 
+    ? kpis.metric_name.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) 
+    : "Primary Metric";
+
   const cards = [
     {
-      title: "Total Revenue",
+      title: `Total ${metricTitle}`,
       value: isCurrency
         ? formatCurrency(kpis.total_value)
-        : `$${formatCompact(kpis.total_value)}`,
+        : formatCompact(kpis.total_value),
       trend: `${isPositive ? "+" : ""}${growth.toFixed(1)}%`,
-      trendLabel: "vs last month",
+      trendLabel: "vs baseline",
       trendUp: isPositive,
       spark: revenueSparkline,
       sparkColor: isPositive ? "#10b981" : "#ef4444",
-      icon: "💰",
+      icon: "📊",
     },
     {
-      title: "Active Node Count",
+      title: "Total Records",
       value: formatCompact(kpis.total_records),
-      trend: `-3.2%`,
-      trendLabel: "vs last week",
-      trendUp: false,
+      trend: "Size",
+      trendLabel: "dataset rows",
+      trendUp: true,
       spark: nodeSparkline,
-      sparkColor: "#ef4444",
+      sparkColor: "#38bdf8",
       icon: "⬡",
     },
     {
-      title: "Prediction Accuracy",
+      title: "Data Quality Score",
       value: `${kpis.quality_score.toFixed(1)}%`,
-      trend: `+0.8%`,
-      trendLabel: "optimized AI model",
+      trend: `+${(100 - kpis.quality_score).toFixed(1)}%`,
+      trendLabel: "fill rate",
       trendUp: true,
       spark: accuracySparkline,
       sparkColor: "#10b981",
@@ -148,15 +154,17 @@ export default function KpiOverview({ kpis, aiHeadline, loading }: KpiOverviewPr
       badge: true,
     },
     {
-      title: "Query Latency",
-      value: `${Math.round(kpis.mean_value > 0 ? kpis.mean_value * 10 : 142)}ms`,
-      trend: "Normal",
-      trendLabel: "steady performance",
+      title: `Mean ${metricTitle}`,
+      value: isCurrency
+        ? formatCurrency(kpis.mean_value || 0)
+        : formatCompact(kpis.mean_value || 0),
+      trend: "Avg",
+      trendLabel: "dataset mean",
       trendUp: true,
       spark: latencySparkline,
       sparkColor: "#5063f4",
-      icon: "⏱",
-      isLatency: true,
+      icon: "∑",
+      isLatency: false,
     },
   ];
 

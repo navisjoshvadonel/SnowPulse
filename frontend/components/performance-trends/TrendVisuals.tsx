@@ -55,9 +55,16 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
       }
     });
 
-    const isCurrency = ["revenue", "sales", "price", "amount"].some((k) =>
+    const isCurrency = ["revenue", "sales", "price", "amount", "mrr", "cost"].some((k) =>
       (trends.metric || "").toLowerCase().includes(k)
     );
+
+    const metricTitle = trends.metric 
+      ? trends.metric.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) 
+      : "Metric";
+
+    const projectedLabel = `Projected ${metricTitle}`;
+    const actualLabel = `Actual ${metricTitle}`;
 
     const chart = echarts.init(chartRef.current, undefined, { renderer: "canvas" });
     chartInstance.current = chart;
@@ -98,7 +105,7 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
         icon: "circle",
         itemWidth: 8,
         itemHeight: 8,
-        data: ["Projected Revenue", "Actual Intake"],
+        data: [projectedLabel, actualLabel],
       },
       grid: {
         top: "8%",
@@ -142,7 +149,7 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
       dataZoom: [{ type: "inside", start: 0, end: 100 }],
       series: [
         {
-          name: "Projected Revenue",
+          name: projectedLabel,
           type: chartType === "area" ? "line" : "bar",
           data: movingAvg,
           smooth: 0.35,
@@ -161,7 +168,7 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
           showSymbol: false,
         },
         {
-          name: "Actual Intake",
+          name: actualLabel,
           type: chartType === "area" ? "line" : "bar",
           data: values,
           smooth: 0.35,

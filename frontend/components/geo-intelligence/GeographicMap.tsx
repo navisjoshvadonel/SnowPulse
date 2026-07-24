@@ -66,20 +66,25 @@ export default function GeographicMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
 
-  // Fallback mock regions if no geo columns parsed
+  const hasGeoData = geoData && geoData.length > 0;
+  const isNoGeoData = geoData && geoData.length === 0;
+
+  // Fallback mock regions if no geo columns parsed and not explicitly empty
   const activeGeo =
-    geoData && geoData.length > 0
+    hasGeoData
       ? geoData
-      : [
-          { region: "North America", value: 520138, count: 38 },
-          { region: "Europe", value: 312040, count: 26 },
-          { region: "APAC", value: 284925, count: 22 },
-          { region: "LATAM", value: 287614, count: 18 },
-          { region: "MEA", value: 142300, count: 12 },
-        ];
+      : isNoGeoData 
+        ? [] 
+        : [
+            { region: "North America", value: 520138, count: 38 },
+            { region: "Europe", value: 312040, count: 26 },
+            { region: "APAC", value: 284925, count: 22 },
+            { region: "LATAM", value: 287614, count: 18 },
+            { region: "MEA", value: 142300, count: 12 },
+          ];
 
   const totalGeoValue = activeGeo.reduce((sum, item) => sum + item.value, 0) || 1;
-  const maxVal = Math.max(...activeGeo.map((g) => g.value)) || 1;
+  const maxVal = Math.max(...activeGeo.map((g) => g.value), 1);
 
   // Load and register the real world GeoJSON map
   useEffect(() => {
@@ -295,12 +300,18 @@ export default function GeographicMap({
               <Globe className="w-6 h-6 text-white/20" />
               <p className="text-xs text-white/30">Map unavailable — check network</p>
             </div>
+          ) : isNoGeoData ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center z-10 bg-black/40 backdrop-blur-sm">
+              <Globe className="w-8 h-8 text-white/20 mb-2" />
+              <p className="text-sm font-semibold text-white/60">No Geographic Data</p>
+              <p className="text-xs text-white/30">Dataset lacks columns with 'geo' roles.</p>
+            </div>
           ) : (
             <div ref={chartRef} className="w-full h-full" />
           )}
 
           {/* Zoom hint */}
-          {!isLoading && !mapError && (
+          {!isLoading && !mapError && !isNoGeoData && (
             <div className="absolute bottom-2 right-2 text-[9px] font-mono text-white/20 pointer-events-none select-none">
               Scroll to zoom · Drag to pan
             </div>
@@ -311,44 +322,48 @@ export default function GeographicMap({
         <div className="w-44 flex flex-col justify-center gap-3 flex-shrink-0">
           <p className="text-[10px] text-brand-muted font-bold tracking-wider uppercase font-mono">Hub Ranking</p>
           <div className="space-y-2.5">
-            {activeGeo.slice(0, 5).map((g, idx) => {
-              const share = (g.value / totalGeoValue) * 100;
-              const isSelected = selectedRegion === g.region;
-              const dimmed = selectedRegion !== null && !isSelected;
-              return (
-                <div
-                  key={idx}
-                  onClick={() => onSelectRegion(isSelected ? null : g.region)}
-                  className={`cursor-pointer p-2 rounded-lg border transition-all ${
-                    isSelected
-                      ? "bg-brand-primary/12 border-brand-primary/30"
-                      : "bg-white/[0.01] border-white/[0.03] hover:bg-white/[0.04]"
-                  }`}
-                  style={{ opacity: dimmed ? 0.35 : 1 }}
-                >
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="font-semibold text-gray-200 truncate max-w-[80px] text-[11px]">{g.region}</span>
-                    <span className="font-mono text-white font-bold text-[10px]">
-                      {new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                        maximumFractionDigits: 0,
-                        notation: "compact",
-                        compactDisplay: "short",
-                      } as any).format(g.value)}
-                    </span>
+            {isNoGeoData ? (
+              <p className="text-xs text-white/20 italic mt-4 text-center">No regions available.</p>
+            ) : (
+              activeGeo.slice(0, 5).map((g, idx) => {
+                const share = (g.value / totalGeoValue) * 100;
+                const isSelected = selectedRegion === g.region;
+                const dimmed = selectedRegion !== null && !isSelected;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => onSelectRegion(isSelected ? null : g.region)}
+                    className={`cursor-pointer p-2 rounded-lg border transition-all ${
+                      isSelected
+                        ? "bg-brand-primary/12 border-brand-primary/30"
+                        : "bg-white/[0.01] border-white/[0.03] hover:bg-white/[0.04]"
+                    }`}
+                    style={{ opacity: dimmed ? 0.35 : 1 }}
+                  >
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-semibold text-gray-200 truncate max-w-[80px] text-[11px]">{g.region}</span>
+                      <span className="font-mono text-white font-bold text-[10px]">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                          maximumFractionDigits: 0,
+                          notation: "compact",
+                          compactDisplay: "short",
+                        } as any).format(g.value)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/5 h-[3px] rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isSelected ? "bg-brand-primary" : "bg-indigo-500/60"
+                        }`}
+                        style={{ width: `${share}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-white/5 h-[3px] rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isSelected ? "bg-brand-primary" : "bg-indigo-500/60"
-                      }`}
-                      style={{ width: `${share}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>

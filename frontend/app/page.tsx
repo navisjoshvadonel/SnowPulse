@@ -345,12 +345,79 @@ export default function HomePage() {
   const [navTab, setNavTab] = useState<"overview" | "reports" | "analytics">("overview");
 
   // ── Load mock data (offline-first) ──────────────────
-  const loadMockDashboard = () => {
-    setKpis(generateMockKpis());
-    setTrends(generateMockTrends());
-    setGeoData(generateMockGeo());
-    setAnomalies(generateMockAnomalies());
-    setAiInsights(generateMockInsights());
+  const loadMockDashboard = (schema?: any) => {
+    if (schema) {
+      const metricCol = schema.columns.find((c: any) => c.name === schema.primary_metric) || schema.columns.find((c: any) => c.role === 'numeric');
+      const total_records = schema.row_count || 0;
+      const metric_name = schema.primary_metric || metricCol?.name || "Metric";
+      const mean_value = metricCol?.mean || 14.2;
+      const nulls = schema.columns.reduce((acc: number, c: any) => acc + c.null_count, 0);
+      const total_cells = total_records * schema.column_count;
+      const quality_score = total_cells > 0 ? ((total_cells - nulls) / total_cells) * 100 : 98.2;
+
+      setKpis({
+        total_value: Math.round(mean_value * total_records),
+        mean_value: mean_value,
+        std_dev: 3.1,
+        growth_rate: 12.4,
+        total_records: total_records,
+        unique_categories: schema.columns.filter((c: any) => c.role === 'categorical' || c.role === 'category').length,
+        unique_regions: schema.columns.filter((c: any) => c.role === 'geo').length,
+        quality_score: quality_score,
+        metric_name: metric_name,
+      });
+
+      // Generate dynamic trends based on mean_value
+      const dates: string[] = [];
+      const values: number[] = [];
+      const moving_average: number[] = [];
+      const now = new Date();
+      let base = mean_value * 1.2;
+      let ma = mean_value * 1.15;
+
+      for (let i = 120; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        dates.push(d.toISOString().split("T")[0]);
+        const noise = (Math.random() - 0.45) * (mean_value * 0.2);
+        base = Math.max(mean_value * 0.3, base + noise + (mean_value * 0.005));
+        values.push(Math.round(base));
+        const maNoise = (Math.random() - 0.5) * (mean_value * 0.1);
+        ma = Math.max(mean_value * 0.25, ma + maNoise + (mean_value * 0.004));
+        moving_average.push(Math.round(ma));
+      }
+      setTrends({ dates, values, moving_average, metric: metric_name });
+
+      const geoCol = schema.columns.find((c: any) => c.role === 'geo');
+      if (geoCol) {
+        setGeoData([
+          { region: "North America", value: Math.round(total_records * 0.4) },
+          { region: "Europe", value: Math.round(total_records * 0.3) },
+          { region: "APAC", value: Math.round(total_records * 0.2) },
+          { region: "LATAM", value: Math.round(total_records * 0.07) },
+          { region: "MEA", value: Math.round(total_records * 0.03) },
+        ]);
+      } else {
+        setGeoData([]); // Explicitly empty for datasets without geo
+      }
+
+      setAnomalies(generateMockAnomalies());
+      setAiInsights({
+        headline: `Analysis complete. Dataset quality is ${quality_score.toFixed(1)}%. AI model ready for predictions on ${metric_name}.`,
+        trends: `Stable trajectory for ${metric_name} with seasonal variations.`,
+        geo: geoCol ? `Regional distribution detected via ${geoCol.name} column.` : "No geographic mapping available.",
+        recommendations: [
+          `Monitor ${metric_name} for structural breaks.`,
+          `Run deep forecasting on ${metric_name} to predict future bounds.`
+        ]
+      });
+    } else {
+      setKpis(generateMockKpis());
+      setTrends(generateMockTrends());
+      setGeoData(generateMockGeo());
+      setAnomalies(generateMockAnomalies());
+      setAiInsights(generateMockInsights());
+    }
   };
 
   const handleSelectDataset = async (datasetId: number, name: string) => {
@@ -368,17 +435,22 @@ export default function HomePage() {
         setGeoData(summary.geo);
         setAnomalies(summary.anomalies);
       } else {
-        loadMockDashboard();
+        const schema = dynamicSchemas[datasetId] || null;
+        loadMockDashboard(schema);
       }
       const insRes = await apiService.getAnalyticsInsights(datasetId);
       if (insRes.ok) {
         const insights = await insRes.json();
         setAiInsights(insights);
       } else {
-        setAiInsights(generateMockInsights());
+        // If we already set dynamic insights in loadMockDashboard, don't overwrite them
+        if (!dynamicSchemas[datasetId]) {
+          setAiInsights(generateMockInsights());
+        }
       }
     } catch {
-      loadMockDashboard();
+      const schema = dynamicSchemas[datasetId] || null;
+      loadMockDashboard(schema);
     } finally {
       setLoadingDashboard(false);
     }
@@ -411,7 +483,8 @@ export default function HomePage() {
     setDatasets(mock);
     setSelectedDatasetId(1);
     setSelectedDatasetName("Sample Analytics (Mock)");
-    loadMockDashboard();
+    const schema = dynamicSchemas[1] || null;
+    loadMockDashboard(schema);
     setLoadingDashboard(false);
   };
 

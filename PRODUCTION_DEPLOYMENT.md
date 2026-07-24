@@ -22,6 +22,39 @@
 - [ ] Configure firewall rules to allow only necessary ports (80, 443, 8000)
 - [ ] Use environment variable management tools (HashiCorp Vault, AWS Secrets Manager) for CI/CD
 
+## Secrets Management Integration (Production Requirement)
+
+Relying on plaintext `.env` files is acceptable for local development, but in a true production environment—especially regarding highly sensitive tokens like `GEMINI_API_KEY`, `JWT_SECRET_KEY`, and database credentials—you must integrate a dedicated Secrets Manager.
+
+### 1. AWS Secrets Manager (or Parameter Store)
+If deploying to AWS ECS or EKS, do not use `.env` files. Instead, reference the secrets directly in your Task Definition or Pod specification.
+* **ECS Example:** Set `valueFrom` in your task definition to point to the ARN of the secret.
+  ```json
+  "secrets": [
+    {
+      "name": "GEMINI_API_KEY",
+      "valueFrom": "arn:aws:secretsmanager:region:account:secret:SnowPulseSecrets-xxxx:GEMINI_API_KEY::"
+    }
+  ]
+  ```
+
+### 2. HashiCorp Vault
+If you are running Docker Swarm or standalone instances, use the **Vault Agent Auto-Auth** to inject secrets at runtime without exposing them to the host file system.
+* Create a template that writes to an in-memory volume (tmpfs).
+* Update your `docker-compose.yml` backend entrypoint to source the secrets before starting the application:
+  ```bash
+  entrypoint: ["/bin/sh", "-c", "source /vault/secrets/config.env && uvicorn app.main:app --host 0.0.0.0"]
+  ```
+
+### 3. 1Password Service Accounts (or Doppler/Infisical)
+For teams already using 1Password, you can use the `op` CLI to securely inject secrets during the container boot sequence.
+* Install the `op` CLI in your Dockerfile.
+* Pass the `OP_SERVICE_ACCOUNT_TOKEN` securely to the container.
+* Run the application wrapped in the `op run` command:
+  ```bash
+  CMD ["op", "run", "--env-file=op.env", "--", "uvicorn", "app.main:app"]
+  ```
+
 ## Deployment Steps
 
 ### 1. Initial Setup

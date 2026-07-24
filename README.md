@@ -85,7 +85,7 @@ mypy backend --config-file backend/mypy.ini --explicit-package-bases
 #### 3. Unit & Integration Testing
 Run the Pytest suite with coverage configuration:
 ```bash
-pytest backend/tests --cov=backend/app --cov-report=xml --cov-report=term-missing --cov-fail-under=50 -v
+pytest backend/tests --cov=backend/app --cov-report=xml --cov-report=term-missing --cov-fail-under=70 -v
 ```
 
 **Required Test Environment Variables:**

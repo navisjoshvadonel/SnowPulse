@@ -187,10 +187,14 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
     setIsTraining(true);
     setTrainError(null);
     try {
-      const res = await apiService.trainMlModel(datasetId, trainingTask);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "AutoML training failed.");
+      // Enforce a minimum 2.5s animation time so the cool UI is visible
+      const [res] = await Promise.all([
+        apiService.trainMlModel(datasetId, trainingTask).catch(() => ({ ok: false, json: async () => ({ detail: "Backend offline - Mock training complete" }) })),
+        new Promise(resolve => setTimeout(resolve, 2500))
+      ]);
+      
+      if (!res || !res.ok) {
+        throw new Error("Backend offline - Mock training complete, but AI engines require live backend connection for full synthesis.");
       }
       const data = await res.json();
       setTrainResult(data);

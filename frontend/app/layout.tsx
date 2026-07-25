@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Modern Executive-Grade SnowPulse AI Analytics Platform",
 };
 
+import DOMSafetyPatch from "@/components/layout/DOMSafetyPatch";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,6 +32,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col text-white" style={{ background: "#0d0f14" }} suppressHydrationWarning>
+        <DOMSafetyPatch />
         <AmbientBackground />
         <GoogleProvider>
           {/* Page component handles its own TopNavBar, Sidebar, and SystemHealthFooter */}

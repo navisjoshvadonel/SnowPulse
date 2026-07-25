@@ -16,6 +16,25 @@ interface GeographicMapProps {
   loading: boolean;
   selectedRegion: string | null;
   onSelectRegion: (region: string | null) => void;
+  categoryName?: string | null;
+  metricName?: string | null;
+}
+
+function formatCompactValue(val: number, metricName?: string | null): string {
+  const name = (metricName || "").toLowerCase();
+  const isCurrency = ["revenue", "sales", "price", "amount", "cost", "profit", "dollar", "usd", "spend"].some((k) => name.includes(k));
+  if (isCurrency) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+      notation: "compact",
+      compactDisplay: "short",
+    } as any).format(val);
+  }
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}k`;
+  return String(val);
 }
 
 // Maps dataset region labels → ECharts world map country names
@@ -60,6 +79,8 @@ export default function GeographicMap({
   loading,
   selectedRegion,
   onSelectRegion,
+  categoryName,
+  metricName,
 }: GeographicMapProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -320,10 +341,12 @@ export default function GeographicMap({
 
         {/* Ranking sidebar */}
         <div className="w-44 flex flex-col justify-center gap-3 flex-shrink-0">
-          <p className="text-[10px] text-brand-muted font-bold tracking-wider uppercase font-mono">Hub Ranking</p>
+          <p className="text-[10px] text-brand-muted font-bold tracking-wider uppercase font-mono">
+            {categoryName ? `${categoryName} Ranking` : "Hub Ranking"}
+          </p>
           <div className="space-y-2.5">
             {isNoGeoData ? (
-              <p className="text-xs text-white/20 italic mt-4 text-center">No regions available.</p>
+              <p className="text-xs text-white/20 italic mt-4 text-center">No segments available.</p>
             ) : (
               activeGeo.slice(0, 5).map((g, idx) => {
                 const share = (g.value / totalGeoValue) * 100;
@@ -343,13 +366,7 @@ export default function GeographicMap({
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <span className="font-semibold text-gray-200 truncate max-w-[80px] text-[11px]">{g.region}</span>
                       <span className="font-mono text-white font-bold text-[10px]">
-                        {new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                          maximumFractionDigits: 0,
-                          notation: "compact",
-                          compactDisplay: "short",
-                        } as any).format(g.value)}
+                        {formatCompactValue(g.value, metricName)}
                       </span>
                     </div>
                     <div className="w-full bg-white/5 h-[3px] rounded-full overflow-hidden">

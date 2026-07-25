@@ -1,4 +1,13 @@
 import os
+import sys
+
+# Ensure both workspace root and backend directory are in sys.path
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+workspace_dir = os.path.dirname(backend_dir)
+if workspace_dir not in sys.path:
+    sys.path.insert(0, workspace_dir)
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,9 +18,15 @@ os.environ["JWT_SECRET_KEY"] = "testsecretkeytestsecretkeytestsecretkey"
 os.environ["JWT_REFRESH_SECRET_KEY"] = "testrefreshsecretkeytestrefreshsecretkey"
 os.environ["ENV"] = "testing"
 
-from backend.app.auth import create_access_token
-from backend.app.database import Base, SessionLocal, engine, get_db
-from backend.app.main import app
+try:
+    from backend.app.auth import create_access_token
+    from backend.app.database import Base, SessionLocal, engine, get_db
+    from backend.app.main import app
+except ModuleNotFoundError:
+    from app.auth import create_access_token
+    from app.database import Base, SessionLocal, engine, get_db
+    from app.main import app
+
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -47,7 +62,10 @@ def override_db(db):
 @pytest.fixture
 def client():
     # Clear rate limiter during unit tests to avoid 429
-    from backend.app.limiter import limiter
+    try:
+        from backend.app.limiter import limiter
+    except ModuleNotFoundError:
+        from app.limiter import limiter
     limiter.enabled = False
 
     with TestClient(app) as c:
@@ -57,14 +75,19 @@ def client():
 
 @pytest.fixture
 def test_user(db):
-    from backend.app.auth import get_password_hash
-    from backend.app.models import User
+    try:
+        from backend.app.auth import get_password_hash
+        from backend.app.models import User
+    except ModuleNotFoundError:
+        from app.auth import get_password_hash
+        from app.models import User
 
     user = User(
         email="testuser@snowpulse.com",
         hashed_password=get_password_hash("password123"),
         is_active=True
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)

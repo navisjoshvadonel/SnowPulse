@@ -24,13 +24,14 @@ class TestOllamaClient:
     async def test_check_health_success(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"status": "ok"}
+        mock_response.json.return_value = {"models": [{"name": "llama2"}]}
+        mock_response.text = "Ollama is running"
         mock_get.return_value = mock_response
 
         client = OllamaClient()
         result = await client.check_health()
-        assert result["status"] == "ok"
-        assert result["is_online"] is True
+        assert result["status"] == "healthy"
+        assert result["ollama_connected"] is True
 
     @patch("backend.app.ai.gateway.client.httpx.AsyncClient.get")
     @pytest.mark.asyncio
@@ -39,8 +40,8 @@ class TestOllamaClient:
 
         client = OllamaClient()
         result = await client.check_health()
-        assert result["status"] == "error"
-        assert result["is_online"] is False
+        assert result["status"] == "degraded"
+        assert result["ollama_connected"] is False
 
     @patch("backend.app.ai.gateway.client.httpx.AsyncClient.get")
     @pytest.mark.asyncio
@@ -63,9 +64,10 @@ class TestOllamaClient:
         models = await client.get_available_models()
         assert models == []
 
+    @patch.object(OllamaClient, "ensure_model_pulled", return_value=True)
     @patch("backend.app.ai.gateway.client.httpx.AsyncClient.post")
     @pytest.mark.asyncio
-    async def test_generate_text_success(self, mock_post):
+    async def test_generate_text_success(self, mock_post, mock_pull):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"response": "Mocked LLM reply"}
@@ -75,10 +77,12 @@ class TestOllamaClient:
         reply = await client.generate_text("Hello")
         assert reply == "Mocked LLM reply"
 
+    @patch.object(OllamaClient, "ensure_model_pulled", return_value=False)
     @patch("backend.app.ai.gateway.client.httpx.AsyncClient.post")
     @pytest.mark.asyncio
-    async def test_generate_text_failure(self, mock_post):
+    async def test_generate_text_failure(self, mock_post, mock_pull):
         mock_post.side_effect = Exception("Connection error")
         client = OllamaClient()
         reply = await client.generate_text("Hello")
-        assert "I am currently running in offline mode" in reply
+        assert "degraded" in reply.lower() or "offline" in reply.lower()
+

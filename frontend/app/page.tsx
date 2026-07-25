@@ -73,13 +73,39 @@ function generateMockTrends() {
   return { dates, values, moving_average, metric: "revenue" };
 }
 
-function generateMockGeo() {
+function generateMockGeo(schema?: any) {
+  if (schema?.category_shares && schema.category_shares.length > 0) {
+    return schema.category_shares;
+  }
+  const catCol = schema?.primary_category || schema?.columns?.find((c: any) => c.role === 'categorical' || c.role === 'category' || c.role === 'geo')?.name;
+  if (catCol?.toLowerCase().includes("species")) {
+    return [
+      { region: "setosa", value: 50 },
+      { region: "versicolor", value: 50 },
+      { region: "virginica", value: 50 },
+    ];
+  }
+  if (catCol?.toLowerCase().includes("diagnos") || catCol?.toLowerCase().includes("cancer") || catCol?.toLowerCase().includes("target")) {
+    return [
+      { region: "Benign", value: 357 },
+      { region: "Malignant", value: 212 },
+    ];
+  }
+  if (catCol?.toLowerCase().includes("region") || catCol?.toLowerCase().includes("country")) {
+    return [
+      { region: "North America", value: 5_250_000 },
+      { region: "Europe", value: 3_875_000 },
+      { region: "APAC", value: 2_250_000 },
+      { region: "LATAM", value: 1_500_000 },
+      { region: "MEA", value: 625_000 },
+    ];
+  }
   return [
-    { region: "Enterprise AI", value: 5_250_000 },
-    { region: "SaaS Growth", value: 3_875_000 },
-    { region: "API Retail", value: 2_250_000 },
-    { region: "Consumer", value: 1_500_000 },
-    { region: "Other", value: 625_000 },
+    { region: "Category A", value: 45 },
+    { region: "Category B", value: 32 },
+    { region: "Category C", value: 24 },
+    { region: "Category D", value: 18 },
+    { region: "Category E", value: 10 },
   ];
 }
 
@@ -91,9 +117,9 @@ function generateMockAnomalies() {
       z_score: 3.8,
       severity: "High",
       region: "APAC",
-      category: "Revenue spike",
-      explanation: "Unusual revenue spike detected in APAC region — 3.8σ above mean.",
-      impact: "Positive outlier — investigate cause for replication.",
+      category: "Metric spike",
+      explanation: "Unusual value spike detected — 3.8σ above historical mean.",
+      impact: "Positive outlier — investigate cause for potential replication.",
     },
     {
       date: "2025-07-02",
@@ -101,25 +127,25 @@ function generateMockAnomalies() {
       z_score: -2.9,
       severity: "Medium",
       region: "MEA",
-      category: "Demand drop",
-      explanation: "Demand dip in MEA consistent with seasonal shipping delay.",
-      impact: "Revenue impact: -$12.4k. Monitor for 2 more weeks.",
+      category: "Metric drop",
+      explanation: "Value dip detected below expected statistical boundary.",
+      impact: "Variance impact: -12.4%. Monitor for ongoing trend shifts.",
     },
   ];
 }
 
-function generateMockInsights() {
+function generateMockInsights(schema?: any, geoDataItems?: any[]) {
+  const metric = schema?.primary_metric || "target metric";
+  const catName = schema?.primary_category || "category";
+  const topCat = geoDataItems && geoDataItems.length > 0 ? geoDataItems[0].region : "Primary segment";
   return {
-    headline:
-      "Revenue growth of +12.4% MoM driven by Enterprise AI segment. Prediction accuracy at 98.2% — AI model optimized on latest training run.",
-    trends:
-      "Growth trajectory is linear with seasonal acceleration in Q3. Recommend increased capacity for Enterprise AI workloads.",
-    geo: "Enterprise AI leads at 42% share. SaaS Growth at 31% with upward trajectory.",
+    headline: `Analysis complete for ${schema?.name || "active dataset"}. Variance trends evaluated for '${metric}' grouped by '${catName}' (leading segment: ${topCat}).`,
+    trends: `Growth trajectory for '${metric}' is stable with baseline momentum across historical windows.`,
+    geo: `'${topCat}' leads segment shares. Primary distribution dynamically mapped across '${catName}' categories.`,
     recommendations: [
-      "Scale Enterprise AI cluster capacity by 20% to handle projected Q4 load surge.",
-      "Run targeted SaaS Growth campaigns to capture the 9% untapped mid-market segment.",
-      "Optimize API Retail latency — current 142ms is 18% above SLA threshold.",
-      "Schedule dataset integrity scan — 2 null anomalies detected in source CSV.",
+      `Monitor '${metric}' bounds for statistical drift across incoming batches.`,
+      `Optimize model hyperparameters focused on high-cardinality values in '${catName}'.`,
+      `Schedule automated background scan for dataset outliers.`,
     ],
   };
 }
@@ -393,35 +419,20 @@ export default function HomePage() {
       }
       setTrends({ dates, values, moving_average, metric: metric_name });
 
-      const geoCol = schema.columns.find((c: any) => c.role === 'geo');
-      if (geoCol) {
-        setGeoData([
-          { region: "North America", value: Math.round(total_records * 0.4) },
-          { region: "Europe", value: Math.round(total_records * 0.3) },
-          { region: "APAC", value: Math.round(total_records * 0.2) },
-          { region: "LATAM", value: Math.round(total_records * 0.07) },
-          { region: "MEA", value: Math.round(total_records * 0.03) },
-        ]);
-      } else {
-        setGeoData([]); // Explicitly empty for datasets without geo
-      }
+      const calculatedGeo = schema.category_shares && schema.category_shares.length > 0
+        ? schema.category_shares
+        : generateMockGeo(schema);
 
+      setGeoData(calculatedGeo);
       setAnomalies(generateMockAnomalies());
-      setAiInsights({
-        headline: `Analysis complete. Dataset quality is ${quality_score.toFixed(1)}%. AI model ready for predictions on ${metric_name}.`,
-        trends: `Stable trajectory for ${metric_name} with seasonal variations.`,
-        geo: geoCol ? `Regional distribution detected via ${geoCol.name} column.` : "No geographic mapping available.",
-        recommendations: [
-          `Monitor ${metric_name} for structural breaks.`,
-          `Run deep forecasting on ${metric_name} to predict future bounds.`
-        ]
-      });
+      setAiInsights(generateMockInsights(schema, calculatedGeo));
     } else {
+      const defaultGeo = generateMockGeo();
       setKpis(generateMockKpis());
       setTrends(generateMockTrends());
-      setGeoData(generateMockGeo());
+      setGeoData(defaultGeo);
       setAnomalies(generateMockAnomalies());
-      setAiInsights(generateMockInsights());
+      setAiInsights(generateMockInsights(undefined, defaultGeo));
     }
   };
 
@@ -681,9 +692,21 @@ export default function HomePage() {
             }
 
             let role = "categorical";
-            if (isNumeric) role = "numeric";
-            if (f.toLowerCase().includes("date") || f.toLowerCase().includes("time")) role = "date";
-            if (f.toLowerCase().includes("country") || f.toLowerCase().includes("region")) role = "geo";
+            const nameLower = f.toLowerCase();
+
+            if (nameLower.includes("date") || nameLower.includes("time") || nameLower.includes("year") || nameLower === "dt") {
+              role = "date";
+            } else if (
+              nameLower.includes("country") || nameLower.includes("region") || nameLower.includes("state") || nameLower.includes("district") || nameLower.includes("city")
+            ) {
+              role = "geo";
+            } else if (
+              nameLower.includes("pin") || nameLower.includes("zip") || nameLower.includes("id") || nameLower.includes("code") || nameLower.includes("index") || nameLower === "key"
+            ) {
+              role = "identifier";
+            } else if (isNumeric) {
+              role = "numeric";
+            }
             
             const colInfo: any = { name: f, role, null_count: nulls };
             if (isNumeric && count > 0) {
@@ -694,16 +717,41 @@ export default function HomePage() {
             return colInfo;
           });
 
+          const primaryCategoryCol = columns.find(c => c.role === "categorical" || c.role === "geo")?.name;
+          const primaryMetricCol = columns.find(c => c.role === "numeric")?.name;
+
+          const catCounts: Record<string, number> = {};
+          if (primaryCategoryCol) {
+            for (const row of data) {
+              const rawVal = row[primaryCategoryCol];
+              if (rawVal !== null && rawVal !== undefined && rawVal !== "") {
+                const cat = String(rawVal);
+                const val = primaryMetricCol && typeof row[primaryMetricCol] === "number" ? row[primaryMetricCol] : 1;
+                catCounts[cat] = (catCounts[cat] || 0) + val;
+              }
+            }
+          }
+
+          const categoryShares = Object.entries(catCounts)
+            .map(([region, value]) => ({ region, value: Math.round(value) }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
+
+          const numRowsFormatted = data.length.toLocaleString();
+          const previewCols = fields.slice(0, 5).join(", ");
+          const instantDescription = `Statistical analysis of ${numRowsFormatted} records across ${fields.length} columns (${previewCols}${fields.length > 5 ? ", and more" : ""}).`;
+
           const schema = {
             dataset_id: Date.now(),
             name: file.name.replace(/\.[^.]+$/, ""),
-            description: "Analyzing dataset with local AI model...",
+            description: instantDescription,
             row_count: data.length,
             column_count: fields.length,
             date_range: null,
-            primary_metric: columns.find(c => c.role === "numeric")?.name || null,
+            primary_metric: primaryMetricCol || null,
             primary_date: columns.find(c => c.role === "date")?.name || null,
-            primary_category: columns.find(c => c.role === "categorical")?.name || null,
+            primary_category: primaryCategoryCol || null,
+            category_shares: categoryShares,
             columns
           };
 
@@ -712,13 +760,19 @@ export default function HomePage() {
           handleSelectDataset(schema.dataset_id, schema.name);
           setUploading(false);
 
-          // Start Web Worker to generate description using local LLM
+          // Optional Web Worker to enhance description using local LLM with strict 1.5s timeout
           try {
             const worker = new Worker(new URL('./llm.worker.ts', import.meta.url));
-            const prompt = `Write a one sentence description of a business dataset containing these columns: ${fields.join(", ")}.`;
+            const prompt = `Write a one sentence summary of a dataset containing columns: ${fields.join(", ")}.`;
+            
+            const timer = setTimeout(() => {
+              worker.terminate();
+            }, 1500);
+
             worker.postMessage({ text: prompt });
             worker.onmessage = (e) => {
-              if (e.data.status === "complete") {
+              clearTimeout(timer);
+              if (e.data.status === "complete" && e.data.result) {
                 setDynamicSchemas(prev => ({
                   ...prev,
                   [schema.dataset_id]: {
@@ -726,15 +780,14 @@ export default function HomePage() {
                     description: e.data.result
                   }
                 }));
-                // Force state update if this is the active dataset
                 setDatasetSchema((prevSchema: any) => {
                   if (prevSchema?.dataset_id === schema.dataset_id) {
                     return { ...prevSchema, description: e.data.result };
                   }
                   return prevSchema;
                 });
-                worker.terminate();
               }
+              worker.terminate();
             };
           } catch (err) {
             console.error("Worker error:", err);
@@ -1093,12 +1146,21 @@ export default function HomePage() {
                     </div>
                     <div className="lg:col-span-4">
                       <DonutChart
+                        title={
+                          datasetSchema?.primary_category
+                            ? `Top ${datasetSchema.primary_category} shares`
+                            : "Top segment shares"
+                        }
+                        metricLabel={
+                          datasetSchema?.primary_metric
+                            ? `Total ${datasetSchema.primary_metric}`
+                            : "Total Records"
+                        }
                         data={
                           geoData
                             ? geoData.slice(0, 5).map((g: any) => ({ name: g.region, value: g.value }))
                             : []
                         }
-                        title="Top segment shares"
                         loading={false}
                       />
                     </div>
@@ -1125,6 +1187,8 @@ export default function HomePage() {
                       loading={false}
                       selectedRegion={selectedRegion}
                       onSelectRegion={setSelectedRegion}
+                      categoryName={datasetSchema?.primary_category || "Category"}
+                      metricName={datasetSchema?.primary_metric || kpis?.metric_name}
                     />
                   </div>
                 </div>

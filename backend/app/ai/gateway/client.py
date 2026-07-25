@@ -25,6 +25,14 @@ class OllamaClient:
         self.timeout = httpx.Timeout(15.0, connect=5.0, read=45.0)
         self._pulling_models = set()
 
+    @property
+    def default_model(self) -> str:
+        return os.getenv("OLLAMA_DEFAULT_MODEL", "llama2")
+
+    async def generate_text(self, prompt: str, system_prompt: str = "") -> str:
+        return await self.generate(prompt=prompt, system_prompt=system_prompt)
+
+
     async def get_available_models(self) -> list[str]:
         """
         List all pulled/installed models on local Ollama instance.
@@ -248,3 +256,6 @@ class OllamaClient:
             return "### Offline Anomaly Scan\n\n- Local intelligence engine offline.\n- **Anomaly Report**: Standard deviations scan indicates 2 key outliers in Q2 volume peaks.\n- *Verify docker logs or configure your GEMINI_API_KEY for remote cloud backup.*"
         else:
             return "### Offline Copilot Response\n\n- **SNOW platform running in degraded offline mode**.\n- Reason: Local Ollama container connection refused and no valid Gemini API key found.\n- **Summary of metrics**: Ingested datasets calculations remain operational. Please deploy Ollama models to activate AI reasoning."
+
+
+ollama_client = OllamaClient()

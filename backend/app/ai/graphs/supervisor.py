@@ -454,3 +454,12 @@ async def run_supervisor_workflow(
     except Exception as e:
         logger.error(f"Error executing LangGraph supervisor: {e}")
         yield {"type": "error", "data": f"Execution failed: {str(e)}"}
+
+
+
+# Aliases for backward compatibility
+AIState = AgentState
+create_supervisor_graph = build_supervisor_graph
+data_analyst_node = kpi_agent_node
+quality_auditor_node = dataset_agent_node
+forecaster_node = forecast_agent_node

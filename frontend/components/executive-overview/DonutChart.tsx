@@ -12,6 +12,7 @@ interface DonutChartProps {
   data: DonutItem[] | null;
   loading: boolean;
   title?: string;
+  metricLabel?: string;
 }
 
 // Segment colors matching reference screenshot: blue, green, orange/yellow
@@ -30,7 +31,12 @@ function compactNum(n: number): string {
   return String(n);
 }
 
-export default function DonutChart({ data, loading, title = "Top segment shares" }: DonutChartProps) {
+export default function DonutChart({
+  data,
+  loading,
+  title = "Top segment shares",
+  metricLabel = "Total Records",
+}: DonutChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,7 +78,7 @@ export default function DonutChart({ data, loading, title = "Top segment shares"
           label: {
             show: true,
             position: "center",
-            formatter: () => `{val|${totalLabel}}\n{sub|Total Users}`,
+            formatter: () => `{val|${totalLabel}}\n{sub|${metricLabel}}`,
             rich: {
               val: {
                 fontSize: 22,
@@ -112,7 +118,8 @@ export default function DonutChart({ data, loading, title = "Top segment shares"
       chart.dispose();
       window.removeEventListener("resize", handleResize);
     };
-  }, [data, loading, title]);
+  }, [data, loading, title, metricLabel]);
+
 
   const percents = data && data.length > 0 ? calcPercents(data) : [];
 

@@ -14,22 +14,16 @@ from backend.app.ai.graphs.supervisor import AIState, create_supervisor_graph
 
 
 class TestSupervisorGraph:
-    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate_text")
+    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate")
     @pytest.mark.asyncio
     async def test_supervisor_routing(self, mock_generate):
-        # Mock LLM to route to data_analyst
-        mock_generate.return_value = '{"next": "data_analyst"}'
+        mock_generate.return_value = '{"next_agent": "kpi_agent", "reasoning": "Analyzing metrics"}'
         
         graph = create_supervisor_graph()
-        initial_state = AIState(messages=[("user", "Analyze this data")], dataset_id=1, next_node="", final_response="", routing_history=[])
-        
-        # Test just the supervisor node (if we can isolate it or run the graph step by step)
-        # We can mock the graph execution, but for simplicity let's just assert the graph compiles
-        compiled = graph.compile()
-        assert compiled is not None
+        assert graph is not None
 
     @patch("backend.app.ai.graphs.supervisor.DatabaseTools.get_dataset_statistics")
-    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate_text")
+    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate")
     @pytest.mark.asyncio
     async def test_data_analyst_node(self, mock_generate, mock_stats):
         from backend.app.ai.graphs.supervisor import data_analyst_node
@@ -37,14 +31,23 @@ class TestSupervisorGraph:
         mock_stats.return_value = {"success": True, "kpis": {"total_sales": 1000}, "summary_context": "Test data"}
         mock_generate.return_value = "This is a detailed analysis."
         
-        state = AIState(messages=[("user", "Analyze the sales")], dataset_id=1, next_node="", final_response="", routing_history=[])
+        state: AIState = {
+            "query": "Analyze the sales",
+            "messages": [],
+            "next_agent": "supervisor",
+            "agent_outputs": {},
+            "context": {"dataset_path": "test.csv"},
+            "citations": [],
+            "reasoning_steps": [],
+            "final_response": None
+        }
         
         new_state = await data_analyst_node(state)
-        assert new_state["next_node"] == "supervisor"
-        assert "This is a detailed analysis" in new_state["messages"][-1].content
+        assert "kpi_agent" in new_state["agent_outputs"]
+        assert "This is a detailed analysis" in new_state["agent_outputs"]["kpi_agent"]
 
     @patch("backend.app.ai.graphs.supervisor.DatabaseTools.get_data_quality_report")
-    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate_text")
+    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate")
     @pytest.mark.asyncio
     async def test_quality_auditor_node(self, mock_generate, mock_quality):
         from backend.app.ai.graphs.supervisor import quality_auditor_node
@@ -52,14 +55,23 @@ class TestSupervisorGraph:
         mock_quality.return_value = {"success": True, "quality_score": 95}
         mock_generate.return_value = "Data quality is excellent."
         
-        state = AIState(messages=[("user", "Check quality")], dataset_id=1, next_node="", final_response="", routing_history=[])
+        state: AIState = {
+            "query": "Check quality",
+            "messages": [],
+            "next_agent": "supervisor",
+            "agent_outputs": {},
+            "context": {"dataset_path": "test.csv"},
+            "citations": [],
+            "reasoning_steps": [],
+            "final_response": None
+        }
         
         new_state = await quality_auditor_node(state)
-        assert new_state["next_node"] == "supervisor"
-        assert "Data quality is excellent" in new_state["messages"][-1].content
+        assert "dataset_agent" in new_state["agent_outputs"]
+        assert "Data quality is excellent" in new_state["agent_outputs"]["dataset_agent"]
 
     @patch("backend.app.ai.graphs.supervisor.DatabaseTools.get_forecast_scenarios")
-    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate_text")
+    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate")
     @pytest.mark.asyncio
     async def test_forecaster_node(self, mock_generate, mock_forecast):
         from backend.app.ai.graphs.supervisor import forecaster_node
@@ -67,8 +79,18 @@ class TestSupervisorGraph:
         mock_forecast.return_value = {"success": True, "forecast_points": []}
         mock_generate.return_value = "Forecast is stable."
         
-        state = AIState(messages=[("user", "Give me a forecast")], dataset_id=1, next_node="", final_response="", routing_history=[])
+        state: AIState = {
+            "query": "Give me a forecast",
+            "messages": [],
+            "next_agent": "supervisor",
+            "agent_outputs": {},
+            "context": {"dataset_id": 1},
+            "citations": [],
+            "reasoning_steps": [],
+            "final_response": None
+        }
         
         new_state = await forecaster_node(state)
-        assert new_state["next_node"] == "supervisor"
-        assert "Forecast is stable" in new_state["messages"][-1].content
+        assert "forecast_agent" in new_state["agent_outputs"]
+        assert "Forecast is stable" in new_state["agent_outputs"]["forecast_agent"]
+

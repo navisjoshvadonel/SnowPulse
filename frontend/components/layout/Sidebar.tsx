@@ -42,9 +42,9 @@ interface SidebarProps {
   onOpenModal?: (modal: "team" | "apikeys" | "docs") => void;
 }
 
-function SnowflakeIcon({ size = 18 }: { size?: number }) {
+function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
       <defs>
         <linearGradient id="sf-grad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#818cf8" />
@@ -144,7 +144,7 @@ export default function Sidebar({
         style={{ minHeight: 64 }}
       >
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 border border-white/10 flex items-center justify-center flex-shrink-0">
-          <SnowflakeIcon size={16} />
+          <SnowflakeIcon size={16} className="animate-spin-slow" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden leading-tight">

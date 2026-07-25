@@ -992,7 +992,7 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col p-6 max-w-5xl mx-auto justify-between" style={{ background: "#0d0f14" }}>
         <header className="flex items-center justify-between py-4 border-b border-white/5">
           <div className="flex items-center gap-2.5">
-            <SnowflakeLogo className="w-7 h-7" />
+            <SnowflakeLogo className="w-7 h-7 animate-spin-slow" />
             <span className="font-bold text-white tracking-tight">SnowPulse AI</span>
           </div>
           <div className="flex items-center gap-3">

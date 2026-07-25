@@ -23,7 +23,6 @@ import InsightsCenter from "@/components/ai-insights/InsightsCenter";
 import DonutChart from "@/components/executive-overview/DonutChart";
 import Sidebar, { SnowSection } from "@/components/layout/Sidebar";
 import DatasetOverviewPanel from "@/components/dashboard/DatasetOverviewPanel";
-import PredictionPanel from "@/components/dashboard/PredictionPanel";
 import TopNavBar from "@/components/layout/TopNavBar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 import AnomalyBarChart from "@/components/dashboard/AnomalyBarChart";
@@ -585,33 +584,6 @@ export default function HomePage() {
       .finally(() => setLoadingSchema(false));
   }, [selectedDatasetId, dynamicSchemas]);
 
-  useEffect(() => {
-    if (!selectedDatasetId) return;
-
-    if (activeSection === "prediction") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoadingPrediction(true);
-      const currentSchema = dynamicSchemas[selectedDatasetId] || null;
-      const targetMetric = currentSchema?.primary_metric || "target";
-
-      Promise.all([
-        apiService.getForecastPredict(selectedDatasetId).then((r) => (r.ok ? r.json() : generateMockForecast(currentSchema))),
-        apiService
-          .getMlHistory(selectedDatasetId, `${targetMetric}_prediction`)
-          .then((r) => (r.ok ? r.json() : { runs: [] })),
-      ])
-        .then(([forecastData, historyData]) => {
-          setForecast(forecastData);
-          setTrainingHistory(historyData?.runs || []);
-        })
-        .catch(() => {
-          setForecast(generateMockForecast(currentSchema));
-          setTrainingHistory([]);
-        })
-        .finally(() => setLoadingPrediction(false));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, selectedDatasetId]);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1271,53 +1243,6 @@ export default function HomePage() {
               {/* ── DATASET OVERVIEW SECTION ── */}
               {activeSection === "dataset-overview" && (
                 <DatasetOverviewPanel schema={datasetSchema} loading={loadingSchema} />
-              )}
-
-              {/* ── SNOW AI SECTION ── */}
-              {activeSection === "snow-ai" && (
-                <div className="max-w-4xl mx-auto">
-                  <InsightsCenter
-                    datasetId={selectedDatasetId}
-                    kpis={kpis}
-                    anomalies={anomalies}
-                    recommendations={aiInsights?.recommendations || null}
-                    loading={false}
-                  />
-                </div>
-              )}
-
-              {/* ── FUTURE PREDICTION SECTION ── */}
-              {activeSection === "prediction" && (
-                hasPredictableMetric ? (
-                  <PredictionPanel
-                    datasetId={selectedDatasetId}
-                    forecast={forecast}
-                    trainingHistory={trainingHistory}
-                    loading={loadingPrediction}
-                  />
-                ) : (
-                  <div
-                    className="rounded-2xl p-10 text-center max-w-2xl mx-auto space-y-5 my-8"
-                    style={{ background: "rgba(18,21,30,0.75)", border: "1px solid rgba(245,158,11,0.25)" }}
-                  >
-                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
-                      <Activity size={28} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white tracking-tight">Future Prediction Unavailable</h3>
-                      <p className="text-xs text-white/50 mt-1.5 leading-relaxed">
-                        The active dataset (<span className="text-amber-300 font-semibold">{selectedDatasetName}</span>) does not contain a continuous numeric metric target suitable for forecasting models.
-                      </p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-left text-xs text-white/40 space-y-2 font-mono">
-                      <p className="text-white/70 font-semibold">To unlock future predictions & ML forecasting:</p>
-                      <ul className="list-disc list-inside space-y-1 text-[11px] text-white/50">
-                        <li>Upload a dataset with numeric target variables (e.g. Price, Sales, Total Intake, Temperature)</li>
-                        <li>Ensure at least one numeric column exists alongside categorical or date features</li>
-                      </ul>
-                    </div>
-                  </div>
-                )
               )}
 
               {/* ── PRODUCTION ENV (placeholder) ── */}

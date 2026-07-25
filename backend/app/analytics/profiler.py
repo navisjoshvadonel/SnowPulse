@@ -15,10 +15,22 @@ class ColumnProfile(BaseModel):
     top_values: Optional[list[dict[str, Any]]] = None
     temporal_stats: Optional[dict[str, str]] = None
 
+
+class DataQualityReport(BaseModel):
+    health_score: float
+    duplicate_rows_count: int
+    duplicate_rows_pct: float
+    total_null_cells: int
+    total_null_pct: float
+    outlier_columns_count: int
+    data_quality_issues: list[str]
+
+
 class DatasetSchema(BaseModel):
     total_rows: int
     total_columns: int
     columns: list[ColumnProfile]
+    quality_report: Optional[DataQualityReport] = None
 
 KNOWN_GEO_TERMS = {"country", "region", "city", "state", "lat", "latitude", "lon", "longitude", "zip", "postal", "geo", "location", "county", "province"}
 KNOWN_GEO_VALUES = {"us", "usa", "uk", "gb", "ca", "de", "fr", "in", "cn", "jp", "au", "br", "apac", "emea", "latam", "na", "sa", "europe", "asia", "north america", "south america"}
@@ -76,10 +88,50 @@ class DatasetProfiler:
                 )
             )
 
+        # Calculate Data Quality Metrics
+        dup_count = 0
+        try:
+            dup_count = total_rows - df.unique().height
+        except Exception:
+            pass
+
+        dup_pct = round((dup_count / total_rows * 100.0) if total_rows > 0 else 0.0, 2)
+        total_cells = total_rows * total_columns
+        total_nulls = sum(df[c].null_count() for c in df.columns)
+        null_pct = round((total_nulls / total_cells * 100.0) if total_cells > 0 else 0.0, 2)
+
+        outlier_cols = sum(
+            1 for c in col_profiles
+            if c.numeric_stats and c.numeric_stats.get("outlier_count", 0) > 0
+        )
+
+        quality_issues = []
+        if dup_count > 0:
+            quality_issues.append(f"{dup_count} duplicate rows detected ({dup_pct}%)")
+        if null_pct > 5.0:
+            quality_issues.append(f"High null density: {null_pct}% of total cells missing")
+        if outlier_cols > 0:
+            quality_issues.append(f"{outlier_cols} numeric columns contain statistical outliers")
+
+        # Health score starting from 100
+        penalty = (dup_pct * 0.5) + (null_pct * 0.8) + (outlier_cols * 3.0)
+        health_score = max(45.0, round(100.0 - penalty, 1))
+
+        quality_report = DataQualityReport(
+            health_score=health_score,
+            duplicate_rows_count=dup_count,
+            duplicate_rows_pct=dup_pct,
+            total_null_cells=total_nulls,
+            total_null_pct=null_pct,
+            outlier_columns_count=outlier_cols,
+            data_quality_issues=quality_issues,
+        )
+
         return DatasetSchema(
             total_rows=total_rows,
             total_columns=total_columns,
             columns=col_profiles,
+            quality_report=quality_report,
         )
 
     @classmethod

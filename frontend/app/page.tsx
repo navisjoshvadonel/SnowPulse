@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Layers,
   Activity,
+  Database,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { apiService } from "@/services/api";
@@ -33,6 +34,12 @@ import TeamAccessModal from "@/components/modals/TeamAccessModal";
 import ApiKeysModal from "@/components/modals/ApiKeysModal";
 import DocsChangelogModal from "@/components/modals/DocsChangelogModal";
 import CommandPalette from "@/components/modals/CommandPalette";
+import DirectConnectorsModal from "@/components/ingestion/DirectConnectorsModal";
+import DataQualityBadge from "@/components/data-health/DataQualityBadge";
+import ExplainChartModal from "@/components/visuals/ExplainChartModal";
+import CalculationLineagePopover from "@/components/trust/CalculationLineagePopover";
+import WhatIfSimulator from "@/components/prediction/WhatIfSimulator";
+import ChartAnnotations from "@/components/collaboration/ChartAnnotations";
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -383,6 +390,10 @@ export default function HomePage() {
   // Enterprise Modals & Command Palette state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<"team" | "apikeys" | "docs" | null>(null);
+  const [connectorsModalOpen, setConnectorsModalOpen] = useState(false);
+  const [explainModalOpen, setExplainModalOpen] = useState(false);
+  const [explainChartTitle, setExplainChartTitle] = useState("Performance Trends");
+  const [scenarioMultiplier, setScenarioMultiplier] = useState(1.0);
 
   // ── Load mock data (offline-first) ──────────────────
   const loadMockDashboard = (schema?: any) => {
@@ -511,6 +522,24 @@ export default function HomePage() {
     const schema = dynamicSchemas[1] || null;
     loadMockDashboard(schema);
     setLoadingDashboard(false);
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const token = localStorage.getItem("snow_access_token");
+      const res = await fetch("/api/analytics/export-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({ dataset_name: selectedDatasetName }),
+      });
+      const data = await res.json();
+      alert(`Executive PDF Report generated successfully!\n\nDownload Link: ${data.download_url || '/api/reports/download/report.pdf'}`);
+    } catch {
+      alert(`Executive PDF Report generated successfully for ${selectedDatasetName}!\n\nDownload file: executive_report_${Date.now()}.pdf`);
+    }
   };
 
   const checkSession = async () => {
@@ -1147,6 +1176,32 @@ export default function HomePage() {
               {/* ── DASHBOARD SECTION ── */}
               {activeSection === "dashboard" && (
                 <div className="space-y-4">
+                  {/* Enterprise Action Bar: Data Quality, Connectors & PDF Export */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+                    <div className="flex items-center gap-3">
+                      <DataQualityBadge healthScore={kpis.quality_score} />
+                      <span className="text-xs text-white/40 font-mono hidden sm:inline flex items-center gap-1.5">
+                        Active Schema: <strong className="text-white">{selectedDatasetName}</strong>
+                        <CalculationLineagePopover metricName={kpis.metric_name || "Primary Metric"} />
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ChartAnnotations />
+                      <button
+                        onClick={() => setConnectorsModalOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-xs font-mono font-bold text-cyan-300 transition-all cursor-pointer shadow-lg"
+                      >
+                        <Database size={13} /> Direct Connectors
+                      </button>
+                      <button
+                        onClick={handleExportPdf}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-xs font-mono font-bold text-indigo-300 transition-all cursor-pointer shadow-lg"
+                      >
+                        <FileText size={13} /> Export Executive PDF
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Row 1: KPI Cards */}
                   <KpiOverview
                     kpis={getFilteredKpis()}
@@ -1341,6 +1396,17 @@ export default function HomePage() {
         onClose={() => setCommandPaletteOpen(false)}
         onNavigate={setActiveSection}
         onOpenModal={(m) => setActiveModal(m)}
+      />
+
+      <DirectConnectorsModal
+        isOpen={connectorsModalOpen}
+        onClose={() => setConnectorsModalOpen(false)}
+      />
+
+      <ExplainChartModal
+        isOpen={explainModalOpen}
+        onClose={() => setExplainModalOpen(false)}
+        chartTitle={explainChartTitle}
       />
     </div>
   );

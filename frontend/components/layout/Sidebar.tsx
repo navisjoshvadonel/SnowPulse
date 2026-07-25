@@ -31,6 +31,7 @@ interface SidebarProps {
   datasetName?: string;
   onUploadDataset?: (file: File) => void;
   uploading?: boolean;
+  hasPredictableMetric?: boolean;
 }
 
 function SnowflakeIcon({ size = 18 }: { size?: number }) {
@@ -76,6 +77,7 @@ export default function Sidebar({
   datasetName = "SAMPLE ANALYTICS\n(MOCK)",
   onUploadDataset,
   uploading = false,
+  hasPredictableMetric = true,
 }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -219,14 +221,22 @@ export default function Sidebar({
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.id;
+          const isPrediction = item.id === "prediction";
+          const isLocked = isPrediction && !hasPredictableMetric;
 
           return (
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              title={collapsed ? item.label : undefined}
+              title={
+                collapsed
+                  ? isLocked
+                    ? "Future Prediction (Requires Numeric Metric)"
+                    : item.label
+                  : undefined
+              }
               className={`sidebar-nav-item ${isActive ? "active" : ""} ${
-                collapsed ? "justify-center px-0 w-full" : "px-3 w-full"
+                collapsed ? "justify-center px-0 w-full" : "px-3 w-full justify-between"
               }`}
             >
               {isActive && (
@@ -235,12 +245,31 @@ export default function Sidebar({
                   className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-blue-400 to-violet-500"
                 />
               )}
-              <Icon
-                className={`flex-shrink-0 ${isActive ? "text-blue-400" : "text-white/40"}`}
-                size={17}
-              />
-              {!collapsed && (
-                <span className={`ml-3 ${isActive ? "text-white" : ""}`}>{item.label}</span>
+              <div className="flex items-center">
+                <Icon
+                  className={`flex-shrink-0 ${
+                    isActive
+                      ? "text-blue-400"
+                      : isLocked
+                      ? "text-amber-400/60"
+                      : "text-white/40"
+                  }`}
+                  size={17}
+                />
+                {!collapsed && (
+                  <span
+                    className={`ml-3 ${
+                      isActive ? "text-white" : isLocked ? "text-white/40" : ""
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                )}
+              </div>
+              {!collapsed && isLocked && (
+                <span className="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  Numeric Only
+                </span>
               )}
             </button>
           );

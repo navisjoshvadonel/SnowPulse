@@ -11,6 +11,7 @@ import {
   BrainCircuit,
   RefreshCw,
   Layers,
+  Activity,
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { apiService } from "@/services/api";
@@ -1085,6 +1086,12 @@ export default function HomePage() {
   }
 
   // ─── RENDER: MAIN DASHBOARD ──────────────────────────────────────
+  const hasPredictableMetric = Boolean(
+    datasetSchema?.primary_metric ||
+    kpis?.metric_name ||
+    datasetSchema?.columns?.some((c: any) => c.role === "numeric")
+  );
+
   return (
     <div className="min-h-screen" style={{ background: "#0d0f14" }}>
       {/* Fixed Sidebar */}
@@ -1096,6 +1103,7 @@ export default function HomePage() {
         datasetName={selectedDatasetName}
         onUploadDataset={handleFileUpload}
         uploading={uploading}
+        hasPredictableMetric={hasPredictableMetric}
       />
 
       {/* Fixed Top Nav */}
@@ -1214,12 +1222,36 @@ export default function HomePage() {
 
               {/* ── FUTURE PREDICTION SECTION ── */}
               {activeSection === "prediction" && (
-                <PredictionPanel
-                  datasetId={selectedDatasetId}
-                  forecast={forecast}
-                  trainingHistory={trainingHistory}
-                  loading={loadingPrediction}
-                />
+                hasPredictableMetric ? (
+                  <PredictionPanel
+                    datasetId={selectedDatasetId}
+                    forecast={forecast}
+                    trainingHistory={trainingHistory}
+                    loading={loadingPrediction}
+                  />
+                ) : (
+                  <div
+                    className="rounded-2xl p-10 text-center max-w-2xl mx-auto space-y-5 my-8"
+                    style={{ background: "rgba(18,21,30,0.75)", border: "1px solid rgba(245,158,11,0.25)" }}
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                      <Activity size={28} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white tracking-tight">Future Prediction Unavailable</h3>
+                      <p className="text-xs text-white/50 mt-1.5 leading-relaxed">
+                        The active dataset (<span className="text-amber-300 font-semibold">{selectedDatasetName}</span>) does not contain a continuous numeric metric target suitable for forecasting models.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-left text-xs text-white/40 space-y-2 font-mono">
+                      <p className="text-white/70 font-semibold">To unlock future predictions & ML forecasting:</p>
+                      <ul className="list-disc list-inside space-y-1 text-[11px] text-white/50">
+                        <li>Upload a dataset with numeric target variables (e.g. Price, Sales, Total Intake, Temperature)</li>
+                        <li>Ensure at least one numeric column exists alongside categorical or date features</li>
+                      </ul>
+                    </div>
+                  </div>
+                )
               )}
 
               {/* ── PRODUCTION ENV (placeholder) ── */}

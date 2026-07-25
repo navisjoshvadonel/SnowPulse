@@ -90,19 +90,8 @@ export default function GeographicMap({
   const hasGeoData = geoData && geoData.length > 0;
   const isNoGeoData = geoData && geoData.length === 0;
 
-  // Fallback mock regions if no geo columns parsed and not explicitly empty
-  const activeGeo =
-    hasGeoData
-      ? geoData
-      : isNoGeoData 
-        ? [] 
-        : [
-            { region: "North America", value: 520138, count: 38 },
-            { region: "Europe", value: 312040, count: 26 },
-            { region: "APAC", value: 284925, count: 22 },
-            { region: "LATAM", value: 287614, count: 18 },
-            { region: "MEA", value: 142300, count: 12 },
-          ];
+  // Only render real geo data parsed from the dataset
+  const activeGeo = hasGeoData ? geoData : [];
 
   const totalGeoValue = activeGeo.reduce((sum, item) => sum + item.value, 0) || 1;
   const maxVal = Math.max(...activeGeo.map((g) => g.value), 1);

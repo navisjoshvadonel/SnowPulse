@@ -20,43 +20,30 @@ export default function AnomalyBarChart({ anomalies, loading }: AnomalyBarChartP
       chartInstance.current = null;
     }
 
-    const regions = ["North America", "Europe", "APAC", "LATAM", "MEA"];
-    const highCounts: number[] = [];
-    const mediumCounts: number[] = [];
-
-    // Initialize mapping
     const counts: Record<string, { high: number; medium: number }> = {};
-    regions.forEach((r) => {
-      counts[r] = { high: 0, medium: 0 };
-    });
+    const labels: string[] = [];
 
     if (anomalies && anomalies.length > 0) {
       anomalies.forEach((a: any) => {
-        let region = a.region || "North America";
-        // Handle variations in region names
-        if (region === "Global") region = "North America";
+        const groupLabel = (a.category && a.category !== "General") 
+          ? a.category 
+          : (a.region && a.region !== "Global") 
+            ? a.region 
+            : `Row ${a.row_index || 1}`;
+            
+        if (!counts[groupLabel]) {
+          counts[groupLabel] = { high: 0, medium: 0 };
+          labels.push(groupLabel);
+        }
         
         const isHigh = a.severity === "High" || a.severity === "Critical" || (a.severity || "").toLowerCase().includes("critical") || (a.severity || "").toLowerCase().includes("high");
         const severityKey = isHigh ? "high" : "medium";
-        
-        if (!counts[region]) {
-          counts[region] = { high: 0, medium: 0 };
-        }
-        counts[region][severityKey]++;
+        counts[groupLabel][severityKey]++;
       });
-    } else {
-      // Visual placeholder data
-      counts["North America"] = { high: 1, medium: 1 };
-      counts["Europe"] = { high: 0, medium: 0 };
-      counts["APAC"] = { high: 1, medium: 0 };
-      counts["LATAM"] = { high: 1, medium: 0 };
-      counts["MEA"] = { high: 0, medium: 1 };
     }
 
-    regions.forEach((r) => {
-      highCounts.push(counts[r].high);
-      mediumCounts.push(counts[r].medium);
-    });
+    const highCounts: number[] = labels.map(l => counts[l].high);
+    const mediumCounts: number[] = labels.map(l => counts[l].medium);
 
     const chart = echarts.init(chartRef.current, undefined, { renderer: "canvas" });
     chartInstance.current = chart;
@@ -117,7 +104,7 @@ export default function AnomalyBarChart({ anomalies, loading }: AnomalyBarChartP
       },
       yAxis: {
         type: "category",
-        data: regions,
+        data: labels,
         axisLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } },
         axisLabel: {
           color: "rgba(255,255,255,0.5)",

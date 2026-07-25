@@ -27,8 +27,9 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col text-white" style={{ background: "#0d0f14" }}>
+      <body className="min-h-full flex flex-col text-white" style={{ background: "#0d0f14" }} suppressHydrationWarning>
         <AmbientBackground />
         <GoogleProvider>
           {/* Page component handles its own TopNavBar, Sidebar, and SystemHealthFooter */}

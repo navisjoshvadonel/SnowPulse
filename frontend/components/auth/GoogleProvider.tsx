@@ -4,11 +4,12 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
 export default function GoogleProvider({ children }: { children: React.ReactNode }) {
-  if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
-    return <>{children}</>;
-  }
+  const clientId = GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== "YOUR_GOOGLE_CLIENT_ID_HERE" 
+    ? GOOGLE_CLIENT_ID 
+    : "mock-google-client-id";
+
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    <GoogleOAuthProvider clientId={clientId}>
       {children}
     </GoogleOAuthProvider>
   );

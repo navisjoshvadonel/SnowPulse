@@ -20,16 +20,6 @@ export default function AmbientBackground() {
         className="absolute bottom-[-15%] left-[20%] w-[600px] h-[600px] bg-[#06b6d4] opacity-15 blur-[120px] rounded-full mix-blend-screen motion-safe:animate-[drift_20s_ease-in-out_infinite_alternate]"
         style={{ animationDelay: '-10s' }}
       />
-      
-      {/* CSS for the drift animation - using inline style for isolation since we need keyframes */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes drift {
-          0% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0, 0) scale(1); }
-        }
-      `}} />
     </div>
   );
 }

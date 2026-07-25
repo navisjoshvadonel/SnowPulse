@@ -142,55 +142,65 @@ export default function Sidebar({
         className={`flex-shrink-0 border-b border-white/[0.06] ${collapsed ? "px-1.5 py-2" : "px-3 py-3"}`}
       >
         {collapsed ? (
-          /* Collapsed: just an icon button */
+          /* Collapsed: styled neon icon button */
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             title="Upload Dataset"
-            className="w-full flex items-center justify-center p-2 rounded-lg text-white/40 hover:text-brand-primary hover:bg-brand-primary/10 transition-all cursor-pointer"
+            className="w-full flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-indigo-950/80 via-sky-950/70 to-emerald-950/80 border border-cyan-400/30 text-cyan-300 hover:text-white hover:border-cyan-300 hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all cursor-pointer"
           >
             {uploading ? (
               <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                <UploadCloud size={17} />
+                <UploadCloud size={17} className="text-cyan-300" />
               </motion.div>
             ) : (
-              <UploadCloud size={17} />
+              <UploadCloud size={17} className="text-cyan-300 filter drop-shadow-[0_0_6px_rgba(56,189,248,0.6)]" />
             )}
           </button>
         ) : (
-          /* Expanded: full drop zone */
+          /* Expanded: full drop zone with unique vibrant color combo */
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-xl px-3 py-3 cursor-pointer transition-all flex flex-col items-center gap-1.5 text-center"
+            className="group relative rounded-xl px-3 py-3.5 cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 text-center overflow-hidden"
             style={{
               background: dragOver
-                ? "rgba(80,99,244,0.12)"
-                : "rgba(255,255,255,0.02)",
+                ? "linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(14, 165, 233, 0.15) 50%, rgba(16, 185, 129, 0.18) 100%)"
+                : "linear-gradient(135deg, rgba(30, 27, 75, 0.45) 0%, rgba(15, 23, 42, 0.55) 50%, rgba(6, 78, 59, 0.25) 100%)",
               border: dragOver
-                ? "1.5px dashed rgba(80,99,244,0.6)"
-                : "1.5px dashed rgba(255,255,255,0.07)",
+                ? "1.5px dashed #38bdf8"
+                : "1.5px dashed rgba(129, 140, 248, 0.3)",
+              boxShadow: dragOver
+                ? "0 0 20px rgba(56, 189, 248, 0.35), inset 0 0 15px rgba(99, 102, 241, 0.2)"
+                : "0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
             }}
           >
+            {/* Ambient background glow orb */}
+            <div className="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-indigo-500/20 via-cyan-400/20 to-emerald-400/20 rounded-full blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
+            
             {uploading ? (
               <>
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                  <UploadCloud size={18} className="text-brand-primary" />
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="p-2 rounded-lg bg-indigo-500/20 border border-indigo-400/30">
+                  <UploadCloud size={18} className="text-cyan-300" />
                 </motion.div>
-                <p className="text-[10px] text-white/40 font-mono leading-snug">Uploading…</p>
+                <p className="text-[10px] text-cyan-200 font-mono leading-snug tracking-wider">Uploading…</p>
               </>
             ) : (
               <>
-                <div className="flex items-center gap-1.5">
-                  <UploadCloud size={15} className="text-brand-primary flex-shrink-0" />
-                  <FileSpreadsheet size={13} className="text-white/30 flex-shrink-0" />
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-gradient-to-r from-indigo-500/15 via-sky-500/15 to-emerald-500/15 border border-indigo-400/20 shadow-inner group-hover:border-cyan-400/40 transition-colors">
+                  <UploadCloud size={16} className="text-cyan-300 filter drop-shadow-[0_0_6px_rgba(56,189,248,0.6)]" />
+                  <FileSpreadsheet size={14} className="text-emerald-300 filter drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
                 </div>
-                <p className="text-[11px] font-semibold text-white/70 leading-tight">Upload Dataset</p>
-                <p className="text-[9px] text-white/30 font-mono leading-snug">
-                  CSV, Excel, JSON, TSV
+                <p className="text-[12px] font-bold tracking-wide bg-gradient-to-r from-indigo-200 via-sky-200 to-emerald-200 bg-clip-text text-transparent group-hover:from-white group-hover:via-cyan-100 group-hover:to-emerald-100 transition-all">
+                  Upload Dataset
                 </p>
+                <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]">
+                  <span className="text-[9.5px] font-mono font-medium text-cyan-300 tracking-tight">
+                    CSV • Excel • JSON • TSV
+                  </span>
+                </div>
               </>
             )}
           </div>

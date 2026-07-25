@@ -1,121 +1,151 @@
 date,region,category,revenue,units_sold,satisfaction_score
-2025-01-01,North America,AI Copilot,12368.82,78,4.48
-2025-01-04,Europe,AI Copilot,9998.56,56,4.66
-2025-01-07,North America,Cloud Infrastructure,13895.32,67,4.14
-2025-01-10,Europe,Cloud Infrastructure,7396.57,43,4.03
-2025-01-13,Europe,Cloud Infrastructure,10236.21,56,4.56
-2025-01-16,Europe,Cloud Infrastructure,10850.84,56,4.61
-2025-01-19,APAC,AI Copilot,10927.25,58,4.67
-2025-01-22,LATAM,Cloud Infrastructure,10102.65,42,4.37
-2025-01-25,APAC,Cloud Infrastructure,11988.64,60,4.65
-2025-01-28,APAC,Data Warehouse,11374.21,51,4.67
-2025-01-31,Europe,AI Copilot,7795.94,33,4.44
-2025-02-03,North America,Security Suite,16474.28,104,4.72
-2025-02-06,APAC,Data Warehouse,8613.32,36,4.7
-2025-02-09,North America,Data Warehouse,13682.83,57,4.96
-2025-02-12,LATAM,AI Copilot,8937.85,49,4.75
-2025-02-15,LATAM,Cloud Infrastructure,9843.03,43,4.16
-2025-02-18,APAC,Data Warehouse,8217.65,49,4.45
-2025-02-21,APAC,Data Warehouse,12068.6,71,4.22
-2025-02-24,Europe,Data Warehouse,11433.57,46,4.32
-2025-02-27,LATAM,Security Suite,11713.02,63,4.72
-2025-03-02,APAC,Data Warehouse,11889.32,50,4.44
-2025-03-05,LATAM,Cloud Infrastructure,12488.08,64,4.46
-2025-03-08,Europe,AI Copilot,36564.79,161,4.59
-2025-03-11,LATAM,AI Copilot,8554.12,51,4.2
-2025-03-14,Europe,Data Warehouse,9839.5,54,4.97
-2025-03-17,North America,Security Suite,10130.84,43,4.6
-2025-03-20,APAC,Security Suite,11917.53,54,4.56
-2025-03-23,LATAM,AI Copilot,8601.67,56,4.87
-2025-03-26,North America,Security Suite,12808.5,81,4.85
-2025-03-29,LATAM,AI Copilot,9874.02,41,4.21
-2025-04-01,APAC,Cloud Infrastructure,11986.36,60,4.61
-2025-04-04,Europe,Cloud Infrastructure,7918.62,35,4.74
-2025-04-07,North America,Cloud Infrastructure,12239.82,52,4.91
-2025-04-10,APAC,Data Warehouse,9023.01,42,4.82
-2025-04-13,LATAM,Security Suite,13168.74,84,4.23
-2025-04-16,Europe,Security Suite,9663.25,55,4.55
-2025-04-19,APAC,Cloud Infrastructure,9226.65,60,4.97
-2025-04-22,North America,Cloud Infrastructure,13605.77,75,4.03
-2025-04-25,Europe,AI Copilot,10053.9,51,4.21
-2025-04-28,Europe,AI Copilot,8373.46,49,4.61
-2025-05-01,North America,Security Suite,13328.75,63,4.14
-2025-05-04,Europe,AI Copilot,7128.39,35,4.39
-2025-05-07,North America,Cloud Infrastructure,13089.11,75,4.69
-2025-05-10,LATAM,Security Suite,11000.4,70,4.66
-2025-05-13,North America,AI Copilot,15187.75,79,4.52
-2025-05-16,APAC,Cloud Infrastructure,8387.05,36,4.74
-2025-05-19,Europe,AI Copilot,7879.11,43,4.58
-2025-05-22,North America,Security Suite,11474.39,55,4.57
-2025-05-25,Europe,AI Copilot,8034.78,42,4.97
-2025-05-28,LATAM,Cloud Infrastructure,7971.9,36,4.5
-2025-05-31,APAC,Cloud Infrastructure,7709.95,44,4.97
-2025-06-03,Europe,Cloud Infrastructure,8394.03,46,4.55
-2025-06-06,APAC,Cloud Infrastructure,10228.37,43,4.83
-2025-06-09,North America,Security Suite,14584.1,61,4.9
-2025-06-12,Europe,Data Warehouse,11733.6,50,4.77
-2025-06-15,Europe,Data Warehouse,41232.85,239,4.69
-2025-06-18,North America,Security Suite,11562.59,58,4.03
-2025-06-21,LATAM,Data Warehouse,11263.38,69,4.06
-2025-06-24,North America,Data Warehouse,13170.42,59,4.3
-2025-06-27,LATAM,Data Warehouse,9482.91,38,4.97
-2025-06-30,APAC,Security Suite,12786.88,60,4.26
-2025-07-03,North America,Data Warehouse,13739.85,57,4.93
-2025-07-06,APAC,Cloud Infrastructure,8379.57,44,4.04
-2025-07-09,LATAM,AI Copilot,12773.73,57,4.78
-2025-07-12,LATAM,Data Warehouse,13204.88,81,4.24
-2025-07-15,Europe,Security Suite,11054.54,50,4.32
-2025-07-18,Europe,Cloud Infrastructure,9076.03,36,4.2
-2025-07-21,LATAM,Security Suite,8027.44,49,4.24
-2025-07-24,LATAM,Data Warehouse,10432.97,66,4.01
-2025-07-27,LATAM,Cloud Infrastructure,11650.66,62,4.65
-2025-07-30,North America,Cloud Infrastructure,14167.28,83,4.31
-2025-08-02,Europe,AI Copilot,7124.45,30,4.36
-2025-08-05,LATAM,Cloud Infrastructure,11251.85,50,4.83
-2025-08-08,North America,Security Suite,16068.31,99,4.86
-2025-08-11,LATAM,AI Copilot,11929.72,55,4.8
-2025-08-14,Europe,Security Suite,9783.68,64,4.48
-2025-08-17,LATAM,Cloud Infrastructure,11632.98,61,4.93
-2025-08-20,Europe,Security Suite,9399.84,55,4.82
-2025-08-23,North America,AI Copilot,10875.05,44,4.01
-2025-08-26,LATAM,Data Warehouse,8243.21,39,4.15
-2025-08-29,Europe,Security Suite,9597.87,54,4.26
-2025-09-01,North America,Cloud Infrastructure,11675.93,61,4.19
-2025-09-04,Europe,AI Copilot,11565.18,73,4.12
-2025-09-07,North America,Security Suite,14621.81,63,4.5
-2025-09-10,North America,AI Copilot,15408.11,102,4.63
-2025-09-13,North America,Security Suite,14594.71,74,4.35
-2025-09-16,APAC,Security Suite,10903.65,51,4.59
-2025-09-19,LATAM,Cloud Infrastructure,11333.14,57,4.06
-2025-09-22,Europe,Cloud Infrastructure,7656.29,31,4.95
-2025-09-25,APAC,Cloud Infrastructure,46802.66,190,4.58
-2025-09-28,APAC,Security Suite,12334.34,71,4.26
-2025-10-01,North America,Data Warehouse,15420.93,71,4.62
-2025-10-04,LATAM,Security Suite,8940.12,43,4.07
-2025-10-07,APAC,Data Warehouse,12623.61,58,4.75
-2025-10-10,North America,Data Warehouse,13655.42,69,4.4
-2025-10-13,APAC,Security Suite,8949.23,46,4.82
-2025-10-16,North America,Data Warehouse,12897.7,65,4.06
-2025-10-19,APAC,Security Suite,12257.79,74,4.26
-2025-10-22,Europe,Security Suite,8370.73,42,4.94
-2025-10-25,LATAM,Security Suite,11175.29,58,4.74
-2025-10-28,North America,Security Suite,14671.94,91,4.27
-2025-10-31,North America,Data Warehouse,14789.11,59,4.01
-2025-11-03,Europe,AI Copilot,8157.1,41,4.35
-2025-11-06,Europe,AI Copilot,9811.63,39,4.31
-2025-11-09,LATAM,Security Suite,12133.15,62,4.13
-2025-11-12,Europe,Cloud Infrastructure,9882.14,58,4.34
-2025-11-15,Europe,Data Warehouse,10241.55,55,4.26
-2025-11-18,North America,Security Suite,16790.02,70,4.93
-2025-11-21,LATAM,Cloud Infrastructure,10692.49,46,4.3
-2025-11-24,North America,Data Warehouse,14181.02,58,4.58
-2025-11-27,APAC,Data Warehouse,9392.51,55,4.49
-2025-11-30,Europe,Security Suite,7691.64,49,4.11
-2025-12-03,North America,Cloud Infrastructure,11209.84,68,4.68
-2025-12-06,APAC,Security Suite,7737.01,37,4.78
-2025-12-09,APAC,AI Copilot,10024.69,44,4.71
-2025-12-12,North America,Cloud Infrastructure,13367.35,56,4.14
-2025-12-15,Europe,Cloud Infrastructure,8232.13,41,4.54
-2025-12-18,APAC,AI Copilot,10338.51,61,4.05
-2025-12-21,APAC,Cloud Infrastructure,12402.87,52,4.5
-2025-12-24,Europe,AI Copilot,8288.97,33,4.26
+2025-01-01,Europe,Security Suite,9373.85,54,4.96
+2025-01-03,LATAM,Cloud Infrastructure,8169.57,44,4.5
+2025-01-05,Europe,Cloud Infrastructure,8468.78,36,4.68
+2025-01-07,LATAM,Data Warehouse,12017.74,53,4.41
+2025-01-09,LATAM,Security Suite,8772.36,47,4.48
+2025-01-11,LATAM,AI Copilot,10428.17,57,4.83
+2025-01-13,North America,AI Copilot,15405.24,72,4.67
+2025-01-15,North America,Cloud Infrastructure,9814.15,49,4.2
+2025-01-17,LATAM,Data Warehouse,11262.07,54,4.99
+2025-01-19,North America,Cloud Infrastructure,14986.6,77,4.14
+2025-01-21,Europe,Security Suite,10173.83,44,4.62
+2025-01-23,APAC,AI Copilot,11368.94,56,4.49
+2025-01-25,APAC,Security Suite,11267.9,55,4.1
+2025-01-27,Europe,Security Suite,11208.53,62,4.83
+2025-01-29,Europe,Data Warehouse,11743.33,68,4.73
+2025-01-31,APAC,Security Suite,7911.43,52,4.89
+2025-02-02,LATAM,Cloud Infrastructure,8073.3,44,4.39
+2025-02-04,Europe,Cloud Infrastructure,9407.25,61,4.7
+2025-02-06,Europe,Cloud Infrastructure,7515.72,37,4.07
+2025-02-08,Europe,Cloud Infrastructure,10155.68,42,4.02
+2025-02-10,Europe,Cloud Infrastructure,7213.46,42,4.63
+2025-02-12,APAC,Security Suite,12301.89,52,4.1
+2025-02-14,Europe,Cloud Infrastructure,29068.52,177,4.33
+2025-02-16,APAC,Security Suite,10242.42,53,4.64
+2025-02-18,Europe,AI Copilot,11882.68,53,4.22
+2025-02-20,LATAM,AI Copilot,10735.47,58,4.68
+2025-02-22,Europe,AI Copilot,10559.9,58,4.47
+2025-02-24,North America,Security Suite,15986.16,86,4.6
+2025-02-26,LATAM,Data Warehouse,7922.34,34,4.73
+2025-02-28,Europe,Data Warehouse,11078.19,49,4.93
+2025-03-02,Europe,Cloud Infrastructure,10428.25,61,4.47
+2025-03-04,North America,Cloud Infrastructure,11609.96,59,4.02
+2025-03-06,LATAM,Cloud Infrastructure,9313.07,38,4.18
+2025-03-08,Europe,Cloud Infrastructure,9572.0,38,4.47
+2025-03-10,North America,AI Copilot,10481.85,47,4.89
+2025-03-12,North America,Security Suite,10013.5,40,4.87
+2025-03-14,North America,AI Copilot,12750.98,58,4.15
+2025-03-16,North America,Data Warehouse,10927.83,46,4.22
+2025-03-18,Europe,Security Suite,9338.54,45,4.48
+2025-03-20,Europe,Data Warehouse,9020.07,37,4.31
+2025-03-22,LATAM,AI Copilot,11380.78,67,4.32
+2025-03-24,North America,Data Warehouse,12349.09,56,4.45
+2025-03-26,APAC,Data Warehouse,11868.14,48,4.59
+2025-03-28,Europe,Data Warehouse,6800.94,34,4.39
+2025-03-30,LATAM,Data Warehouse,9764.6,53,4.94
+2025-04-01,APAC,Cloud Infrastructure,10197.7,45,4.31
+2025-04-03,LATAM,AI Copilot,13086.56,60,4.27
+2025-04-05,Europe,AI Copilot,10670.72,61,4.47
+2025-04-07,LATAM,Security Suite,8180.27,37,4.7
+2025-04-09,APAC,Security Suite,11910.01,70,4.45
+2025-04-11,North America,Data Warehouse,9689.07,40,4.84
+2025-04-13,APAC,AI Copilot,11759.82,56,4.5
+2025-04-15,Europe,AI Copilot,11529.26,67,4.49
+2025-04-17,LATAM,Data Warehouse,11210.69,50,4.62
+2025-04-19,APAC,AI Copilot,9748.96,42,4.68
+2025-04-21,LATAM,Data Warehouse,34932.04,153,4.22
+2025-04-23,APAC,AI Copilot,8882.14,55,4.28
+2025-04-25,Europe,Cloud Infrastructure,7556.62,31,4.04
+2025-04-27,LATAM,Security Suite,12640.59,73,4.37
+2025-04-29,APAC,Cloud Infrastructure,8408.13,41,4.4
+2025-05-01,LATAM,Security Suite,9500.63,45,4.07
+2025-05-03,North America,Security Suite,15782.54,99,4.08
+2025-05-05,Europe,Cloud Infrastructure,10844.28,50,4.91
+2025-05-07,LATAM,AI Copilot,8651.89,48,4.53
+2025-05-09,LATAM,Cloud Infrastructure,11690.0,75,4.59
+2025-05-11,APAC,Cloud Infrastructure,8550.35,35,4.27
+2025-05-13,APAC,AI Copilot,11472.68,47,4.66
+2025-05-15,Europe,Data Warehouse,7006.41,36,4.63
+2025-05-17,Europe,Cloud Infrastructure,7341.33,39,4.13
+2025-05-19,APAC,Data Warehouse,12225.58,50,4.64
+2025-05-21,APAC,Cloud Infrastructure,9431.08,47,4.39
+2025-05-23,APAC,Cloud Infrastructure,9853.79,41,4.16
+2025-05-25,North America,Cloud Infrastructure,9804.42,48,4.88
+2025-05-27,APAC,Cloud Infrastructure,9109.1,41,4.75
+2025-05-29,APAC,Cloud Infrastructure,8455.98,38,4.57
+2025-05-31,Europe,AI Copilot,8649.23,35,4.63
+2025-06-02,North America,AI Copilot,14324.13,78,4.88
+2025-06-04,LATAM,Data Warehouse,9601.68,62,4.72
+2025-06-06,Europe,Data Warehouse,9493.29,56,4.96
+2025-06-08,APAC,AI Copilot,8235.27,39,4.38
+2025-06-10,LATAM,Cloud Infrastructure,9280.48,58,4.91
+2025-06-12,APAC,Cloud Infrastructure,8236.14,40,4.35
+2025-06-14,LATAM,Security Suite,8756.06,42,4.23
+2025-06-16,APAC,Cloud Infrastructure,12014.97,69,4.77
+2025-06-18,LATAM,Security Suite,9755.45,58,4.06
+2025-06-20,Europe,Security Suite,7361.01,32,4.39
+2025-06-22,North America,Cloud Infrastructure,10928.31,71,4.32
+2025-06-24,LATAM,AI Copilot,8284.16,38,4.44
+2025-06-26,LATAM,Cloud Infrastructure,11387.67,65,4.17
+2025-06-28,LATAM,Cloud Infrastructure,30432.79,144,4.66
+2025-06-30,Europe,Data Warehouse,9105.99,39,4.47
+2025-07-02,APAC,AI Copilot,7886.35,33,4.12
+2025-07-04,APAC,Data Warehouse,12548.33,65,4.53
+2025-07-06,North America,Data Warehouse,9996.37,64,4.26
+2025-07-08,North America,Cloud Infrastructure,16714.62,91,4.25
+2025-07-10,APAC,Security Suite,10273.62,43,4.08
+2025-07-12,APAC,Data Warehouse,10884.73,49,4.01
+2025-07-14,Europe,Data Warehouse,9994.24,54,4.34
+2025-07-16,Europe,Data Warehouse,9337.27,44,4.02
+2025-07-18,APAC,Security Suite,10820.56,51,4.23
+2025-07-20,LATAM,Data Warehouse,12644.56,68,4.1
+2025-07-22,LATAM,AI Copilot,10568.36,57,4.9
+2025-07-24,LATAM,Security Suite,8558.28,35,4.04
+2025-07-26,North America,Security Suite,15913.73,86,4.57
+2025-07-28,APAC,Security Suite,11066.86,52,4.94
+2025-07-30,North America,Data Warehouse,14967.82,83,4.68
+2025-08-01,LATAM,Security Suite,12170.01,59,4.85
+2025-08-03,APAC,Data Warehouse,12037.54,53,4.75
+2025-08-05,North America,Cloud Infrastructure,10033.05,55,4.88
+2025-08-07,APAC,Security Suite,10778.06,47,4.59
+2025-08-09,Europe,Security Suite,7757.05,32,4.14
+2025-08-11,APAC,Data Warehouse,9764.98,60,4.99
+2025-08-13,North America,AI Copilot,13166.61,63,4.81
+2025-08-15,APAC,Security Suite,11665.0,71,4.46
+2025-08-17,Europe,Data Warehouse,9884.55,49,4.35
+2025-08-19,North America,AI Copilot,13696.53,66,4.01
+2025-08-21,LATAM,Data Warehouse,11848.74,56,4.76
+2025-08-23,North America,Security Suite,13719.01,75,4.16
+2025-08-25,LATAM,Data Warehouse,9216.01,38,4.98
+2025-08-27,North America,Cloud Infrastructure,12351.45,68,4.4
+2025-08-29,LATAM,AI Copilot,10440.4,51,4.89
+2025-08-31,North America,Security Suite,14543.84,58,4.44
+2025-09-02,APAC,AI Copilot,11637.38,57,4.17
+2025-09-04,North America,Data Warehouse,16630.54,90,4.37
+2025-09-06,LATAM,AI Copilot,13092.88,83,4.17
+2025-09-08,APAC,Cloud Infrastructure,8829.14,42,4.59
+2025-09-10,North America,Data Warehouse,9758.67,58,4.14
+2025-09-12,Europe,Data Warehouse,9552.95,41,4.79
+2025-09-14,Europe,Data Warehouse,10044.49,54,4.18
+2025-09-16,Europe,Data Warehouse,7298.47,38,4.81
+2025-09-18,LATAM,Cloud Infrastructure,11642.03,49,4.2
+2025-09-20,APAC,Security Suite,10342.48,63,4.0
+2025-09-22,North America,Cloud Infrastructure,15716.24,80,4.88
+2025-09-24,Europe,Data Warehouse,9141.73,48,4.99
+2025-09-26,Europe,Cloud Infrastructure,26095.07,147,4.82
+2025-09-28,APAC,Data Warehouse,8321.53,45,4.36
+2025-09-30,APAC,Security Suite,12386.51,74,4.7
+2025-10-02,APAC,Cloud Infrastructure,9848.36,49,4.48
+2025-10-04,Europe,Cloud Infrastructure,8260.51,37,4.78
+2025-10-06,APAC,Security Suite,12545.89,78,4.17
+2025-10-08,North America,AI Copilot,12660.0,72,4.25
+2025-10-10,Europe,Cloud Infrastructure,10572.31,43,4.48
+2025-10-12,Europe,AI Copilot,11550.85,55,4.33
+2025-10-14,APAC,Data Warehouse,11099.71,56,4.83
+2025-10-16,North America,Data Warehouse,14467.66,83,4.06
+2025-10-18,Europe,Cloud Infrastructure,11715.1,77,4.97
+2025-10-20,LATAM,AI Copilot,11073.23,72,4.39
+2025-10-22,APAC,Data Warehouse,9225.65,37,4.16
+2025-10-24,North America,Cloud Infrastructure,10208.63,43,4.92
+2025-10-26,Europe,Data Warehouse,10136.34,47,4.71

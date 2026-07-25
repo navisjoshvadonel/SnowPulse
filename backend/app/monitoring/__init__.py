@@ -6,68 +6,87 @@ from typing import Any
 from fastapi import Response
 from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
 
-from .logging_config import logger
+from ..logging_config import logger
+from .audit import AuditLogger
 
-# --- Prometheus Metrics Definitions ---
-API_REQUEST_COUNT = Counter(
+# --- Prometheus Metrics Definitions & Helpers ---
+def _safe_counter(name: str, documentation: str, labelnames: list[str] = ()):
+    try:
+        return Counter(name, documentation, labelnames)
+    except ValueError:
+        return REGISTRY._names_to_collectors.get(name) or REGISTRY._names_to_collectors.get(name + "_total")
+
+def _safe_gauge(name: str, documentation: str, labelnames: list[str] = ()):
+    try:
+        return Gauge(name, documentation, labelnames)
+    except ValueError:
+        return REGISTRY._names_to_collectors.get(name)
+
+def _safe_histogram(name: str, documentation: str, labelnames: list[str] = ()):
+    try:
+        return Histogram(name, documentation, labelnames)
+    except ValueError:
+        return REGISTRY._names_to_collectors.get(name)
+
+API_REQUEST_COUNT = _safe_counter(
     "snowpulse_api_requests_total",
     "Total number of HTTP requests processed",
     ["method", "endpoint", "status_code"]
 )
 
-API_REQUEST_LATENCY = Histogram(
+API_REQUEST_LATENCY = _safe_histogram(
     "snowpulse_api_request_duration_seconds",
     "HTTP request latency in seconds",
     ["method", "endpoint"]
 )
 
-ERROR_RATE = Counter(
+ERROR_RATE = _safe_counter(
     "snowpulse_errors_total",
     "Total number of application errors and exceptions",
     ["type", "component"]
 )
 
-JOB_EXECUTION_COUNT = Counter(
+JOB_EXECUTION_COUNT = _safe_counter(
     "snowpulse_job_executions_total",
     "Total number of background job executions",
     ["task_name", "status"]
 )
 
-JOB_EXECUTION_LATENCY = Histogram(
+JOB_EXECUTION_LATENCY = _safe_histogram(
     "snowpulse_job_duration_seconds",
     "Background job execution time in seconds",
     ["task_name"]
 )
 
-DB_ACTIVE_CONNECTIONS = Gauge(
+DB_ACTIVE_CONNECTIONS = _safe_gauge(
     "snowpulse_db_connections_active",
     "Number of active database connections"
 )
 
-CACHE_OPERATIONS = Counter(
+CACHE_OPERATIONS = _safe_counter(
     "snowpulse_cache_operations_total",
     "Total cache hits and misses",
     ["action", "status"]
 )
 
-SEARCH_LATENCY = Histogram(
+SEARCH_LATENCY = _safe_histogram(
     "snowpulse_search_duration_seconds",
     "Search execution latency in seconds"
 )
 
-FORECAST_COUNT = Counter(
+FORECAST_COUNT = _safe_counter(
     "snowpulse_forecasts_generated_total",
     "Total number of forecast outputs generated",
     ["model_type", "status"]
 )
 
-ML_PIPELINE_RUNS = Counter(
+ML_PIPELINE_RUNS = _safe_counter(
     "snowpulse_ml_pipeline_runs_total",
     "Total number of ML model training cycles",
     ["task_type", "status"]
 )
 
-ML_MODEL_ACCURACY = Gauge(
+ML_MODEL_ACCURACY = _safe_gauge(
     "snowpulse_ml_model_metric",
     "Latest trained model metric score",
     ["task_type", "metric_name"]
@@ -222,7 +241,7 @@ def run_readiness_check(db_session_factory: Callable) -> dict[str, Any]:
 
     # 2. Check Cache
     try:
-        from .cache.cache_service import cache_service
+        from ..cache.cache_service import cache_service
         if cache_service.enabled and cache_service.client:
             cache_service.client.ping()
             checks["cache"] = "healthy"
@@ -233,7 +252,7 @@ def run_readiness_check(db_session_factory: Callable) -> dict[str, Any]:
 
     # 3. Check Storage (MinIO)
     try:
-        from .storage.service import storage_service
+        from ..storage.service import storage_service
         if storage_service.enabled and storage_service.client:
             # List buckets to verify connection
             storage_service.client.list_buckets()
@@ -245,7 +264,7 @@ def run_readiness_check(db_session_factory: Callable) -> dict[str, Any]:
 
     # 4. Check Search (Meilisearch)
     try:
-        from .search.service import search_service
+        from ..search.service import search_service
         if search_service.enabled and search_service.client:
             search_service.client.health()
             checks["search"] = "healthy"

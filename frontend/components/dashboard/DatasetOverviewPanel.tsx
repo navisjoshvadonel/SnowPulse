@@ -30,22 +30,31 @@ interface DatasetOverviewPanelProps {
   loading: boolean;
 }
 
-const ROLE_ICON: Record<ColumnInfo["role"], React.ElementType> = {
+const ROLE_ICON: Record<string, React.ElementType> = {
   metric: Hash,
   numeric: Hash,
   date: Calendar,
+  temporal: Calendar,
   category: Tag,
   categorical: Tag,
+  dimension: Tag,
   geo: MapPin,
+  identifier: Hash,
+  id: Hash,
+  target: Hash,
 };
 
-const ROLE_COLOR: Record<ColumnInfo["role"], string> = {
+const ROLE_COLOR: Record<string, string> = {
   metric: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
   numeric: "text-sky-400 bg-sky-500/10 border-sky-500/20",
   date: "text-violet-400 bg-violet-500/10 border-violet-500/20",
+  temporal: "text-violet-400 bg-violet-500/10 border-violet-500/20",
   category: "text-amber-400 bg-amber-500/10 border-amber-500/20",
   categorical: "text-white/60 bg-white/5 border-white/10",
+  dimension: "text-amber-400 bg-amber-500/10 border-amber-500/20",
   geo: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+  identifier: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+  target: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
 };
 
 export default function DatasetOverviewPanel({ schema, loading }: DatasetOverviewPanelProps) {
@@ -118,7 +127,8 @@ export default function DatasetOverviewPanel({ schema, loading }: DatasetOvervie
         </div>
         <div className="divide-y divide-white/5 max-h-[420px] overflow-y-auto">
           {schema.columns.map((col) => {
-            const Icon = ROLE_ICON[col.role];
+            const Icon = ROLE_ICON[col.role] || Tag;
+            const roleColor = ROLE_COLOR[col.role] || "text-white/60 bg-white/5 border-white/10";
             return (
               <div
                 key={col.name}
@@ -126,7 +136,7 @@ export default function DatasetOverviewPanel({ schema, loading }: DatasetOvervie
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border shrink-0 ${ROLE_COLOR[col.role]}`}
+                    className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border shrink-0 ${roleColor}`}
                   >
                     <Icon size={11} />
                     {col.role}

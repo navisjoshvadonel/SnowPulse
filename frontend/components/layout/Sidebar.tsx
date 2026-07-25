@@ -13,6 +13,13 @@ import {
   Briefcase,
   UploadCloud,
   FileSpreadsheet,
+  Zap,
+  HardDrive,
+  Users,
+  Key,
+  BookOpen,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -32,6 +39,7 @@ interface SidebarProps {
   onUploadDataset?: (file: File) => void;
   uploading?: boolean;
   hasPredictableMetric?: boolean;
+  onOpenModal?: (modal: "team" | "apikeys" | "docs") => void;
 }
 
 function SnowflakeIcon({ size = 18 }: { size?: number }) {
@@ -78,9 +86,12 @@ export default function Sidebar({
   onUploadDataset,
   uploading = false,
   hasPredictableMetric = true,
+  onOpenModal,
 }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [env, setEnv] = useState<"Production" | "Staging" | "Development">("Production");
+  const [envOpen, setEnvOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -110,6 +121,12 @@ export default function Sidebar({
       />
     );
   }
+
+  const envColors = {
+    Production: "bg-emerald-400 text-emerald-400",
+    Staging: "bg-amber-400 text-amber-400",
+    Development: "bg-cyan-400 text-cyan-400",
+  };
 
   return (
     <motion.aside
@@ -144,12 +161,11 @@ export default function Sidebar({
         className={`flex-shrink-0 border-b border-white/[0.06] ${collapsed ? "px-1.5 py-2" : "px-3 py-3"}`}
       >
         {collapsed ? (
-          /* Collapsed: styled neon icon button */
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             title="Upload Dataset"
-            className="w-full flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-indigo-950/80 via-sky-950/70 to-emerald-950/80 border border-cyan-400/30 text-cyan-300 hover:text-white hover:border-cyan-300 hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all cursor-pointer"
+            className="w-full flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-indigo-950/80 via-sky-950/70 to-emerald-950/80 border border-cyan-400/30 text-cyan-300 hover:text-white hover:border-cyan-300 transition-all cursor-pointer"
           >
             {uploading ? (
               <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
@@ -160,13 +176,12 @@ export default function Sidebar({
             )}
           </button>
         ) : (
-          /* Expanded: full drop zone with unique vibrant color combo */
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className="group relative rounded-xl px-3 py-3.5 cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 text-center overflow-hidden"
+            className="group relative rounded-xl px-3 py-3 cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 text-center overflow-hidden"
             style={{
               background: dragOver
                 ? "linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(14, 165, 233, 0.15) 50%, rgba(16, 185, 129, 0.18) 100%)"
@@ -174,14 +189,8 @@ export default function Sidebar({
               border: dragOver
                 ? "1.5px dashed #38bdf8"
                 : "1.5px dashed rgba(129, 140, 248, 0.3)",
-              boxShadow: dragOver
-                ? "0 0 20px rgba(56, 189, 248, 0.35), inset 0 0 15px rgba(99, 102, 241, 0.2)"
-                : "0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
             }}
           >
-            {/* Ambient background glow orb */}
-            <div className="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-indigo-500/20 via-cyan-400/20 to-emerald-400/20 rounded-full blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
-            
             {uploading ? (
               <>
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="p-2 rounded-lg bg-indigo-500/20 border border-indigo-400/30">
@@ -191,18 +200,14 @@ export default function Sidebar({
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-gradient-to-r from-indigo-500/15 via-sky-500/15 to-emerald-500/15 border border-indigo-400/20 shadow-inner group-hover:border-cyan-400/40 transition-colors">
-                  <UploadCloud size={16} className="text-cyan-300 filter drop-shadow-[0_0_6px_rgba(56,189,248,0.6)]" />
-                  <FileSpreadsheet size={14} className="text-emerald-300 filter drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-gradient-to-r from-indigo-500/15 via-sky-500/15 to-emerald-500/15 border border-indigo-400/20">
+                  <UploadCloud size={15} className="text-cyan-300" />
+                  <FileSpreadsheet size={13} className="text-emerald-300" />
                 </div>
-                <p className="text-[12px] font-bold tracking-wide bg-gradient-to-r from-indigo-200 via-sky-200 to-emerald-200 bg-clip-text text-transparent group-hover:from-white group-hover:via-cyan-100 group-hover:to-emerald-100 transition-all">
+                <p className="text-[12px] font-bold tracking-wide bg-gradient-to-r from-indigo-200 via-sky-200 to-emerald-200 bg-clip-text text-transparent">
                   Upload Dataset
                 </p>
-                <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.15)]">
-                  <span className="text-[9.5px] font-mono font-medium text-cyan-300 tracking-tight">
-                    CSV • Excel • JSON • TSV
-                  </span>
-                </div>
+                <span className="text-[9px] font-mono text-cyan-300 tracking-tight">CSV • Excel • JSON</span>
               </>
             )}
           </div>
@@ -217,7 +222,7 @@ export default function Sidebar({
       </div>
 
       {/* ── Nav Items ── */}
-      <nav className="flex-1 py-4 flex flex-col gap-0.5 px-2 overflow-y-auto">
+      <nav className="flex-1 py-3 flex flex-col gap-0.5 px-2 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.id;
@@ -228,13 +233,7 @@ export default function Sidebar({
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              title={
-                collapsed
-                  ? isLocked
-                    ? "Future Prediction (Requires Numeric Metric)"
-                    : item.label
-                  : undefined
-              }
+              title={collapsed ? (isLocked ? "Future Prediction (Requires Numeric Target)" : item.label) : undefined}
               className={`sidebar-nav-item ${isActive ? "active" : ""} ${
                 collapsed ? "justify-center px-0 w-full" : "px-3 w-full justify-between"
               }`}
@@ -276,40 +275,99 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* ── Bottom Controls ── */}
-      <div className="flex flex-col gap-0.5 px-2 pb-3 border-t border-white/[0.06] pt-3 flex-shrink-0">
+      {/* ── Usage / Quota Indicator (Expanded) ── */}
+      {!collapsed && (
+        <div className="mx-2 my-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-2 flex-shrink-0">
+          <div className="flex items-center justify-between text-[10px] text-white/50">
+            <span className="font-mono flex items-center gap-1">
+              <Zap size={11} className="text-cyan-400" /> Gemini Calls
+            </span>
+            <span className="font-mono text-cyan-300">342 / 500</span>
+          </div>
+          <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full" style={{ width: "68%" }} />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-white/50 pt-0.5">
+            <span className="font-mono flex items-center gap-1">
+              <HardDrive size={11} className="text-purple-400" /> Storage
+            </span>
+            <span className="font-mono text-purple-300">2.1 GB / 10 GB</span>
+          </div>
+          <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+            <div className="bg-purple-500 h-full rounded-full" style={{ width: "21%" }} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Bottom Controls & Environment Switcher ── */}
+      <div className="flex flex-col gap-0.5 px-2 pb-3 border-t border-white/[0.06] pt-2 flex-shrink-0 relative">
+        {/* Interactive Environment Switcher Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setEnvOpen(!envOpen)}
+            className={`w-full flex items-center justify-between p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-all cursor-pointer ${
+              collapsed ? "justify-center" : ""
+            }`}
+            title={collapsed ? `Environment: ${env}` : undefined}
+          >
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${envColors[env].split(" ")[0]}`} />
+              {!collapsed && (
+                <span className="text-xs font-semibold text-white truncate">{env} Env</span>
+              )}
+            </div>
+            {!collapsed && <ChevronDown size={14} className="text-white/40" />}
+          </button>
+
+          <AnimatePresence>
+            {envOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 5 }}
+                className="absolute bottom-full left-0 mb-2 w-48 rounded-xl py-1 z-50 border border-white/10 shadow-2xl"
+                style={{ background: "#12151e" }}
+              >
+                {(["Production", "Staging", "Development"] as const).map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => { setEnv(e); setEnvOpen(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs text-white/70 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${envColors[e].split(" ")[0]}`} />
+                      {e}
+                    </span>
+                    {env === e && <Check size={13} className="text-indigo-400" />}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Shortcuts */}
         <button
+          onClick={() => onOpenModal?.("team")}
           className={`sidebar-nav-item ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
-          title={collapsed ? "Settings" : undefined}
+          title={collapsed ? "Team Members" : undefined}
         >
-          <Settings size={17} className="text-white/35 flex-shrink-0" />
-          {!collapsed && <span className="ml-3">Settings</span>}
+          <Users size={16} className="text-indigo-400 flex-shrink-0" />
+          {!collapsed && <span className="ml-3">Team & Invites</span>}
         </button>
 
         <button
+          onClick={() => onOpenModal?.("apikeys")}
           className={`sidebar-nav-item ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
-          title={collapsed ? "Support" : undefined}
+          title={collapsed ? "API Keys" : undefined}
         >
-          <HelpCircle size={17} className="text-white/35 flex-shrink-0" />
-          {!collapsed && <span className="ml-3">Support</span>}
-        </button>
-
-        <button
-          onClick={() => onNavigate("production-env")}
-          className={`sidebar-nav-item ${
-            active === "production-env" ? "active" : ""
-          } ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
-          title={collapsed ? "Production Env" : undefined}
-        >
-          <Briefcase size={17} className="text-indigo-400 flex-shrink-0" />
-          {!collapsed && <span className="ml-3">Production Env</span>}
+          <Key size={16} className="text-cyan-400 flex-shrink-0" />
+          {!collapsed && <span className="ml-3">API Keys & Webhooks</span>}
         </button>
 
         <button
           onClick={onToggleCollapsed}
-          className={`sidebar-nav-item mt-1 ${
-            collapsed ? "justify-center px-0 w-full" : "px-3 w-full"
-          }`}
+          className={`sidebar-nav-item mt-1 ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
         >
           {collapsed ? (
             <ChevronRight size={16} className="text-white/30" />

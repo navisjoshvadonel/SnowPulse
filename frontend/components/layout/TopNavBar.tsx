@@ -1,21 +1,36 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Bell, Settings, LogOut, User } from "lucide-react";
+import { Search, Bell, Settings, LogOut, User, Users, Key, BookOpen, Check, AlertTriangle, Sparkles, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TopNavBarProps {
   onLogout?: () => void;
   userEmail?: string;
+  onOpenCommandPalette?: () => void;
+  onOpenModal?: (modal: "team" | "apikeys" | "docs") => void;
 }
 
 export default function TopNavBar({
   onLogout,
-  userEmail = "user@example.com",
+  userEmail = "user@snowpulse.ai",
+  onOpenCommandPalette,
+  onOpenModal,
 }: TopNavBarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [alerts, setAlerts] = useState([
+    { id: "1", type: "anomaly", title: "North America intake anomaly", desc: "Intake rate dropped by 24% relative to 7-day mean.", time: "10m ago", read: false },
+    { id: "2", type: "system", title: "Gemini 3.6 Flash Active", desc: "API quota operating at 68% capacity.", time: "1h ago", read: false },
+    { id: "3", type: "ingestion", title: "Schema Ingestion Complete", desc: "Dataset profile generated across 14 columns.", time: "2h ago", read: true },
+  ]);
 
-  const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "JD";
+  const unreadCount = alerts.filter((a) => !a.read).length;
+  const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "SP";
+
+  const markAllRead = () => {
+    setAlerts(alerts.map((a) => ({ ...a, read: true })));
+  };
 
   return (
     <header
@@ -30,31 +45,94 @@ export default function TopNavBar({
       {/* ── Left: empty space for sidebar logo area ── */}
       <div style={{ width: 220 }} className="flex-shrink-0" />
 
-      {/* ── Center: empty ── */}
-      <div className="flex-1" />
-
-      {/* ── Right: Search + Actions ── */}
-      <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-2 text-white/40 hover:text-white/70 transition-colors cursor-pointer">
-          <Search size={14} />
-          <span className="text-xs font-sans">Search insights...</span>
-        </div>
-
-        {/* Bell */}
-        <button className="relative p-1.5 text-white/40 hover:text-white/80 transition-colors cursor-pointer">
-          <Bell size={17} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full border-2 border-[#0d0f14]" />
+      {/* ── Center: Search command palette trigger ── */}
+      <div className="flex-1 max-w-md mx-auto">
+        <button
+          onClick={onOpenCommandPalette}
+          className="w-full flex items-center justify-between bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl px-3.5 py-1.5 text-white/40 hover:text-white/70 transition-all cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <Search size={14} className="text-white/40" />
+            <span className="text-xs font-sans">Search insights, metrics, commands...</span>
+          </div>
+          <kbd className="text-[10px] font-mono text-white/30 bg-white/5 px-2 py-0.5 rounded border border-white/10">⌘K</kbd>
         </button>
+      </div>
 
-        {/* Avatar + dropdown */}
+      {/* ── Right: Bell + User Menu ── */}
+      <div className="flex items-center gap-3">
+        {/* Alerts Bell */}
         <div className="relative">
           <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1 cursor-pointer group"
+            onClick={() => { setAlertsOpen(!alertsOpen); setDropdownOpen(false); }}
+            className="relative p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
+            title="Notifications & Anomaly Alerts"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-indigo-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center border border-[#0d0f14]">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Alerts Drawer */}
+          <AnimatePresence>
+            {alertsOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                className="absolute right-0 mt-2 w-80 rounded-2xl py-2 overflow-hidden z-50 shadow-2xl border border-white/10"
+                style={{ background: "#12151e" }}
+              >
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
+                  <span className="text-xs font-bold text-white flex items-center gap-2">
+                    <Bell size={14} className="text-indigo-400" /> Notifications & Alerts
+                  </span>
+                  {unreadCount > 0 && (
+                    <button onClick={markAllRead} className="text-[10px] text-indigo-400 hover:text-indigo-300 font-mono cursor-pointer">
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-72 overflow-y-auto space-y-1 p-2">
+                  {alerts.map((a) => (
+                    <div
+                      key={a.id}
+                      className={`p-3 rounded-xl transition-all border ${
+                        a.read ? "bg-white/[0.01] border-white/[0.03]" : "bg-indigo-500/10 border-indigo-500/20"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <p className="text-xs font-semibold text-white flex items-center gap-1.5">
+                          {a.type === "anomaly" ? (
+                            <AlertTriangle size={13} className="text-amber-400" />
+                          ) : (
+                            <Sparkles size={13} className="text-indigo-400" />
+                          )}
+                          {a.title}
+                        </p>
+                        <span className="text-[9px] font-mono text-white/30">{a.time}</span>
+                      </div>
+                      <p className="text-[11px] text-white/50 mt-1 leading-snug">{a.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* User Avatar Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => { setDropdownOpen(!dropdownOpen); setAlertsOpen(false); }}
+            className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group"
           >
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 shadow-lg"
               style={{ background: "linear-gradient(135deg, #5063f4 0%, #8b5cf6 100%)" }}
             >
               {initials}
@@ -68,24 +146,35 @@ export default function TopNavBar({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.96 }}
                 transition={{ duration: 0.14 }}
-                className="absolute right-0 mt-2 w-48 rounded-xl py-1 overflow-hidden z-50"
-                style={{
-                  background: "rgba(18,21,30,0.97)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-                  backdropFilter: "blur(20px)",
-                }}
+                className="absolute right-0 mt-2 w-56 rounded-2xl py-1 overflow-hidden z-50 border border-white/10 shadow-2xl"
+                style={{ background: "#12151e" }}
               >
-                <div className="px-4 py-2.5 border-b border-white/[0.06] mb-1">
-                  <p className="text-sm font-semibold text-white truncate">{userEmail}</p>
-                  <p className="text-[10px] text-white/40 font-mono mt-0.5">Admin · SnowPulse AI</p>
+                <div className="px-4 py-3 border-b border-white/[0.06] mb-1">
+                  <p className="text-xs font-bold text-white truncate">{userEmail}</p>
+                  <span className="inline-block text-[9px] font-mono text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 mt-1">
+                    Enterprise Admin
+                  </span>
                 </div>
 
-                <button className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer">
-                  <User size={14} /> Profile
+                <button
+                  onClick={() => { setDropdownOpen(false); onOpenModal?.("team"); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                >
+                  <Users size={14} className="text-indigo-400" /> Team & Workspace
                 </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer">
-                  <Settings size={14} /> Settings
+
+                <button
+                  onClick={() => { setDropdownOpen(false); onOpenModal?.("apikeys"); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                >
+                  <Key size={14} className="text-cyan-400" /> API Keys & Webhooks
+                </button>
+
+                <button
+                  onClick={() => { setDropdownOpen(false); onOpenModal?.("docs"); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                >
+                  <BookOpen size={14} className="text-purple-400" /> Docs & Release Notes
                 </button>
 
                 <div className="h-px bg-white/[0.06] my-1" />

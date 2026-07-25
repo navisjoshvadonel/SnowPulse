@@ -29,6 +29,10 @@ import AnomalyBarChart from "@/components/dashboard/AnomalyBarChart";
 import DatasetProfileChart from "@/components/dashboard/DatasetProfileChart";
 import SnowfallStorm from "@/components/auth/SnowfallStorm";
 import Papa from "papaparse";
+import TeamAccessModal from "@/components/modals/TeamAccessModal";
+import ApiKeysModal from "@/components/modals/ApiKeysModal";
+import DocsChangelogModal from "@/components/modals/DocsChangelogModal";
+import CommandPalette from "@/components/modals/CommandPalette";
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -375,6 +379,10 @@ export default function HomePage() {
 
   // Top nav tab state
   const [navTab, setNavTab] = useState<"overview" | "reports" | "analytics">("overview");
+
+  // Enterprise Modals & Command Palette state
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<"team" | "apikeys" | "docs" | null>(null);
 
   // ── Load mock data (offline-first) ──────────────────
   const loadMockDashboard = (schema?: any) => {
@@ -1104,12 +1112,15 @@ export default function HomePage() {
         onUploadDataset={handleFileUpload}
         uploading={uploading}
         hasPredictableMetric={hasPredictableMetric}
+        onOpenModal={(m) => setActiveModal(m)}
       />
 
       {/* Fixed Top Nav */}
       <TopNavBar
         onLogout={handleLogout}
         userEmail={user.email}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onOpenModal={(m) => setActiveModal(m)}
       />
 
       {/* Fixed Footer */}
@@ -1311,6 +1322,26 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* ── Enterprise Modals & Command Palette ── */}
+      <TeamAccessModal
+        isOpen={activeModal === "team"}
+        onClose={() => setActiveModal(null)}
+      />
+      <ApiKeysModal
+        isOpen={activeModal === "apikeys"}
+        onClose={() => setActiveModal(null)}
+      />
+      <DocsChangelogModal
+        isOpen={activeModal === "docs"}
+        onClose={() => setActiveModal(null)}
+      />
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onNavigate={setActiveSection}
+        onOpenModal={(m) => setActiveModal(m)}
+      />
     </div>
   );
 }

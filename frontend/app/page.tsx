@@ -23,6 +23,7 @@ import InsightsCenter from "@/components/ai-insights/InsightsCenter";
 import DonutChart from "@/components/executive-overview/DonutChart";
 import Sidebar, { SnowSection } from "@/components/layout/Sidebar";
 import DatasetOverviewPanel from "@/components/dashboard/DatasetOverviewPanel";
+import DataQualityReportPanel from "@/components/dashboard/DataQualityReportPanel";
 import CorrelationMatrixPanel from "@/components/dashboard/CorrelationMatrixPanel";
 import TopNavBar from "@/components/layout/TopNavBar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
@@ -1246,6 +1247,11 @@ export default function HomePage() {
               {/* ── DATASET OVERVIEW SECTION ── */}
               {activeSection === "dataset-overview" && (
                 <DatasetOverviewPanel schema={datasetSchema} loading={loadingSchema} />
+              )}
+
+              {/* ── DATA QUALITY REPORT SECTION ── */}
+              {activeSection === "data-quality" && (
+                <DataQualityReportPanel schema={datasetSchema} loading={loadingSchema} />
               )}
 
               {/* ── CORRELATION MATRIX SECTION ── */}

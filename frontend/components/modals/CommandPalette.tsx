@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, LayoutDashboard, Database, Settings, Key, Users, BookOpen, X } from "lucide-react";
+import { Search, LayoutDashboard, Database, Settings, Key, Users, BookOpen, X, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SnowSection } from "@/components/layout/Sidebar";
 
@@ -34,6 +34,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onOpenModa
   const actions = [
     { label: "Go to Executive Dashboard", category: "Navigation", icon: LayoutDashboard, action: () => { onNavigate("dashboard"); onClose(); } },
     { label: "View Dataset Profile & Overview", category: "Navigation", icon: Database, action: () => { onNavigate("dataset-overview"); onClose(); } },
+    { label: "View Data Quality & Readiness Report", category: "Navigation", icon: ShieldCheck, action: () => { onNavigate("data-quality"); onClose(); } },
     { label: "View Correlation & Driver Matrix", category: "Navigation", icon: Database, action: () => { onNavigate("correlation-matrix"); onClose(); } },
     { label: "Manage API Keys & Gemini Config", category: "Settings", icon: Key, action: () => { onOpenModal("apikeys"); onClose(); } },
     { label: "Invite & Manage Team Members", category: "Team", icon: Users, action: () => { onOpenModal("team"); onClose(); } },

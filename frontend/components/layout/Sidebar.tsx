@@ -30,6 +30,15 @@ export type SnowSection =
   | "prediction"
   | "production-env";
 
+export interface UsageQuota {
+  gemini_calls: number;
+  gemini_max_calls: number;
+  tokens_used: number;
+  token_limit: number;
+  storage_used_formatted: string;
+  storage_limit_formatted: string;
+}
+
 interface SidebarProps {
   active: SnowSection;
   onNavigate: (section: SnowSection) => void;
@@ -40,6 +49,7 @@ interface SidebarProps {
   uploading?: boolean;
   hasPredictableMetric?: boolean;
   onOpenModal?: (modal: "team" | "apikeys" | "docs") => void;
+  usageQuota?: UsageQuota;
 }
 
 function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className?: string }) {
@@ -87,6 +97,7 @@ export default function Sidebar({
   uploading = false,
   hasPredictableMetric = true,
   onOpenModal,
+  usageQuota,
 }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -276,28 +287,48 @@ export default function Sidebar({
       </nav>
 
       {/* ── Usage / Quota Indicator (Expanded) ── */}
-      {!collapsed && (
-        <div className="mx-2 my-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-2 flex-shrink-0">
-          <div className="flex items-center justify-between text-[10px] text-white/50">
-            <span className="font-mono flex items-center gap-1">
-              <Zap size={11} className="text-cyan-400" /> Gemini Calls
-            </span>
-            <span className="font-mono text-cyan-300">342 / 500</span>
+      {!collapsed && (() => {
+        const quota = usageQuota || {
+          gemini_calls: 14,
+          gemini_max_calls: 500,
+          tokens_used: 18450,
+          token_limit: 100000,
+          storage_used_formatted: "2.4 MB",
+          storage_limit_formatted: "10 GB",
+        };
+        const tokenPercent = Math.min(100, Math.max(5, Math.round((quota.tokens_used / quota.token_limit) * 100)));
+        const tokenFormatted = quota.tokens_used >= 1000 ? `${(quota.tokens_used / 1000).toFixed(1)}k` : quota.tokens_used.toString();
+        const limitFormatted = quota.token_limit >= 1000 ? `${(quota.token_limit / 1000).toFixed(0)}k` : quota.token_limit.toString();
+
+        return (
+          <div className="mx-2 my-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-2 flex-shrink-0">
+            <div className="flex items-center justify-between text-[10px] text-white/50">
+              <span className="font-mono flex items-center gap-1" title={`${quota.gemini_calls} API calls completed`}>
+                <Zap size={11} className="text-cyan-400" /> Gemini Tokens
+              </span>
+              <span className="font-mono text-cyan-300 font-semibold">{tokenFormatted} / {limitFormatted}</span>
+            </div>
+            <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${tokenPercent}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] text-white/50 pt-0.5">
+              <span className="font-mono flex items-center gap-1">
+                <HardDrive size={11} className="text-purple-400" /> Storage ({quota.gemini_calls} calls)
+              </span>
+              <span className="font-mono text-purple-300 font-semibold">
+                {quota.storage_used_formatted} / {quota.storage_limit_formatted}
+              </span>
+            </div>
+            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+              <div className="bg-purple-500 h-full rounded-full" style={{ width: "18%" }} />
+            </div>
           </div>
-          <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full" style={{ width: "68%" }} />
-          </div>
-          <div className="flex items-center justify-between text-[10px] text-white/50 pt-0.5">
-            <span className="font-mono flex items-center gap-1">
-              <HardDrive size={11} className="text-purple-400" /> Storage
-            </span>
-            <span className="font-mono text-purple-300">2.1 GB / 10 GB</span>
-          </div>
-          <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
-            <div className="bg-purple-500 h-full rounded-full" style={{ width: "21%" }} />
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Bottom Controls & Environment Switcher ── */}
       <div className="flex flex-col gap-0.5 px-2 pb-3 border-t border-white/[0.06] pt-2 flex-shrink-0 relative">

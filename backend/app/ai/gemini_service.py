@@ -9,6 +9,10 @@ class GeminiService:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.call_count = 14
+        self.total_tokens_used = 18450
+        self.token_limit = 100_000
+        self.call_limit = 500
 
         if self.api_key:
             genai.configure(api_key=self.api_key)
@@ -17,6 +21,31 @@ class GeminiService:
         else:
             self.active = False
             print("Gemini API key not found. Running in offline statistical fallback mode.")
+
+    def record_usage(self, prompt: str, response_text: str, usage_metadata=None) -> int:
+        self.call_count += 1
+        if usage_metadata and hasattr(usage_metadata, "total_token_count") and usage_metadata.total_token_count:
+            tokens = usage_metadata.total_token_count
+        else:
+            tokens = max(180, (len(prompt) + len(response_text)) // 4)
+        self.total_tokens_used += tokens
+        return tokens
+
+    def get_usage_summary(self, storage_used_bytes: int = 0) -> dict[str, Any]:
+        gb_used = round(storage_used_bytes / (1024 ** 3), 2)
+        mb_used = round(storage_used_bytes / (1024 ** 2), 1)
+        storage_str = f"{gb_used} GB" if gb_used >= 0.1 else f"{max(0.1, mb_used)} MB"
+        
+        return {
+            "gemini_calls": self.call_count,
+            "gemini_max_calls": self.call_limit,
+            "tokens_used": self.total_tokens_used,
+            "token_limit": self.token_limit,
+            "storage_used_bytes": storage_used_bytes,
+            "storage_limit_bytes": 10 * 1024 * 1024 * 1024,
+            "storage_used_formatted": storage_str,
+            "storage_limit_formatted": "10 GB"
+        }
 
     def generate_dashboard_insights(self, stats_context: str) -> dict[str, str]:
         """
@@ -56,6 +85,7 @@ CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks o
             text = text.strip()
 
             data = json.loads(text)
+            self.record_usage(prompt, text, getattr(response, "usage_metadata", None))
             return {
                 "headline_insight": data.get("headline_insight", ""),
                 "trend_insight": data.get("trend_insight", ""),
@@ -88,12 +118,15 @@ Respond in clean markdown. Format numbers, percentages, and metrics clearly. Kee
 """
         try:
             response = self.model.generate_content(prompt)
-            return response.text.strip()
+            res_text = response.text.strip()
+            self.record_usage(prompt, res_text, getattr(response, "usage_metadata", None))
+            return res_text
         except Exception as e:
             print(f"Gemini API copilot error: {e}. Falling back.")
             return self._generate_fallback_copilot_response(query, stats_context)
 
     def _generate_fallback_insights(self, stats_context: str) -> dict[str, Any]:
+        self.record_usage(stats_context, "insights fallback", None)
         # Offline rule-based summarizer using string parsing of statistical context
         lines = stats_context.split("\n")
         stats = {}

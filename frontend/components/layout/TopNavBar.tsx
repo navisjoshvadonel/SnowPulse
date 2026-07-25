@@ -11,6 +11,30 @@ interface TopNavBarProps {
   onOpenModal?: (modal: "team" | "apikeys" | "docs") => void;
 }
 
+function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id="sf-top-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#818cf8" />
+          <stop offset="50%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#34d399" />
+        </linearGradient>
+      </defs>
+      <line x1="12" y1="2" x2="12" y2="22" stroke="url(#sf-top-grad)" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="2" y1="12" x2="22" y2="12" stroke="url(#sf-top-grad)" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="5.5" y1="5.5" x2="18.5" y2="18.5" stroke="url(#sf-top-grad)" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="5.5" y1="18.5" x2="18.5" y2="5.5" stroke="url(#sf-top-grad)" strokeWidth="1.8" strokeLinecap="round" />
+      <polygon
+        points="12,9.5 14.1,10.75 14.1,13.25 12,14.5 9.9,13.25 9.9,10.75"
+        stroke="url(#sf-top-grad)"
+        strokeWidth="1.2"
+        fill="rgba(129,140,248,0.12)"
+      />
+    </svg>
+  );
+}
+
 export default function TopNavBar({
   onLogout,
   userEmail = "user@snowpulse.ai",
@@ -42,8 +66,13 @@ export default function TopNavBar({
         borderBottom: "1px solid rgba(255,255,255,0.06)",
       }}
     >
-      {/* ── Left: empty space for sidebar logo area ── */}
-      <div style={{ width: 220 }} className="flex-shrink-0" />
+      {/* ── Left: Logo & Brand ── */}
+      <div style={{ width: 220 }} className="flex-shrink-0 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 border border-white/10 flex items-center justify-center flex-shrink-0">
+          <SnowflakeIcon size={16} className="animate-spin-slow" />
+        </div>
+        <span className="text-sm font-bold text-white tracking-tight">SnowPulse AI</span>
+      </div>
 
       {/* ── Center: Search command palette trigger ── */}
       <div className="flex-1 max-w-md mx-auto">

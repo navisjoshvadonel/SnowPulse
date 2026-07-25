@@ -34,6 +34,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onOpenModa
   const actions = [
     { label: "Go to Executive Dashboard", category: "Navigation", icon: LayoutDashboard, action: () => { onNavigate("dashboard"); onClose(); } },
     { label: "View Dataset Profile & Overview", category: "Navigation", icon: Database, action: () => { onNavigate("dataset-overview"); onClose(); } },
+    { label: "View Correlation & Driver Matrix", category: "Navigation", icon: Database, action: () => { onNavigate("correlation-matrix"); onClose(); } },
     { label: "Manage API Keys & Gemini Config", category: "Settings", icon: Key, action: () => { onOpenModal("apikeys"); onClose(); } },
     { label: "Invite & Manage Team Members", category: "Team", icon: Users, action: () => { onOpenModal("team"); onClose(); } },
     { label: "Read Release Notes & Documentation", category: "Docs", icon: BookOpen, action: () => { onOpenModal("docs"); onClose(); } },

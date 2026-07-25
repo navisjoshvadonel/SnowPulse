@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Database,
-  BrainCircuit,
+  Grid,
   Activity,
   ChevronLeft,
   ChevronRight,
@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export type SnowSection =
   | "dashboard"
   | "dataset-overview"
+  | "correlation-matrix"
   | "production-env";
 
 export interface UsageQuota {
@@ -81,6 +82,7 @@ function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className
 const navItems: { id: SnowSection; label: string; icon: React.ElementType }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "dataset-overview", label: "Dataset Overview", icon: Database },
+  { id: "correlation-matrix", label: "Correlation Matrix", icon: Grid },
 ];
 
 export default function Sidebar({

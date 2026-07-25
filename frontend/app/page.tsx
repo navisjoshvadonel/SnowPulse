@@ -23,6 +23,7 @@ import InsightsCenter from "@/components/ai-insights/InsightsCenter";
 import DonutChart from "@/components/executive-overview/DonutChart";
 import Sidebar, { SnowSection } from "@/components/layout/Sidebar";
 import DatasetOverviewPanel from "@/components/dashboard/DatasetOverviewPanel";
+import CorrelationMatrixPanel from "@/components/dashboard/CorrelationMatrixPanel";
 import TopNavBar from "@/components/layout/TopNavBar";
 import SystemHealthFooter from "@/components/layout/SystemHealthFooter";
 import AnomalyBarChart from "@/components/dashboard/AnomalyBarChart";
@@ -366,6 +367,7 @@ export default function HomePage() {
   const [trends, setTrends] = useState<any>(null);
   const [geoData, setGeoData] = useState<any>(null);
   const [anomalies, setAnomalies] = useState<any>(null);
+  const [correlations, setCorrelations] = useState<any>(null);
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingDatasets, setLoadingDatasets] = useState(false);
@@ -469,6 +471,7 @@ export default function HomePage() {
         setTrends(summary.trends);
         setGeoData(summary.geo);
         setAnomalies(summary.anomalies);
+        setCorrelations(summary.correlations);
       } else {
         const schema = dynamicSchemas[datasetId] || null;
         loadMockDashboard(schema);
@@ -1243,6 +1246,17 @@ export default function HomePage() {
               {/* ── DATASET OVERVIEW SECTION ── */}
               {activeSection === "dataset-overview" && (
                 <DatasetOverviewPanel schema={datasetSchema} loading={loadingSchema} />
+              )}
+
+              {/* ── CORRELATION MATRIX SECTION ── */}
+              {activeSection === "correlation-matrix" && (
+                <CorrelationMatrixPanel
+                  correlations={correlations}
+                  schema={datasetSchema}
+                  geoData={geoData}
+                  kpis={kpis}
+                  loading={loadingDashboard || loadingSchema}
+                />
               )}
 
               {/* ── PRODUCTION ENV (placeholder) ── */}

@@ -4,22 +4,14 @@ import HomePage from '@/app/page'
 import React from 'react'
 import { apiService } from '@/services/api'
 
-// Mock Lucide icons statically so Vitest registers the exports
-vi.mock('lucide-react', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const React = require('react');
+// Mock Lucide icons using importOriginal so all icon exports are automatically captured
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>();
+  const React = await import('react');
   const mockExports: Record<string, any> = {};
-  const icons = [
-    'Calendar', 'RefreshCw', 'Search', 'Bell', 'ChevronDown', 'User', 'Settings', 'LogOut',
-    'Activity', 'Database', 'Server', 'ExternalLink', 'Globe', 'Filter', 'ArrowUpRight',
-    'ArrowDownRight', 'Minus', 'Brain', 'Target', 'ServerCog', 'Hash', 'Tag', 'MapPin',
-    'AlertCircle', 'Sparkles', 'Send', 'Bot', 'Loader2', 'AlertTriangle', 'TrendingUp',
-    'MessageSquare', 'CheckSquare', 'BrainCircuit', 'FileText', 'ChevronRight', 'ChevronLeft',
-    'Trash2', 'Layers', 'LayoutDashboard', 'Briefcase', 'UploadCloud', 'FileSpreadsheet',
-    'CheckCircle', 'Upload', 'HelpCircle', 'Cloud', 'CheckCircle2', 'ArrowUpDown', 'Plus'
-  ];
-  icons.forEach(icon => {
-    mockExports[icon] = (props: any) => React.createElement('div', { 'data-testid': `icon-${icon.toLowerCase()}`, ...props });
+  Object.keys(actual).forEach((key) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockExports[key] = (props: any) => React.createElement('div', { 'data-testid': `icon-${key.toLowerCase()}`, ...props });
   });
   return mockExports;
 })
@@ -207,17 +199,17 @@ test('transitions from empty state to dashboard panels on dataset selection', as
   })
 
   // Wait for sidebar to be mounted (requestAnimationFrame)
-  let snowAiBtn: HTMLElement;
+  let dataQualityBtn: HTMLElement;
   await waitFor(() => {
-    snowAiBtn = screen.getByText('Snow AI')
-    expect(snowAiBtn).toBeInTheDocument()
+    dataQualityBtn = screen.getByText('Data Quality Report')
+    expect(dataQualityBtn).toBeInTheDocument()
   })
 
-  // Navigate to the Snow AI panel via sidebar
-  fireEvent.click(snowAiBtn!)
+  // Navigate to the Data Quality Report panel via sidebar
+  fireEvent.click(dataQualityBtn!)
 
-  // Verify that the Insights Center is rendered in the Snow AI view
+  // Verify that the Data Quality Report panel is rendered
   await waitFor(() => {
-    expect(screen.getByTestId('insights-center')).toBeInTheDocument()
+    expect(screen.getByText('Data Quality & Readiness Report')).toBeInTheDocument()
   })
 })

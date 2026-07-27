@@ -513,7 +513,6 @@ export default function HomePage() {
         const list = await res.json();
         if (Array.isArray(list) && list.length > 0) {
           setDatasets(list);
-          handleSelectDataset(list[0].id, list[0].name);
         } else {
           useMockDataset();
         }
@@ -530,10 +529,6 @@ export default function HomePage() {
   const useMockDataset = () => {
     const mock = [{ id: 1, name: "Sample Analytics (Mock)", description: "Auto-generated sample dataset" }];
     setDatasets(mock);
-    setSelectedDatasetId(1);
-    setSelectedDatasetName("Sample Analytics (Mock)");
-    const schema = dynamicSchemas[1] || null;
-    loadMockDashboard(schema);
     setLoadingDashboard(false);
   };
 
@@ -1167,6 +1162,101 @@ export default function HomePage() {
             <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
               <div className="w-8 h-8 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
               <span className="text-xs text-white/30 font-mono">Processing dataset with AI engine...</span>
+            </div>
+          ) : !selectedDatasetId ? (
+            <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center max-w-[850px] mx-auto space-y-8">
+              {/* Animated Badge & Storytelling Welcome Header */}
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-primary/10 border border-brand-primary/25 text-brand-primary text-xs font-mono font-medium">
+                  <Sparkles className="w-3.5 h-3.5 animate-pulse text-brand-primary" />
+                  SnowPulse Data Storytelling Engine
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                  Welcome, <span className="bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">{user?.email?.split('@')[0] || "Analyst"}</span>!<br />
+                  Let's begin the data storytelling.
+                </h1>
+                <p className="text-sm text-white/50 max-w-[620px] mx-auto leading-relaxed">
+                  Upload any real-time dataset (CSV, Excel, TSV) to dynamically extract column schemas, compute executive KPIs, detect statistical anomalies, and generate AI insights tailored precisely to your data.
+                </p>
+              </div>
+
+              {/* Primary Upload Dropzone Card */}
+              <div
+                className="w-full rounded-2xl p-10 text-center border-dashed transition-all relative overflow-hidden group interactive-element"
+                style={{
+                  background: "rgba(18,21,30,0.75)",
+                  border: "2px dashed rgba(80,99,244,0.35)",
+                  boxShadow: "0 10px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)",
+                }}
+              >
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls,.tsv"
+                  onChange={handleFileUpload}
+                  id="welcome-csv-upload"
+                  className="hidden"
+                  disabled={uploading}
+                />
+                <label htmlFor="welcome-csv-upload" className="cursor-pointer flex flex-col items-center space-y-4">
+                  <div
+                    className="p-5 rounded-2xl text-brand-primary group-hover:scale-110 transition-transform duration-300"
+                    style={{ background: "rgba(80,99,244,0.15)", border: "1px solid rgba(80,99,244,0.3)" }}
+                  >
+                    {uploading ? <RefreshCw className="w-8 h-8 animate-spin" /> : <Upload className="w-8 h-8" />}
+                  </div>
+                  <div>
+                    <span className="text-base font-bold text-white block">Upload Your Dataset to Start</span>
+                    <span className="text-xs text-white/40 mt-1 block font-mono">
+                      Supports CSV, Excel (.xlsx), and TSV files
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("welcome-csv-upload")?.click()}
+                    className="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-semibold shadow-lg shadow-brand-primary/25 transition-all cursor-pointer"
+                  >
+                    Select File
+                  </button>
+                </label>
+                {uploadError && (
+                  <div
+                    className="text-xs text-red-400 mt-4 rounded-lg p-2.5 max-w-[400px] mx-auto"
+                    style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}
+                  >
+                    {uploadError}
+                  </div>
+                )}
+              </div>
+
+              {/* Pre-loaded / Available Datasets Option */}
+              {datasets.length > 0 && (
+                <div className="w-full space-y-3 pt-2">
+                  <p className="text-[11px] text-white/40 font-mono uppercase tracking-wider font-semibold">
+                    Or select from catalog datasets:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {datasets.map((d) => (
+                      <button
+                        key={d.id}
+                        onClick={() => handleSelectDataset(d.id, d.name)}
+                        className="text-left p-3.5 rounded-xl transition-all flex items-center justify-between group interactive-element cursor-pointer"
+                        style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg text-brand-primary bg-brand-primary/10">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-white block">{d.name}</span>
+                            <span className="text-[10px] text-white/35 block truncate max-w-[200px]">{d.description}</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white transition-all" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>

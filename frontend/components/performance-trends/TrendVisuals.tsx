@@ -213,7 +213,11 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
       {/* Header */}
       <div className="flex items-start justify-between flex-shrink-0 mb-4">
         <div>
-          <h2 className="text-[14px] font-semibold text-white">Performance Analytics</h2>
+          <h2 className="text-[14px] font-semibold text-white">
+            {trends?.metric
+              ? `${trends.metric.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} Performance Trends`
+              : "Performance Analytics"}
+          </h2>
           <p className="text-[11px] text-white/35 mt-0.5">Timeline view of target business performance</p>
         </div>
 

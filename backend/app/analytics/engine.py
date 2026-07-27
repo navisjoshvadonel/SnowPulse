@@ -36,6 +36,7 @@ class AnalyticsEngine:
         self.date_cols = []
         self.categorical_cols = []
         self.geo_cols = []
+        self.categorical_unique_values = {}
 
         self._classify_columns()
         self._determine_semantic_mappings()
@@ -51,6 +52,7 @@ class AnalyticsEngine:
             if dtype in [pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.Float32, pl.Float64]:
                 if is_geo:
                     self.geo_cols.append(col)
+                    self._extract_unique_text_values(col)
                 else:
                     self.numeric_cols.append(col)
             elif dtype == pl.Date or dtype == pl.Datetime:
@@ -75,6 +77,19 @@ class AnalyticsEngine:
                         self.geo_cols.append(col)
                     else:
                         self.categorical_cols.append(col)
+                    self._extract_unique_text_values(col)
+
+    def _extract_unique_text_values(self, col: str, limit: int = 20):
+        """
+        Profiles and captures real unique text values of categorical / geographic columns.
+        """
+        try:
+            unique_vals = self.df[col].drop_nulls().unique().head(limit).to_list()
+            # Convert non-string primitives to clean string repr
+            clean_vals = [str(v).strip() for v in unique_vals if str(v).strip()]
+            self.categorical_unique_values[col] = clean_vals
+        except Exception:
+            self.categorical_unique_values[col] = []
 
     def _determine_semantic_mappings(self):
         # Establish primary target metric
@@ -332,9 +347,13 @@ class AnalyticsEngine:
         summary.append(f"Growth Rate (Period-over-Period): {kpis.get('growth_rate'):.1f}%")
 
         if self.category_col:
-            summary.append(f"Grouping categories found in column: '{self.category_col}'")
+            cats = self.categorical_unique_values.get(self.category_col, [])
+            cat_sample_str = ", ".join(cats[:10]) if cats else "N/A"
+            summary.append(f"Grouping categories found in column '{self.category_col}': [{cat_sample_str}]")
         if self.geo_col:
-            summary.append(f"Geography categories found in column: '{self.geo_col}'")
+            geos = self.categorical_unique_values.get(self.geo_col, [])
+            geo_sample_str = ", ".join(geos[:10]) if geos else "N/A"
+            summary.append(f"Geography categories found in column '{self.geo_col}': [{geo_sample_str}]")
 
         if geo:
             top_geo = geo[0]

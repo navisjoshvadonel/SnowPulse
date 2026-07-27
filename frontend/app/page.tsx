@@ -90,7 +90,17 @@ function generateMockGeo(schema?: any) {
   if (schema?.category_shares && schema.category_shares.length > 0) {
     return schema.category_shares;
   }
-  const catCol = schema?.primary_category || schema?.columns?.find((c: any) => c.role === 'categorical' || c.role === 'category' || c.role === 'geo')?.name;
+  const catColObj = schema?.columns?.find((c: any) => c.name === schema?.primary_category) || schema?.columns?.find((c: any) => c.role === 'categorical' || c.role === 'category' || c.role === 'geo');
+  const catCol = schema?.primary_category || catColObj?.name;
+
+  if (catColObj?.unique_values && catColObj.unique_values.length > 0) {
+    const totalBase = 4500000;
+    return catColObj.unique_values.slice(0, 8).map((label: string, idx: number) => ({
+      region: label,
+      value: Math.round((totalBase / (idx + 1)) * (0.85 + Math.random() * 0.3)),
+    }));
+  }
+
   if (catCol?.toLowerCase().includes("species")) {
     return [
       { region: "setosa", value: 50 },
@@ -723,6 +733,17 @@ export default function HomePage() {
             }
             
             const colInfo: any = { name: f, role, null_count: nulls };
+            if (!isNumeric || role === "categorical" || role === "geo") {
+              const uniqueSet = new Set<string>();
+              for (const row of data) {
+                const val = row[f];
+                if (val !== null && val !== undefined && String(val).trim() !== "") {
+                  uniqueSet.add(String(val).trim());
+                  if (uniqueSet.size >= 20) break;
+                }
+              }
+              colInfo.unique_values = Array.from(uniqueSet);
+            }
             if (isNumeric && count > 0) {
               colInfo.min = min;
               colInfo.max = max;

@@ -101,19 +101,22 @@ class GeminiService:
 
         prompt = f"""
 You are the AI brain of SNOW, an elite enterprise analytics platform.
-Given the following data statistics context, generate four structured outputs in JSON format.
+Given the following data statistics context and real categorical vocabulary, generate four structured outputs in JSON format.
 
-=== DATA STATS CONTEXT ===
+=== DATA STATS & CATEGORICAL VOCABULARY CONTEXT ===
 {stats_context}
 === END CONTEXT ===
 
+VOCABULARY CONSTRAINT:
+You MUST extract and use exact category, region, and segment labels directly from the provided categorical vocabulary context. Do not invent, guess, or substitute generic placeholders (e.g. do NOT use "North America" or "APAC" unless they explicitly appear in the categorical vocabulary).
+
 You must return EXACTLY a JSON object with these keys:
-1. "headline_insight": A 1-2 sentence executive summary of overall performance (e.g. growth driver, total revenue status).
-2. "trend_insight": A 1-2 sentence insight about the historical trend (e.g. acceleration in Q2, volatility, steady climb).
-3. "geo_insight": A 1-2 sentence overview of geographic highlights (e.g. APAC leading growth, regional concentrations).
+1. "headline_insight": A 1-2 sentence executive summary of overall performance.
+2. "trend_insight": A 1-2 sentence insight about the historical trend.
+3. "geo_insight": A 1-2 sentence overview of geographic highlights using exact regional labels from vocabulary.
 4. "recommendations": An array of 3 concrete strategic recommendations based on the anomalies or top segments.
 
-CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks or tripe-backticks in your output. Just return the raw JSON string.
+CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks or triple-backticks in your output. Just return the raw JSON string.
 """
         try:
             model = self._get_or_create_context_cache(stats_context) or self.model

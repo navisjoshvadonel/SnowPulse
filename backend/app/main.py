@@ -346,6 +346,8 @@ def get_dataset_schema(
                 "categorical"
             ),
         }
+        if col in engine.categorical_unique_values:
+            col_info["unique_values"] = engine.categorical_unique_values[col]
         if col in engine.numeric_cols or col == engine.metric_col:
             non_null = series.drop_nulls()
             if len(non_null) > 0:

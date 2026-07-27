@@ -25,6 +25,8 @@ def test_engine_init(sample_csv):
     assert "Date" in engine.date_cols
     assert "Category" in engine.categorical_cols
     assert "Region" in engine.geo_cols
+    assert "Electronics" in engine.categorical_unique_values["Category"]
+    assert "North" in engine.categorical_unique_values["Region"]
 
 def test_engine_kpis(sample_csv):
     engine = AnalyticsEngine(sample_csv)
@@ -77,3 +79,5 @@ def test_engine_context_summary(sample_csv):
     assert "Primary target metric" in summary
     assert "Total rows: 6" in summary
     assert "Total aggregate value: 2,000.00" in summary
+    assert "Electronics" in summary
+    assert "North" in summary

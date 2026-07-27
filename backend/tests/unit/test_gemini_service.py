@@ -81,3 +81,31 @@ class TestGeminiFallbackCopilot:
         service = self._get_service()
         response = service.ask_copilot("What are sales?", MOCK_STATS_CONTEXT)
         assert len(response) > 0
+
+
+class TestGeminiContextCaching:
+    """Test context caching retrieval and token discount tracking."""
+
+    def test_usage_summary_includes_cached_tokens(self):
+        service = GeminiService()
+        summary = service.get_usage_summary(1024 * 1024 * 5)
+        assert "cached_tokens_saved" in summary
+        assert summary["cached_tokens_saved"] >= 0
+
+    def test_record_usage_counts_cached_content_tokens(self):
+        service = GeminiService()
+        initial_cached = service.cached_tokens_saved
+        
+        class MockUsageMetadata:
+            total_token_count = 500
+            cached_content_token_count = 350
+
+        service.record_usage("test prompt", "test response", MockUsageMetadata())
+        assert service.cached_tokens_saved == initial_cached + 350
+
+    def test_context_cache_fallback_when_inactive(self):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": ""}, clear=False):
+            service = GeminiService()
+            model = service._get_or_create_context_cache(MOCK_STATS_CONTEXT)
+            assert model is None
+

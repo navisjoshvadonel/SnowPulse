@@ -95,6 +95,14 @@ export const apiService = {
     return fetchAPI(`/api/datasets/${datasetId}/schema`);
   },
 
+  async getDatasetProfile(datasetId: number) {
+    return fetchAPI(`/api/datasets/${datasetId}/profile`);
+  },
+
+  async reprofileDataset(datasetId: number) {
+    return fetchAPI(`/api/datasets/${datasetId}/reprofile`, { method: "POST" });
+  },
+
   async uploadDataset(file: File) {
     const formData = new FormData();
     formData.append("file", file);

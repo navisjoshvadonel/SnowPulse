@@ -34,6 +34,10 @@ class Dataset(Base):
     file_path = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+    # Schema inference profile — populated at upload time by DatasetProfiler
+    profile_json = Column(JSON, nullable=True)      # Serialized DatasetProfile
+    profile_version = Column(String, nullable=True) # Profiler version string
+
     # Relationships
     owner = relationship("User", back_populates="datasets")
     dashboards = relationship("UserDashboard", back_populates="dataset")

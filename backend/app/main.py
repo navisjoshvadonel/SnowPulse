@@ -15,6 +15,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
 from .ai.gemini_service import GeminiService
+from .analytics.profiler import DatasetProfile, DatasetProfiler, PROFILE_VERSION
 from .analytics.engine import AnalyticsEngine
 from .auth import (
     ALGORITHM,
@@ -308,17 +309,15 @@ def get_datasets(
     return db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
 
 
-@app.get("/api/datasets/{dataset_id}/schema")
-def get_dataset_schema(
+@app.get("/api/datasets/{dataset_id}/profile")
+def get_dataset_profile(
     dataset_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Column-level profile of a dataset: name, inferred type, null count,
-    and (for numeric columns) min/max/mean — plus which columns the
-    analytics engine already treats as the primary metric/date/category.
-    Powers the Dataset Overview page.
+    Returns the full DatasetProfile JSON for a dataset.
+    All downstream panels (Overview, Prediction, AI query) should read from here.
     """
     dataset = db.query(Dataset).filter(
         Dataset.id == dataset_id, Dataset.owner_id == current_user.id
@@ -326,39 +325,135 @@ def get_dataset_schema(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
+    if dataset.profile_json:
+        return dataset.profile_json
+
+    # No stored profile — compute inline and return (but don't persist here; use /reprofile)
+    logger.warning(
+        "api.get_dataset_profile.fallback dataset_id=%d — profile_json is NULL; computing inline.",
+        dataset_id,
+    )
     try:
-        engine = AnalyticsEngine(dataset.file_path)
+        import io as _io, polars as _pl
+        from .storage.service import storage_service as _ss
+        if dataset.file_path.startswith("minio://"):
+            _parts = dataset.file_path.replace("minio://", "").split("/", 1)
+            _fb = _ss.get_file(_parts[0], _parts[1])
+            _df = _pl.read_csv(_io.BytesIO(_fb))
+        else:
+            _df = _pl.read_csv(dataset.file_path)
+        return DatasetProfiler.profile_full(_df).model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not compute profile: {e}")
+
+
+@app.post("/api/datasets/{dataset_id}/reprofile")
+def reprofile_dataset(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Recomputes and persists the DatasetProfile for an existing dataset.
+    Use after cleaning data in-place, or when the profiling engine version changes.
+    Detects stale profiles via profile_version and reports whether a refresh occurred.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    was_stale = (
+        dataset.profile_json is None
+        or dataset.profile_version != PROFILE_VERSION
+    )
+
+    try:
+        import io as _io, polars as _pl
+        from .storage.service import storage_service as _ss
+        if dataset.file_path.startswith("minio://"):
+            _parts = dataset.file_path.replace("minio://", "").split("/", 1)
+            _fb = _ss.get_file(_parts[0], _parts[1])
+            _df = _pl.read_csv(_io.BytesIO(_fb))
+        else:
+            _df = _pl.read_csv(dataset.file_path)
+
+        profile = DatasetProfiler.profile_full(_df)
+        dataset.profile_json = profile.model_dump()
+        dataset.profile_version = PROFILE_VERSION
+        db.commit()
+        logger.info("DatasetProfile reprofiled for dataset %d (was_stale=%s)", dataset_id, was_stale)
+        return {
+            "status": "success",
+            "dataset_id": dataset_id,
+            "profile_version": PROFILE_VERSION,
+            "was_stale": was_stale,
+            "profiled_at": profile.profiled_at,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reprofile failed: {e}")
+
+
+@app.get("/api/datasets/{dataset_id}/schema")
+def get_dataset_schema(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Column-level profile of a dataset — delegates to stored DatasetProfile.
+    Powers the Dataset Overview panel.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    # Obtain profile (stored or inline fallback)
+    profile: DatasetProfile | None = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not read dataset: {e}")
 
     columns = []
-    for col in engine.headers:
-        series = engine.df[col]
-        col_info = {
-            "name": col,
-            "null_count": int(series.null_count()),
-            "role": (
-                "metric" if col == engine.metric_col else
-                "date" if col == engine.date_col else
-                "category" if col == engine.category_col else
-                "geo" if col in engine.geo_cols else
-                "numeric" if col in engine.numeric_cols else
-                "categorical"
-            ),
+    for cp in eng._profile.columns:
+        col_info: dict = {
+            "name": cp.name,
+            "null_count": int(round(cp.null_percentage * eng.num_rows / 100)),
+            "role": cp.inferred_role,
+            "dtype_category": cp.dtype_category,
+            "semantic_type": cp.semantic_type,
+            "cardinality": cp.cardinality,
+            "cardinality_ratio": cp.cardinality_ratio,
+            "null_percentage": cp.null_percentage,
+            "is_primary_metric": cp.is_primary_metric,
+            "is_primary_date": cp.is_primary_date,
+            "is_primary_category": cp.is_primary_category,
+            "is_primary_geo": cp.is_primary_geo,
         }
-        if col in engine.categorical_unique_values:
-            col_info["unique_values"] = engine.categorical_unique_values[col]
-        if col in engine.numeric_cols or col == engine.metric_col:
-            non_null = series.drop_nulls()
-            if len(non_null) > 0:
-                col_info["min"] = float(non_null.min())
-                col_info["max"] = float(non_null.max())
-                col_info["mean"] = round(float(non_null.mean()), 2)
+        if cp.top_values:
+            col_info["unique_values"] = [v["value"] for v in cp.top_values]
+        if cp.numeric_stats:
+            col_info["min"]  = cp.numeric_stats.get("min")
+            col_info["max"]  = cp.numeric_stats.get("max")
+            col_info["mean"] = cp.numeric_stats.get("mean")
+            col_info["skew"] = cp.numeric_stats.get("skew")
+        if cp.temporal_stats:
+            col_info["temporal_stats"] = cp.temporal_stats
         columns.append(col_info)
 
     date_range = None
-    if engine.date_col:
-        dates = engine.df[engine.date_col].drop_nulls()
+    if eng.date_col and eng.date_col in eng.df.columns:
+        dates = eng.df[eng.date_col].drop_nulls()
         if len(dates) > 0:
             date_range = {"start": str(dates.min()), "end": str(dates.max())}
 
@@ -366,12 +461,12 @@ def get_dataset_schema(
         "dataset_id": dataset.id,
         "name": dataset.name,
         "description": dataset.description,
-        "row_count": engine.num_rows,
-        "column_count": len(engine.headers),
+        "row_count": eng.num_rows,
+        "column_count": len(eng.headers),
         "date_range": date_range,
-        "primary_metric": engine.metric_col,
-        "primary_date": engine.date_col,
-        "primary_category": engine.category_col,
+        "primary_metric": eng.metric_col,
+        "primary_date": eng.date_col,
+        "primary_category": eng.category_col,
         "columns": columns,
     }
 
@@ -572,6 +667,20 @@ async def upload_dataset(
     db.commit()
     db.refresh(db_dataset)
 
+    # 2b. Compute and persist DatasetProfile synchronously (fast — runs on already-read bytes)
+    try:
+        import io as _io
+        import polars as _pl
+        _pl_df = _pl.read_csv(_io.BytesIO(content_bytes))
+        _profile = DatasetProfiler.profile_full(_pl_df)
+        db_dataset.profile_json = _profile.model_dump()
+        db_dataset.profile_version = PROFILE_VERSION
+        db.commit()
+        db.refresh(db_dataset)
+        logger.info(f"DatasetProfile stored for dataset {db_dataset.id}")
+    except Exception as _pe:
+        logger.warning(f"DatasetProfile computation failed for dataset {db_dataset.id}: {_pe}")
+
     # 3. Trigger asynchronous background pipeline coordinator
     job_id = None
     try:
@@ -622,7 +731,8 @@ def get_analytics_summary(
                 detail="Dataset not found"
             )
         try:
-            analytics_engine = AnalyticsEngine(dataset.file_path)
+            _profile = DatasetProfile.model_validate(dataset.profile_json) if dataset.profile_json else None
+            analytics_engine = AnalyticsEngine(dataset.file_path, profile=_profile)
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -680,7 +790,8 @@ def get_analytics_insights(
         )
 
     try:
-        analytics_engine = AnalyticsEngine(dataset.file_path)
+        _profile = DatasetProfile.model_validate(dataset.profile_json) if dataset.profile_json else None
+        analytics_engine = AnalyticsEngine(dataset.file_path, profile=_profile)
         context = analytics_engine.generate_statistical_context_summary()
         insights = gemini_service.generate_dashboard_insights(context)
         cache_service.set(cache_key, insights, ttl_seconds=900)
@@ -818,7 +929,8 @@ def post_copilot_query(
         )
 
     try:
-        analytics_engine = AnalyticsEngine(dataset.file_path)
+        _profile = DatasetProfile.model_validate(dataset.profile_json) if dataset.profile_json else None
+        analytics_engine = AnalyticsEngine(dataset.file_path, profile=_profile)
         context = analytics_engine.generate_statistical_context_summary()
         response = gemini_service.ask_copilot(payload.query, context)
 

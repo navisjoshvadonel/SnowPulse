@@ -22,11 +22,35 @@ interface TrainingRun {
   metrics: Record<string, number>;
 }
 
+interface ProfileColumn {
+  name: string;
+  inferred_role: string;
+  dtype_category: string;
+  is_primary_metric: boolean;
+  is_primary_date: boolean;
+  is_primary_category: boolean;
+  is_primary_geo: boolean;
+  semantic_type?: string;
+}
+
+interface DatasetProfile {
+  columns: ProfileColumn[];
+  total_rows: number;
+  total_columns: number;
+  mutual_information?: {
+    target_column: string;
+    scores: { column: string; mi_score: number }[];
+    mi_scope: string;
+    mi_computed: boolean;
+  };
+}
+
 interface PredictionPanelProps {
   datasetId?: number;
   forecast: ForecastData | null;
   trainingHistory: TrainingRun[];
   loading: boolean;
+  profile?: DatasetProfile | null;
 }
 
 function ForecastChart({ forecast }: { forecast: ForecastData }) {
@@ -176,23 +200,42 @@ function FeatureImportanceChart({ importances }: { importances: { feature: strin
   return <div ref={chartRef} style={{ width: "100%", height: 220 }} />;
 }
 
-export default function PredictionPanel({ datasetId, forecast, trainingHistory, loading }: PredictionPanelProps) {
+export default function PredictionPanel({ datasetId, forecast, trainingHistory, loading, profile }: PredictionPanelProps) {
   const [trainingTask, setTrainingTask] = useState<string>("auto");
   const [isTraining, setIsTraining] = useState<boolean>(false);
   const [trainResult, setTrainResult] = useState<any>(null);
   const [trainError, setTrainError] = useState<string | null>(null);
+
+  // Build target column options from profile (metric + target roles)
+  const targetCols = profile
+    ? profile.columns.filter(
+        (c) =>
+          (c.inferred_role === "metric" || c.inferred_role === "target") &&
+          c.dtype_category === "numeric"
+      )
+    : [];
+
+  const defaultTarget = targetCols.find((c) => c.is_primary_metric)?.name ??
+    targetCols[0]?.name ?? "";
+
+  const [targetCol, setTargetCol] = useState<string>(defaultTarget);
+
+  // Keep targetCol in sync if profile loads after mount
+  React.useEffect(() => {
+    if (defaultTarget && !targetCol) setTargetCol(defaultTarget);
+  }, [defaultTarget]);
 
   const handleRunAutoML = async () => {
     if (!datasetId) return;
     setIsTraining(true);
     setTrainError(null);
     try {
-      // Enforce a minimum 2.5s animation time so the cool UI is visible
       const [res] = await Promise.all([
-        apiService.trainMlModel(datasetId, trainingTask).catch(() => ({ ok: false, json: async () => ({ detail: "Backend offline - Mock training complete" }) })),
+        apiService.trainMlModel(datasetId, trainingTask, targetCol || undefined)
+          .catch(() => ({ ok: false, json: async () => ({ detail: "Backend offline - Mock training complete" }) })),
         new Promise(resolve => setTimeout(resolve, 2500))
       ]);
-      
+
       if (!res || !res.ok) {
         throw new Error("Backend offline - Mock training complete, but AI engines require live backend connection for full synthesis.");
       }
@@ -237,17 +280,38 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
           </div>
 
           <div className="flex items-center gap-3">
-            <select
-              value={trainingTask}
-              onChange={(e) => setTrainingTask(e.target.value)}
-              className="bg-black/40 text-white text-xs border border-white/15 rounded-lg px-3 py-2 outline-none focus:border-cyan-500"
-            >
-              <option value="auto">Auto Task Detection</option>
-              <option value="regression">Regression (Predict Target)</option>
-              <option value="classification">Classification (Categories)</option>
-              <option value="segmentation">Clustering (Segmentation)</option>
-              <option value="anomaly">Anomaly Detection</option>
-            </select>
+            {/* Target column selector (from profile) */}
+            {targetCols.length > 0 && (
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-white/30 uppercase tracking-wider">Target Column</label>
+                <select
+                  value={targetCol}
+                  onChange={(e) => setTargetCol(e.target.value)}
+                  className="bg-black/40 text-white text-xs border border-white/15 rounded-lg px-3 py-2 outline-none focus:border-emerald-500"
+                >
+                  {targetCols.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}{c.is_primary_metric ? " ★" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[10px] text-white/30 uppercase tracking-wider">Task Type</label>
+              <select
+                value={trainingTask}
+                onChange={(e) => setTrainingTask(e.target.value)}
+                className="bg-black/40 text-white text-xs border border-white/15 rounded-lg px-3 py-2 outline-none focus:border-cyan-500"
+              >
+                <option value="auto">Auto Task Detection</option>
+                <option value="regression">Regression (Predict Target)</option>
+                <option value="classification">Classification (Categories)</option>
+                <option value="segmentation">Clustering (Segmentation)</option>
+                <option value="anomaly">Anomaly Detection</option>
+              </select>
+            </div>
 
             <button
               onClick={handleRunAutoML}

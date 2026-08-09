@@ -1,11 +1,25 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Hash, Calendar, Tag, MapPin, AlertCircle, CheckCircle,
   Sparkles, Mail, Globe, Phone, DollarSign, TrendingUp,
-  TrendingDown, Minus, Info,
+  TrendingDown, Minus, Info, AlertTriangle, Layers, Zap,
+  Activity, PieChart, ShieldAlert, Cpu
 } from "lucide-react";
+import { apiService } from "@/services/api";
+
+interface DetectedSignal {
+  id: string;
+  signal_type: string;
+  title: string;
+  description: string;
+  columns: string[];
+  severity_score: number;
+  statistical_significance: number;
+  business_relevance: number;
+  details: Record<string, any>;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,7 +119,34 @@ function SkewBadge({ skew }: { skew: number }) {
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
+const SIGNAL_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  outlier: { icon: AlertTriangle, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", label: "Outlier Spike" },
+  multivariate_outlier: { icon: Layers, color: "text-purple-400 bg-purple-500/10 border-purple-500/20", label: "Multivariate Anomaly" },
+  distribution_shift: { icon: TrendingUp, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20", label: "Distribution Shift" },
+  high_correlation: { icon: Zap, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", label: "High Correlation" },
+  inverse_relationship: { icon: Activity, color: "text-rose-400 bg-rose-500/10 border-rose-500/20", label: "Inverse Relationship" },
+  missingness_cluster: { icon: ShieldAlert, color: "text-rose-400 bg-rose-500/10 border-rose-500/20", label: "Missingness Cluster" },
+  category_imbalance: { icon: PieChart, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20", label: "Category Imbalance" },
+};
+
 export default function DatasetOverviewPanel({ schema, loading }: DatasetOverviewPanelProps) {
+  const [signals, setSignals] = useState<DetectedSignal[]>([]);
+  const [loadingSignals, setLoadingSignals] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (schema?.dataset_id) {
+      setLoadingSignals(true);
+      apiService.getDatasetSignals(schema.dataset_id)
+        .then((res: any) => {
+          if (res?.signals) {
+            setSignals(res.signals);
+          }
+        })
+        .catch((err: unknown) => console.error("Failed to fetch signals", err))
+        .finally(() => setLoadingSignals(false));
+    }
+  }, [schema?.dataset_id]);
+
   if (loading || !schema) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -166,6 +207,56 @@ export default function DatasetOverviewPanel({ schema, loading }: DatasetOvervie
           </div>
         ))}
       </div>
+
+      {/* Automated Signals & Insights */}
+      {(signals.length > 0 || loadingSignals) && (
+        <div className="bg-brand-surface/40 border border-white/5 rounded-xl overflow-hidden p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cpu className="text-brand-primary" size={18} />
+              <h3 className="text-sm font-semibold text-white">Automated Statistical Signals</h3>
+            </div>
+            <span className="text-[11px] text-brand-primary/80 font-mono bg-brand-primary/10 border border-brand-primary/20 px-2 py-0.5 rounded-full">
+              Deterministic Engine · Top {signals.length} Surface Insights
+            </span>
+          </div>
+
+          {loadingSignals ? (
+            <div className="text-xs text-white/40 py-2">Scanning dataset for statistical signals...</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              {signals.map((sig) => {
+                const meta = SIGNAL_META[sig.signal_type] || {
+                  icon: Info,
+                  color: "text-white/60 bg-white/5 border-white/10",
+                  label: sig.signal_type
+                };
+                const Icon = meta.icon;
+
+                return (
+                  <div
+                    key={sig.id}
+                    className="p-3 rounded-lg bg-white/[0.02] border border-white/5 space-y-1.5 hover:border-white/10 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full border ${meta.color}`}>
+                        <Icon size={11} />
+                        {meta.label}
+                      </span>
+                      <span className="text-[10px] text-white/40 font-mono" title={`Statistical significance: ${(sig.statistical_significance*100).toFixed(0)}%, Business relevance: ${(sig.business_relevance*100).toFixed(0)}%`}>
+                        severity {(sig.severity_score * 100).toFixed(0)}%
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs font-medium text-white/90">{sig.title}</h4>
+                    <p className="text-[11px] text-white/60 leading-normal">{sig.description}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Column table */}
       <div className="bg-brand-surface/40 border border-white/5 rounded-xl overflow-hidden">

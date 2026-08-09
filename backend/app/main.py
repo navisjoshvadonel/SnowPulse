@@ -1302,6 +1302,31 @@ class MLTrainRequest(BaseModel):
     task_type: str = "auto"
     target_col: str | None = None
 
+@app.get("/api/ml/targets/{dataset_id}")
+def get_ml_target_candidates(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns ranked auto-suggested target candidates using dataset profile interestingness scores.
+    Excludes ID-like and high-missingness columns.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    try:
+        from .ml.trainer import MLTrainer
+        trainer = MLTrainer(db=db, dataset_id=dataset_id)
+        candidates = trainer.suggest_target_candidates()
+        return {"dataset_id": dataset_id, "target_candidates": candidates}
+    except Exception as e:
+        logger.error(f"Failed to suggest targets for dataset {dataset_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/ml/train/{dataset_id}")
 def trigger_ml_training(
     dataset_id: int,

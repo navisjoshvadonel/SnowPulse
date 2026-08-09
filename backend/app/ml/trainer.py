@@ -1,63 +1,81 @@
 """
-MLTrainer — Universal AutoML trainer.
+MLTrainer — Universal AutoML trainer driven strictly by DatasetProfile.
 
-Column classification is read exclusively from a stored DatasetProfile;
-no column-name keyword matching is performed here.
-Falls back to inline profiling (with a warning log) when profile_json is NULL.
+No keyword-based column matching is performed here.
+Features & target selection, task inference, preprocessing pipelines, model tournaments,
+and feature importance collapse are dynamically built from the stored DatasetProfile.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.ensemble import (
-    ExtraTreesClassifier,
-    ExtraTreesRegressor,
-    GradientBoostingClassifier,
-    GradientBoostingRegressor,
-    HistGradientBoostingClassifier,
-    HistGradientBoostingRegressor,
-    IsolationForest,
-    RandomForestClassifier,
-    RandomForestRegressor,
-)
-from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    mean_squared_error,
-    precision_score,
-    r2_score,
-    recall_score,
-    silhouette_score,
-)
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.compose import ColumnTransformer
+from sklearn.dummy import DummyClassifier, DummyRegressor
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
+from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score
+from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.naive_bayes import GaussianNB
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
 from ..analytics.profiler import DatasetProfile, DatasetProfiler
 from ..models import Dataset
 from ..storage.service import storage_service
-from .features import FeaturePipeline
 from .registry import ModelRegistry
 
 logger = logging.getLogger("snowpulse.ml.trainer")
 
 
 def _read_pandas(file_bytes: bytes, filename: str) -> pd.DataFrame:
-    """Delegate to the quality scorer reader for file-type detection."""
     from ..validation.quality.quality_scorer import DataQualityScorer
     return DataQualityScorer.read_file_to_pandas(file_bytes, filename)
+
+
+class DatetimeExtractor(BaseEstimator, TransformerMixin):
+    """Transformer that expands datetime columns into numeric date parts."""
+    def __init__(self, cols: list[str]):
+        self.cols = cols
+        self.feature_names_: list[str] = []
+
+    def fit(self, X: pd.DataFrame, y=None):
+        feature_names = []
+        for col in self.cols:
+            feature_names.extend([
+                f"{col}_year", f"{col}_month", f"{col}_day", f"{col}_dayofweek", f"{col}_is_weekend"
+            ])
+        self.feature_names_ = feature_names
+        return self
+
+    def transform(self, X: pd.DataFrame) -> np.ndarray:
+        parts = []
+        for col in self.cols:
+            parsed = pd.to_datetime(X[col], errors="coerce")
+            part = np.column_stack([
+                parsed.dt.year.fillna(2000).values,
+                parsed.dt.month.fillna(1).values,
+                parsed.dt.day.fillna(1).values,
+                parsed.dt.dayofweek.fillna(0).values,
+                (parsed.dt.dayofweek >= 5).astype(int).values,
+            ])
+            parts.append(part)
+        return np.hstack(parts) if parts else np.empty((len(X), 0))
+
+    def get_feature_names_out(self, input_features=None):
+        return np.array(self.feature_names_)
 
 
 class MLTrainer:
     """
     Universal AutoML Trainer.
-
-    Column roles are derived from the dataset's stored DatasetProfile.
-    No keyword-based column-name matching is performed.
+    Column roles and types are derived exclusively from DatasetProfile.
     """
 
     def __init__(self, db, dataset_id: int):
@@ -68,7 +86,6 @@ class MLTrainer:
         if not ds:
             raise ValueError(f"Dataset with ID {dataset_id} not found.")
 
-        # Load raw dataframe
         if ds.file_path.startswith("minio://"):
             parts = ds.file_path.replace("minio://", "").split("/", 1)
             file_bytes = storage_service.get_file(parts[0], parts[1])
@@ -83,16 +100,10 @@ class MLTrainer:
                     raise FileNotFoundError(f"Dataset file not found at {ds.file_path}")
             self.df = pd.read_csv(resolved)
 
-        # Load or compute DatasetProfile
         if ds.profile_json:
             self._profile = DatasetProfile.model_validate(ds.profile_json)
         else:
-            logger.warning(
-                "ml.trainer.fallback_profile dataset_id=%d — "
-                "no stored profile; computing inline. "
-                "Run /api/datasets/%d/reprofile to persist.",
-                dataset_id, dataset_id,
-            )
+            logger.warning("ml.trainer.fallback_profile dataset_id=%d", dataset_id)
             import polars as pl, io as _io
             if ds.file_path.startswith("minio://"):
                 parts = ds.file_path.replace("minio://", "").split("/", 1)
@@ -102,87 +113,247 @@ class MLTrainer:
                 pl_df = pl.read_csv(resolved if not ds.file_path.startswith("minio://") else ds.file_path)
             self._profile = DatasetProfiler.profile_full(pl_df)
 
-        # Derive column buckets from profile roles (structural, not name-based)
-        self._num_cols: list[str] = [
-            c.name for c in self._profile.columns
-            if c.dtype_category == "numeric" and c.inferred_role != "identifier"
-            and c.name in self.df.columns
-        ]
-        self._cat_cols: list[str] = [
-            c.name for c in self._profile.columns
-            if c.dtype_category in ("categorical", "boolean") and c.inferred_role not in ("identifier",)
-            and c.name in self.df.columns
-        ]
-        self._date_cols: list[str] = [
-            c.name for c in self._profile.columns
-            if c.inferred_role == "temporal" and c.name in self.df.columns
-        ]
-        self._text_cols: list[str] = [
-            c.name for c in self._profile.columns
-            if c.inferred_role == "text" and c.name in self.df.columns
-        ]
-        # Primary target candidate from profile
         self._profile_target: str | None = next(
             (c.name for c in self._profile.columns if c.is_primary_metric), None
         )
 
     # ------------------------------------------------------------------
-    # Target / task resolution
+    # 1. Target Selection & Suggestions
     # ------------------------------------------------------------------
 
-    def _resolve_target(self, requested_target: str | None) -> str | None:
+    def suggest_target_candidates(self) -> list[dict[str, Any]]:
         """
-        Validates a user-supplied target, or falls back to the profile's
-        primary metric. Never guesses from column names.
+        Auto-suggest target candidates:
+        - Exclude ID-like columns (cardinality / row_count > 0.95)
+        - Exclude columns with > 50% missingness
+        - Rank remaining by interestingness (numeric variance, categorical 2-20)
+        Returns top 3 candidates.
         """
-        if requested_target and requested_target in self.df.columns:
-            return requested_target
-        if self._profile_target and self._profile_target in self.df.columns:
-            return self._profile_target
-        # Final fallback: first target-role column, then first numeric
-        for c in self._profile.columns:
-            if c.inferred_role == "target" and c.name in self.df.columns:
-                return c.name
-        return self._num_cols[0] if self._num_cols else None
+        total_rows = self._profile.total_rows or len(self.df)
+        candidates = []
 
-    def _infer_task_type(self, requested_task: str, target_col: str | None) -> str:
-        if requested_task and requested_task != "auto":
+        for col in self._profile.columns:
+            if col.name not in self.df.columns:
+                continue
+
+            card_ratio = getattr(col, "cardinality_ratio", 0.0)
+            if card_ratio > 0.95 or (col.cardinality and col.cardinality / max(total_rows, 1) > 0.95):
+                continue
+
+            missing_pct = getattr(col, "null_percentage", 0.0)
+            if missing_pct > 0.5:
+                continue
+
+            score = 0.0
+            reason = ""
+
+            if col.is_primary_metric:
+                score += 0.5
+                reason += "Primary metric; "
+
+            if col.dtype_category == "numeric":
+                series = self.df[col.name].dropna()
+                std_val = float(series.std()) if len(series) > 1 and series.std() is not None else 0.0
+                mean_val = float(series.mean()) if len(series) > 0 else 1.0
+                cv = abs(std_val / (mean_val + 1e-6))
+                if cv > 0.01:
+                    score += min(cv * 0.3, 0.4) + 0.3
+                    reason += f"Numeric metric (std={std_val:.2f}); "
+            elif col.dtype_category in ("categorical", "boolean"):
+                card = col.cardinality if hasattr(col, "cardinality") and col.cardinality else self.df[col.name].nunique()
+                if 2 <= card <= 20:
+                    score += 0.6
+                    reason += f"Categorical target with {card} classes; "
+                elif card > 20:
+                    score += 0.2
+                    reason += f"High cardinality categorical ({card} classes); "
+
+            if score > 0:
+                candidates.append({
+                    "name": col.name,
+                    "score": round(score, 3),
+                    "dtype_category": col.dtype_category,
+                    "inferred_role": col.inferred_role,
+                    "cardinality": col.cardinality,
+                    "reason": reason.strip("; ")
+                })
+
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        return candidates[:3]
+
+    def _resolve_target(self, requested_target: str | None) -> tuple[str, list[dict[str, Any]]]:
+        candidates = self.suggest_target_candidates()
+
+        if requested_target and requested_target in self.df.columns:
+            return requested_target, candidates
+
+        if candidates:
+            return candidates[0]["name"], candidates
+
+        if self._profile_target and self._profile_target in self.df.columns:
+            return self._profile_target, candidates
+
+        for c in self._profile.columns:
+            if c.name in self.df.columns and getattr(c, "cardinality_ratio", 0.0) <= 0.95:
+                return c.name, candidates
+
+        return self.df.columns[0], candidates
+
+    # ------------------------------------------------------------------
+    # 2. Target Guard & Task Inference
+    # ------------------------------------------------------------------
+
+    def _validate_target(self, target_col: str) -> None:
+        """
+        Guard: if target cardinality == 1 or > 95% missing -> reject.
+        """
+        if not target_col or target_col not in self.df.columns:
+            raise ValueError("No valid target column selected.")
+
+        series = self.df[target_col].dropna()
+        total_len = len(self.df)
+        missing_pct = (total_len - len(series)) / max(total_len, 1)
+
+        if len(series) == 0 or missing_pct > 0.95:
+            raise ValueError(f"Column '{target_col}' is not a valid target (>95% missing values).")
+
+        n_unique = series.nunique()
+        if n_unique <= 1:
+            raise ValueError(f"Column '{target_col}' is not a valid target (cardinality=1; all values are identical).")
+
+    def _infer_task_type(self, requested_task: str, target_col: str) -> str:
+        """
+        Task inference decision tree:
+        1. Explicit task if provided
+        2. Datetime column present & numeric target -> forecasting
+        3. Categorical dtype OR numeric with cardinality <= 10 -> classification
+        4. Numeric continuous -> regression
+        """
+        if requested_task and requested_task not in ("auto", "auto_detect"):
             return requested_task
 
-        if not target_col or target_col not in self.df.columns:
-            return "segmentation"
+        self._validate_target(target_col)
 
-        # Use profile cardinality_ratio for classification vs regression decision
-        profile_col = next((c for c in self._profile.columns if c.name == target_col), None)
-        if profile_col:
-            if profile_col.inferred_role == "target":
-                # Explicit target label → classification unless float metric
-                if profile_col.dtype_category == "numeric" and profile_col.cardinality_ratio > 0.05:
-                    return "regression"
-                return "classification"
-            if profile_col.dtype_category == "categorical" or profile_col.cardinality_ratio < 0.05:
-                return "classification"
-            if profile_col.dtype_category == "numeric":
-                return "regression"
-
-        # Structural fallback (no name keywords)
         series = self.df[target_col].dropna()
+        total_len = len(self.df)
         n_unique = series.nunique()
-        n_total  = len(series)
-        if str(series.dtype) == "object" or n_unique <= 15 or (n_unique / max(n_total, 1)) < 0.05:
+        card_ratio = n_unique / max(total_len, 1)
+
+        profile_col = next((c for c in self._profile.columns if c.name == target_col), None)
+        dtype_cat = profile_col.dtype_category if profile_col else ("numeric" if np.issubdtype(series.dtype, np.number) else "categorical")
+
+        has_datetime = any(
+            c.inferred_role == "temporal" or c.dtype_category == "datetime"
+            for c in self._profile.columns if c.name != target_col and c.name in self.df.columns
+        )
+        if has_datetime and dtype_cat == "numeric":
+            return "forecasting"
+
+        is_cat_dtype = dtype_cat in ("categorical", "boolean") or str(series.dtype) in ("object", "category", "bool")
+        is_low_card_num = (dtype_cat == "numeric") and (n_unique <= 10) and (card_ratio < 0.05)
+
+        if is_cat_dtype or is_low_card_num:
             return "classification"
-        if np.issubdtype(series.dtype, np.number):
+
+        if dtype_cat == "numeric" or np.issubdtype(series.dtype, np.number):
             return "regression"
-        return "segmentation"
+
+        return "classification"
 
     # ------------------------------------------------------------------
-    # Feature importance
+    # 3. Dynamic ColumnTransformer Construction
     # ------------------------------------------------------------------
 
-    def _compute_feature_importances(
-        self, estimator: Any, feature_names: list[str]
+    def _build_preprocessor(self, target_col: str) -> tuple[ColumnTransformer, list[str]]:
+        """
+        Builds dynamic sklearn ColumnTransformer from profile:
+        - Drops target, ID-like (>0.95), and >50% missing columns
+        - Numeric -> median imputer + StandardScaler
+        - Low-cardinality categorical (<=20) -> most-frequent imputer + OneHotEncoder
+        - High-cardinality categorical (>20) -> most-frequent imputer + OrdinalEncoder
+        - Datetime -> DatetimeExtractor
+        """
+        num_cols = []
+        cat_low_cols = []
+        cat_high_cols = []
+        date_cols = []
+
+        feature_cols = []
+
+        for col in self._profile.columns:
+            if col.name == target_col or col.name not in self.df.columns:
+                continue
+
+            card_ratio = getattr(col, "cardinality_ratio", 0.0)
+            if card_ratio > 0.95:
+                continue
+
+            missing_pct = getattr(col, "null_percentage", 0.0)
+            if missing_pct > 0.5:
+                continue
+
+            feature_cols.append(col.name)
+
+            if col.inferred_role == "temporal" or col.dtype_category == "datetime":
+                date_cols.append(col.name)
+            elif col.dtype_category in ("categorical", "boolean") or str(self.df[col.name].dtype) in ("object", "category", "bool"):
+                card = col.cardinality if hasattr(col, "cardinality") and col.cardinality else self.df[col.name].nunique()
+                if card <= 20:
+                    cat_low_cols.append(col.name)
+                else:
+                    cat_high_cols.append(col.name)
+            elif col.dtype_category == "numeric" or np.issubdtype(self.df[col.name].dtype, np.number):
+                num_cols.append(col.name)
+
+        transformers = []
+        if num_cols:
+            num_pipe = Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+            ])
+            transformers.append(("num", num_pipe, num_cols))
+
+        if cat_low_cols:
+            cat_low_pipe = Pipeline([
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+            ])
+            transformers.append(("cat_low", cat_low_pipe, cat_low_cols))
+
+        if cat_high_cols:
+            cat_high_pipe = Pipeline([
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("ordinal", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)),
+            ])
+            transformers.append(("cat_high", cat_high_pipe, cat_high_cols))
+
+        if date_cols:
+            transformers.append(("date", DatetimeExtractor(date_cols), date_cols))
+
+        if not transformers:
+            fallback_cols = [c for c in self.df.columns if c != target_col]
+            transformers.append(("num", Pipeline([("imputer", SimpleImputer(strategy="median"))]), fallback_cols))
+
+        ct = ColumnTransformer(transformers=transformers, remainder="drop")
+        return ct, feature_cols
+
+    # ------------------------------------------------------------------
+    # 4. Feature Importance Collapse Mapping
+    # ------------------------------------------------------------------
+
+    def _collapse_feature_importances(
+        self, estimator: Any, preprocessor: ColumnTransformer, original_features: list[str]
     ) -> list[dict[str, Any]]:
-        importances = np.zeros(len(feature_names))
+        """
+        Extracts feature importances, maps transformed feature names out of ColumnTransformer
+        back to original source columns (summing one-hot importances), and normalizes.
+        """
+        try:
+            transformed_names = preprocessor.get_feature_names_out()
+        except Exception:
+            transformed_names = np.array([f"feat_{i}" for i in range(100)])
+
+        importances = np.zeros(len(transformed_names))
 
         if hasattr(estimator, "feature_importances_"):
             importances = estimator.feature_importances_
@@ -190,234 +361,210 @@ class MLTrainer:
             coef = estimator.coef_
             importances = np.mean(np.abs(coef), axis=0) if coef.ndim > 1 else np.abs(coef)
 
-        if len(importances) != len(feature_names):
-            importances = np.ones(len(feature_names)) / max(1, len(feature_names))
-        else:
-            total = np.sum(importances)
-            if total > 0:
-                importances = importances / total
+        if len(importances) != len(transformed_names):
+            importances = np.ones(len(transformed_names)) / max(1, len(transformed_names))
 
-        result = [
-            {"feature": name, "importance": round(float(imp), 4)}
-            for name, imp in zip(feature_names, importances, strict=False)
-        ]
+        orig_importance_map: dict[str, float] = {f: 0.0 for f in original_features}
+
+        for t_name, imp in zip(transformed_names, importances, strict=False):
+            matched = False
+            for orig in original_features:
+                if f"__{orig}_" in t_name or t_name.endswith(f"__{orig}") or f"__{orig}" in t_name:
+                    orig_importance_map[orig] += float(imp)
+                    matched = True
+                    break
+            if not matched and original_features:
+                orig_importance_map[original_features[0]] += float(imp)
+
+        total = sum(orig_importance_map.values())
+        result = []
+        for feat, imp in orig_importance_map.items():
+            norm_imp = round(imp / total, 4) if total > 0 else 0.0
+            result.append({"feature": feat, "importance": norm_imp})
+
         result.sort(key=lambda x: x["importance"], reverse=True)
         return result[:10]
 
     # ------------------------------------------------------------------
-    # Model tournaments
-    # ------------------------------------------------------------------
-
-    def _run_regression_tournament(
-        self, X_train, X_test, y_train, y_test, X, y
-    ) -> tuple[Any, dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-        candidates = {
-            "RandomForestRegressor": RandomForestRegressor(n_estimators=50, random_state=42),
-            "ExtraTreesRegressor": ExtraTreesRegressor(n_estimators=50, random_state=42),
-            "GradientBoostingRegressor": GradientBoostingRegressor(n_estimators=50, random_state=42),
-            "HistGradientBoostingRegressor": HistGradientBoostingRegressor(random_state=42),
-            "Ridge": Ridge(),
-        }
-        best_score = -float("inf")
-        champion = None
-        metrics: dict[str, Any] = {}
-        hyperparams: dict[str, Any] = {}
-        leaderboard: list[dict[str, Any]] = []
-
-        for name, model in candidates.items():
-            try:
-                model.fit(X_train, y_train)
-                preds = model.predict(X_test)
-                r2   = float(r2_score(y_test, preds))
-                mse  = float(mean_squared_error(y_test, preds))
-                rmse = float(np.sqrt(mse))
-                leaderboard.append({"model": name, "r2_score": round(r2, 4), "rmse": round(rmse, 4)})
-                if r2 > best_score:
-                    best_score = r2
-                    champion   = model
-                    metrics    = {"r2_score": round(r2, 4), "rmse": round(rmse, 4), "mse": round(mse, 4)}
-                    hyperparams = {"champion_model": name}
-            except Exception as e:
-                logger.warning("Candidate %s failed: %s", name, e)
-
-        if champion is None:
-            champion = candidates["RandomForestRegressor"]
-            champion.fit(X_train, y_train)
-
-        champion.fit(X, y)
-        return champion, metrics, hyperparams, leaderboard
-
-    def _run_classification_tournament(
-        self, X_train, X_test, y_train, y_test, X, y
-    ) -> tuple[Any, dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-        candidates = {
-            "RandomForestClassifier": RandomForestClassifier(n_estimators=50, random_state=42),
-            "ExtraTreesClassifier": ExtraTreesClassifier(n_estimators=50, random_state=42),
-            "GradientBoostingClassifier": GradientBoostingClassifier(n_estimators=50, random_state=42),
-            "HistGradientBoostingClassifier": HistGradientBoostingClassifier(random_state=42),
-            "LogisticRegression": LogisticRegression(max_iter=500),
-        }
-        best_acc = -1.0
-        champion = None
-        metrics: dict[str, Any] = {}
-        hyperparams: dict[str, Any] = {}
-        leaderboard: list[dict[str, Any]] = []
-
-        for name, model in candidates.items():
-            try:
-                model.fit(X_train, y_train)
-                preds = model.predict(X_test)
-                acc   = float(accuracy_score(y_test, preds))
-                f1    = float(f1_score(y_test, preds, average="weighted", zero_division=0))
-                leaderboard.append({"model": name, "accuracy": round(acc, 4), "f1_score": round(f1, 4)})
-                if acc > best_acc:
-                    best_acc    = acc
-                    champion    = model
-                    metrics     = {
-                        "accuracy":  round(acc, 4),
-                        "f1_score":  round(f1, 4),
-                        "precision": round(float(precision_score(y_test, preds, average="weighted", zero_division=0)), 4),
-                        "recall":    round(float(recall_score(y_test, preds, average="weighted", zero_division=0)), 4),
-                    }
-                    hyperparams = {"champion_model": name}
-            except Exception as e:
-                logger.warning("Candidate %s failed: %s", name, e)
-
-        if champion is None:
-            champion = candidates["RandomForestClassifier"]
-            champion.fit(X_train, y_train)
-
-        champion.fit(X, y)
-        return champion, metrics, hyperparams, leaderboard
-
-    # ------------------------------------------------------------------
-    # Main entry point
+    # 5. Tournaments & Evaluation
     # ------------------------------------------------------------------
 
     def train_model(self, task_type: str = "auto", target_col: str | None = None) -> dict[str, Any]:
-        resolved_target = self._resolve_target(target_col)
-        resolved_task   = self._infer_task_type(task_type, resolved_target)
+        resolved_target, target_candidates = self._resolve_target(target_col)
+        resolved_task = self._infer_task_type(task_type, resolved_target)
 
-        # Normalise alias task names
-        _ALIASES = {"revenue_prediction": "regression", "churn": "classification"}
-        resolved_task = _ALIASES.get(resolved_task, resolved_task)
-
-        df = self.df.dropna(
-            subset=[resolved_target] if resolved_target and resolved_target in self.df.columns else None
-        ).copy()
+        df = self.df.dropna(subset=[resolved_target]).copy()
         if len(df) < 10:
             raise ValueError("Dataset contains too few records (minimum 10 rows required).")
 
-        # Build feature column lists (exclude target)
-        feature_num  = [c for c in self._num_cols  if c != resolved_target]
-        feature_cat  = [c for c in self._cat_cols  if c != resolved_target]
-        feature_date = [c for c in self._date_cols if c != resolved_target]
-        feature_text = [c for c in self._text_cols if c != resolved_target]
+        preprocessor, original_feature_cols = self._build_preprocessor(resolved_target)
 
-        preprocessor = FeaturePipeline()
-        X_num = preprocessor.fit_transform_numeric(df, feature_num)
-        X_cat = preprocessor.fit_transform_categorical(df, feature_cat)
-        X_dt, dt_names = preprocessor.fit_transform_datetime(df, feature_date)
-        X_txt, txt_names = preprocessor.fit_transform_text(df, feature_text)
+        X_transformed = preprocessor.fit_transform(df)
+        y = df[resolved_target].values
 
-        feature_matrices = [m for m in [X_num, X_cat, X_dt, X_txt] if m.shape[1] > 0]
-        if not feature_matrices:
-            raise ValueError("Dataset does not contain sufficient features for training.")
+        n_samples = len(df)
+        n_splits = 5 if n_samples >= 200 else 3
 
-        X = np.hstack(feature_matrices)
-        all_feature_names = feature_num + feature_cat + dt_names + txt_names
-
-        split = int(len(X) * 0.8)
-        X_train, X_test = X[:split], X[split:]
-
+        leaderboard = []
+        champion_model = None
+        champion_name = ""
+        best_score = -float("inf")
+        baseline_score = 0.0
         metrics: dict[str, Any] = {}
-        hyperparams: dict[str, Any] = {}
-        tournament_leaderboard: list[dict[str, Any]] = []
-        champion_estimator: Any = None
 
         if resolved_task == "regression":
-            if not resolved_target or resolved_target not in df.columns:
-                raise ValueError("Regression task requires a target column.")
-            y = df[resolved_target].values
+            baseline_model = DummyRegressor(strategy="mean")
+            kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+            
+            b_scores = []
+            for train_idx, val_idx in kf.split(X_transformed):
+                baseline_model.fit(X_transformed[train_idx], y[train_idx])
+                preds = baseline_model.predict(X_transformed[val_idx])
+                b_scores.append(r2_score(y[val_idx], preds))
+            baseline_score = float(np.mean(b_scores))
+
+            candidates = {
+                "DummyRegressor (Baseline)": baseline_model,
+                "LinearRegression": LinearRegression(),
+                "Ridge": Ridge(alpha=1.0),
+                "RandomForestRegressor": RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
+            }
+            if n_samples < 20000:
+                candidates["GradientBoostingRegressor"] = GradientBoostingRegressor(n_estimators=100, max_depth=5, random_state=42)
+
+            for name, model in candidates.items():
+                r2_list, rmse_list = [], []
+                for train_idx, val_idx in kf.split(X_transformed):
+                    model.fit(X_transformed[train_idx], y[train_idx])
+                    preds = model.predict(X_transformed[val_idx])
+                    r2_list.append(r2_score(y[val_idx], preds))
+                    rmse_list.append(np.sqrt(mean_squared_error(y[val_idx], preds)))
+
+                avg_r2 = float(np.mean(r2_list))
+                avg_rmse = float(np.mean(rmse_list))
+                leaderboard.append({"model": name, "r2_score": round(avg_r2, 4), "rmse": round(avg_rmse, 4)})
+
+                if name != "DummyRegressor (Baseline)" and avg_r2 > best_score:
+                    best_score = avg_r2
+                    champion_name = name
+                    champion_model = model
+                    metrics = {"r2_score": round(avg_r2, 4), "rmse": round(avg_rmse, 4)}
+
+            if champion_model is None:
+                champion_name = "Ridge"
+                champion_model = candidates["Ridge"]
+
+            champion_model.fit(X_transformed, y)
+
+        elif resolved_task in ("classification", "binary_classification", "multiclass_classification"):
+            baseline_model = DummyClassifier(strategy="stratified", random_state=42)
+            skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+            
+            b_scores = []
+            for train_idx, val_idx in skf.split(X_transformed, y):
+                baseline_model.fit(X_transformed[train_idx], y[train_idx])
+                preds = baseline_model.predict(X_transformed[val_idx])
+                b_scores.append(f1_score(y[val_idx], preds, average="weighted", zero_division=0))
+            baseline_score = float(np.mean(b_scores))
+
+            candidates = {
+                "DummyClassifier (Baseline)": baseline_model,
+                "LogisticRegression": LogisticRegression(max_iter=1000, random_state=42),
+                "RandomForestClassifier": RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42),
+                "GaussianNB": GaussianNB(),
+            }
+
+            for name, model in candidates.items():
+                f1_list, acc_list = [], []
+                for train_idx, val_idx in skf.split(X_transformed, y):
+                    model.fit(X_transformed[train_idx], y[train_idx])
+                    preds = model.predict(X_transformed[val_idx])
+                    f1_list.append(f1_score(y[val_idx], preds, average="weighted", zero_division=0))
+                    acc_list.append(accuracy_score(y[val_idx], preds))
+
+                avg_f1 = float(np.mean(f1_list))
+                avg_acc = float(np.mean(acc_list))
+                leaderboard.append({"model": name, "f1_score": round(avg_f1, 4), "accuracy": round(avg_acc, 4)})
+
+                if name != "DummyClassifier (Baseline)" and avg_f1 > best_score:
+                    best_score = avg_f1
+                    champion_name = name
+                    champion_model = model
+                    metrics = {"f1_score": round(avg_f1, 4), "accuracy": round(avg_acc, 4)}
+
+            if champion_model is None:
+                champion_name = "RandomForestClassifier"
+                champion_model = candidates["RandomForestClassifier"]
+
+            champion_model.fit(X_transformed, y)
+
+        elif resolved_task == "forecasting":
+            split = int(n_samples * 0.8)
+            X_train, X_test = X_transformed[:split], X_transformed[split:]
             y_train, y_test = y[:split], y[split:]
-            champion_estimator, metrics, hyperparams, tournament_leaderboard = (
-                self._run_regression_tournament(X_train, X_test, y_train, y_test, X, y)
-            )
 
-        elif resolved_task == "classification":
-            if not resolved_target or resolved_target not in df.columns:
-                # Build binary class from first metric
-                ref_col = feature_num[0] if feature_num else df.columns[0]
-                q25 = df[ref_col].quantile(0.25)
-                df["_target_class"] = (df[ref_col] <= q25).astype(int)
-                resolved_target = "_target_class"
-            y = df[resolved_target].astype(str).values
-            y_train, y_test = y[:split], y[split:]
-            champion_estimator, metrics, hyperparams, tournament_leaderboard = (
-                self._run_classification_tournament(X_train, X_test, y_train, y_test, X, y)
-            )
+            naive_preds = np.full_like(y_test, y_train[-1] if len(y_train) > 0 else 0)
+            baseline_rmse = float(np.sqrt(mean_squared_error(y_test, naive_preds)))
+            baseline_score = -baseline_rmse
 
-        elif resolved_task == "segmentation":
-            n_clusters = 3
-            model = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
-            model.fit(X)
-            sil = float(silhouette_score(X, model.labels_)) if len(set(model.labels_)) > 1 else 0.0
-            champion_estimator = model
-            metrics    = {"silhouette_score": round(sil, 4)}
-            hyperparams = {"n_clusters": n_clusters, "champion_model": "KMeans"}
-            tournament_leaderboard = [{"model": "KMeans", "silhouette_score": round(sil, 4)}]
+            model = Ridge(alpha=1.0)
+            model.fit(X_train, y_train)
+            preds = model.predict(X_test)
+            r2 = float(r2_score(y_test, preds))
+            rmse = float(np.sqrt(mean_squared_error(y_test, preds)))
 
-        elif resolved_task == "anomaly":
-            contamination = 0.05
-            model = IsolationForest(contamination=contamination, random_state=42)
-            model.fit(X)
-            preds = model.predict(X)
-            anom_count = int((preds == -1).sum())
-            champion_estimator = model
-            metrics    = {"anomaly_ratio": round(float(anom_count / len(df)), 4), "anomaly_count": anom_count}
-            hyperparams = {"contamination": contamination, "champion_model": "IsolationForest"}
-            tournament_leaderboard = [{"model": "IsolationForest", "anomaly_ratio": metrics["anomaly_ratio"]}]
+            champion_name = "Ridge Trend Forecaster"
+            champion_model = model
+            champion_model.fit(X_transformed, y)
+
+            best_score = r2
+            metrics = {"r2_score": round(r2, 4), "rmse": round(rmse, 4)}
+            leaderboard = [
+                {"model": "Naive Baseline", "rmse": round(baseline_rmse, 4)},
+                {"model": champion_name, "r2_score": round(r2, 4), "rmse": round(rmse, 4)}
+            ]
 
         else:
-            raise ValueError(f"Unknown ML task type: {resolved_task}")
+            raise ValueError(f"Unsupported ML task type: {resolved_task}")
 
-        feature_importances = self._compute_feature_importances(champion_estimator, all_feature_names)
-        metrics["feature_importances"] = feature_importances
+        improvement_pct = round(((best_score - baseline_score) / max(abs(baseline_score), 1e-6)) * 100, 2)
 
-        pipeline = {
+        feature_importances = self._collapse_feature_importances(champion_model, preprocessor, original_feature_cols)
+
+        pipeline_obj = {
             "preprocessor": preprocessor,
-            "estimator": champion_estimator,
-            "features_num": feature_num,
-            "features_cat": feature_cat,
-            "features_date": feature_date,
-            "features_text": feature_text,
-            "all_feature_names": all_feature_names,
+            "estimator": champion_model,
+            "original_features": original_feature_cols,
             "target_col": resolved_target,
             "task_type": resolved_task,
-            "tournament_leaderboard": tournament_leaderboard,
+            "champion_model": champion_name,
         }
 
         ModelRegistry.save_model(
             dataset_id=self.dataset_id,
             task_type=resolved_task,
-            pipeline=pipeline,
+            pipeline=pipeline_obj,
             metrics=metrics,
-            hyperparams=hyperparams,
+            hyperparams={
+                "champion_model": champion_name,
+                "baseline_score": round(baseline_score, 4),
+                "best_score": round(best_score, 4),
+                "improvement_pct": improvement_pct,
+            },
         )
-
-        try:
-            from ..monitoring import ML_PIPELINE_RUNS
-            ML_PIPELINE_RUNS.labels(task_type=resolved_task, status="success").inc()
-        except Exception:
-            pass
 
         return {
             "status": "success",
             "task_type": resolved_task,
             "target_col": resolved_target,
-            "champion_model": hyperparams.get("champion_model", "Unknown"),
+            "champion_model": champion_name,
+            "baseline_score": round(baseline_score, 4),
+            "best_score": round(best_score, 4),
+            "improvement_pct": improvement_pct,
+            "improvement_narrative": f"Champion model {champion_name} scored {round(best_score, 4)}, performing {improvement_pct}% better than mandatory baseline.",
             "metrics": metrics,
-            "tournament_leaderboard": tournament_leaderboard,
+            "tournament_leaderboard": leaderboard,
             "feature_importances": feature_importances,
-            "features_used": len(all_feature_names),
+            "target_candidates": target_candidates,
+            "features_used": len(original_feature_cols),
         }

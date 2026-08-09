@@ -130,6 +130,11 @@ export const apiService = {
     return fetchAPI(`/api/ml/history/${datasetId}?task_type=${encodeURIComponent(taskType)}`);
   },
 
+  // AutoML Target Candidates
+  async getMlTargetCandidates(datasetId: number) {
+    return fetchAPI(`/api/ml/targets/${datasetId}`);
+  },
+
   // AutoML Training Engine
   async trainMlModel(datasetId: number, taskType: string = "auto", targetCol?: string) {
     return fetchAPI(`/api/ml/train/${datasetId}`, {

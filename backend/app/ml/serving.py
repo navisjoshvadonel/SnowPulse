@@ -37,7 +37,7 @@ class MLServing:
                 "task_type": task,
                 "predictions": [{"row_index": idx, "is_anomaly": bool(p == -1)} for idx, p in enumerate(predictions)],
             }
-        elif task in ("regression", "revenue_prediction"):
+        elif task in ("regression", "revenue_prediction", "forecasting"):
             predictions = estimator.predict(X).tolist()
             target_name = self.pipeline.get("target_col", "prediction")
             return {
@@ -45,7 +45,7 @@ class MLServing:
                 "target_column": target_name,
                 "predictions": [{"row_index": idx, "predicted_value": float(p)} for idx, p in enumerate(predictions)],
             }
-        elif task in ("classification", "churn"):
+        elif task in ("classification", "binary_classification", "multiclass_classification", "churn"):
             predictions = estimator.predict(X).tolist()
             probas = []
             if hasattr(estimator, "predict_proba"):
@@ -76,41 +76,51 @@ class MLServing:
             raise RuntimeError(f"Model pipeline for task '{self.task_type}' on dataset {self.dataset_id} is offline or not registered.")
 
         df = pd.DataFrame(input_records)
-        preprocessor = self.pipeline["preprocessor"]
-        estimator = self.pipeline["estimator"]
+        preprocessor = self.pipeline.get("preprocessor")
+        estimator = self.pipeline.get("estimator")
 
-        features_num = self.pipeline.get("features_num", self.pipeline.get("features", []))
-        features_cat = self.pipeline.get("features_cat", [])
-        features_date = self.pipeline.get("features_date", [])
-        features_text = self.pipeline.get("features_text", [])
+        if preprocessor is None or estimator is None:
+            raise RuntimeError("Invalid or incomplete model pipeline.")
 
-        for col in features_num:
+        original_features = self.pipeline.get("original_features", [])
+        for col in original_features:
             if col not in df.columns:
-                df[col] = 0.0
-        for col in features_cat:
-            if col not in df.columns:
-                df[col] = "unknown"
-        for col in features_date:
-            if col not in df.columns:
-                df[col] = "2025-01-01"
-        for col in features_text:
-            if col not in df.columns:
-                df[col] = ""
+                df[col] = np.nan
 
         try:
-            X_num = preprocessor.transform_numeric(df, features_num)
-            X_cat = preprocessor.transform_categorical(df, features_cat)
-            X_dt, _ = preprocessor.transform_datetime(df, features_date)
-            X_txt, _ = preprocessor.transform_text(df, features_text)
+            if hasattr(preprocessor, "transform"):
+                X = preprocessor.transform(df)
+            else:
+                features_num = self.pipeline.get("features_num", self.pipeline.get("features", []))
+                features_cat = self.pipeline.get("features_cat", [])
+                features_date = self.pipeline.get("features_date", [])
+                features_text = self.pipeline.get("features_text", [])
 
-            matrices = [m for m in [X_num, X_cat, X_dt, X_txt] if m.shape[1] > 0]
-            if not matrices:
-                raise ValueError("No feature data could be extracted from input records.")
+                for col in features_num:
+                    if col not in df.columns:
+                        df[col] = 0.0
+                for col in features_cat:
+                    if col not in df.columns:
+                        df[col] = "unknown"
+                for col in features_date:
+                    if col not in df.columns:
+                        df[col] = "2025-01-01"
+                for col in features_text:
+                    if col not in df.columns:
+                        df[col] = ""
 
-            X = np.hstack(matrices)
+                X_num = preprocessor.transform_numeric(df, features_num)
+                X_cat = preprocessor.transform_categorical(df, features_cat)
+                X_dt, _ = preprocessor.transform_datetime(df, features_date)
+                X_txt, _ = preprocessor.transform_text(df, features_text)
+
+                matrices = [m for m in [X_num, X_cat, X_dt, X_txt] if m.shape[1] > 0]
+                if not matrices:
+                    raise ValueError("No feature data could be extracted from input records.")
+                X = np.hstack(matrices)
+
             return self._format_predictions(X, estimator)
 
         except Exception as e:
             logger.error(f"Inference execution failed: {e}")
             raise RuntimeError(f"Prediction failed: {str(e)}")
-

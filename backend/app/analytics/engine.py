@@ -84,6 +84,9 @@ class AnalyticsEngine:
         self.categorical_cols: list[str] = [
             c.name for c in self._profile.columns if c.dtype_category == "categorical"
         ]
+        self.date_cols: list[str] = [
+            c.name for c in self._profile.columns if c.dtype_category == "datetime" or c.inferred_role == "temporal"
+        ]
         self.geo_cols: list[str] = [
             c.name for c in self._profile.columns if c.inferred_role == "geo"
         ]

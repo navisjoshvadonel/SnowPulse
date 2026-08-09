@@ -380,14 +380,75 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
                 <span className="text-xs font-semibold text-white mt-0.5 capitalize">{trainResult.task_type}</span>
               </div>
               <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-                <span className="text-[10px] text-white/40 uppercase block">Features Extracted</span>
-                <span className="text-xs font-semibold text-emerald-400 mt-0.5">{trainResult.features_used} Features</span>
+                <span className="text-[10px] text-white/40 uppercase block">Baseline Lift</span>
+                <span className="text-xs font-semibold text-emerald-400 mt-0.5">
+                  +{trainResult.improvement_pct ?? 0}% vs Naive Baseline
+                </span>
               </div>
               <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-                <span className="text-[10px] text-white/40 uppercase block">Target Metric</span>
+                <span className="text-[10px] text-white/40 uppercase block">Target Column</span>
                 <span className="text-xs font-semibold text-purple-300 mt-0.5">{trainResult.target_col || "Unsupervised"}</span>
               </div>
             </div>
+
+            {trainResult.improvement_narrative && (
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-300 flex items-center gap-2">
+                <Zap size={14} className="text-emerald-400 shrink-0" />
+                <span>{trainResult.improvement_narrative}</span>
+              </div>
+            )}
+
+            {/* AutoML Tournament Leaderboard Table */}
+            {trainResult.tournament_leaderboard && trainResult.tournament_leaderboard.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-white/80 mb-2 flex items-center gap-1.5">
+                  <Trophy size={14} className="text-amber-400" />
+                  AutoML Tournament Leaderboard
+                </h4>
+                <div className="bg-black/30 border border-white/10 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-xs text-white/80">
+                    <thead className="bg-white/5 text-[10px] uppercase text-white/40 border-b border-white/10">
+                      <tr>
+                        <th className="px-3 py-2">Model Candidate</th>
+                        <th className="px-3 py-2">Primary Metric</th>
+                        <th className="px-3 py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-mono text-[11px]">
+                      {trainResult.tournament_leaderboard.map((m: any, idx: number) => {
+                        const isChamp = m.model === trainResult.champion_model;
+                        const isBaseline = m.model.includes("Baseline") || m.model.includes("Dummy");
+                        const scoreVal = m.r2_score ?? m.f1_score ?? m.silhouette_score ?? m.rmse ?? m.accuracy ?? "-";
+                        return (
+                          <tr key={idx} className={isChamp ? "bg-cyan-500/10 font-bold" : ""}>
+                            <td className="px-3 py-2 flex items-center gap-1.5">
+                              {isChamp && <Trophy size={12} className="text-amber-400" />}
+                              <span className={isChamp ? "text-cyan-300" : isBaseline ? "text-white/40" : "text-white/80"}>
+                                {m.model}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-white/90">{scoreVal}</td>
+                            <td className="px-3 py-2">
+                              {isChamp ? (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase">
+                                  Champion
+                                </span>
+                              ) : isBaseline ? (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-white/40 uppercase">
+                                  Baseline Floor
+                                </span>
+                              ) : (
+                                <span className="text-[9px] text-white/30 uppercase">Challenger</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {trainResult.feature_importances && trainResult.feature_importances.length > 0 && (
               <div>

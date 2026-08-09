@@ -803,6 +803,121 @@ def get_analytics_insights(
         )
 
 
+@app.get("/api/datasets/{dataset_id}/profile")
+def get_dataset_profile(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve stored DatasetProfile JSON (single source of truth).
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+
+    if dataset.profile_json:
+        return dataset.profile_json
+
+    # Fallback: compute synchronously and persist
+    try:
+        df = AnalyticsEngine.get_dataset_df(dataset.file_path)
+        if df is None:
+            raise HTTPException(status_code=500, detail="Could not load dataset file")
+        profile = DatasetProfiler.profile_full(df)
+        dataset.profile_json = profile.model_dump()
+        dataset.profile_version = PROFILE_VERSION
+        db.commit()
+        return dataset.profile_json
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to profile dataset: {str(e)}")
+
+
+@app.post("/api/datasets/{dataset_id}/reprofile")
+def reprofile_dataset(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Recompute and persist DatasetProfile for a dataset.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+
+    was_stale = (dataset.profile_version != PROFILE_VERSION) if dataset.profile_version else True
+    try:
+        df = AnalyticsEngine.get_dataset_df(dataset.file_path)
+        if df is None:
+            raise HTTPException(status_code=500, detail="Could not load dataset file")
+        profile = DatasetProfiler.profile_full(df)
+        dataset.profile_json = profile.model_dump()
+        dataset.profile_version = PROFILE_VERSION
+        db.commit()
+        return {
+            "status": "success",
+            "was_stale": was_stale,
+            "profile_version": PROFILE_VERSION,
+            "profile": dataset.profile_json
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reprofiling failed: {str(e)}")
+
+
+@app.get("/api/datasets/{dataset_id}/suggestions")
+@limiter.limit("30/minute")
+def get_dataset_chart_suggestions(
+    request: Request,
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Combines deterministic rules_engine chart candidates with Gemini 'soft' semantic titles & summary enrichment.
+    """
+    cache_key = f"suggestions:{dataset_id}"
+    cached = cache_service.get(cache_key)
+    if cached:
+        return cached
+
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+
+    try:
+        df = AnalyticsEngine.get_dataset_df(dataset.file_path)
+        if df is None:
+            raise HTTPException(status_code=500, detail="Could not load dataset file")
+
+        # 1. Deterministic profile & rules_engine chart candidates (Fast, free, reliable)
+        _profile_dict = dataset.profile_json or DatasetProfiler.profile_full(df).model_dump()
+        profile = DatasetProfile.model_validate(_profile_dict)
+        
+        from .analytics.suggestions import suggest_charts
+        from .analytics.semantic_enricher import SemanticEnricher
+        
+        raw_suggestions = suggest_charts(df, profile, top_n=5)
+
+        # 2. Gemini Soft Semantic Layer (Titles, human summaries, relationship callouts)
+        enricher = SemanticEnricher(gemini_service=gemini_service)
+        enrichment = enricher.enrich(profile, raw_suggestions, dataset_name=dataset.name)
+        result = enrichment.model_dump()
+
+        cache_service.set(cache_key, result, ttl_seconds=900)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to generate chart suggestions for dataset {dataset_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate chart suggestions: {str(e)}")
+
+
+
 @app.get("/api/analytics/usage")
 def get_usage_quota(
     current_user: User = Depends(get_current_user),

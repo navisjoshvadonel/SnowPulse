@@ -38,6 +38,7 @@ class DatasetSemanticEnrichment(BaseModel):
     column_business_names: dict[str, str]
     interesting_relationships: list[str]
     enriched_suggestions: list[EnrichedChartSuggestion]
+    detected_signals: list[dict[str, Any]] = []
     is_fallback: bool = False
 
 

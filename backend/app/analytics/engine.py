@@ -312,6 +312,19 @@ class AnalyticsEngine:
 
         return "\n".join(summary)
 
+    def get_signals(self) -> list[dict[str, Any]]:
+        """
+        Runs deterministic SignalDetector to extract statistical insights
+        (outliers, drift, correlation pairs, missingness clusters, imbalance).
+        """
+        try:
+            from .signals import SignalDetector
+            signals = SignalDetector.detect_signals(self.df, self._profile)
+            return [s.model_dump() for s in signals]
+        except Exception as e:
+            logger.error(f"Failed to detect signals for dataset: {e}")
+            return []
+
     # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------

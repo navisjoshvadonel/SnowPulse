@@ -103,6 +103,10 @@ export const apiService = {
     return fetchAPI(`/api/datasets/${datasetId}/reprofile`, { method: "POST" });
   },
 
+  async getDatasetSignals(datasetId: number) {
+    return fetchAPI(`/api/datasets/${datasetId}/signals`);
+  },
+
   async uploadDataset(file: File) {
     const formData = new FormData();
     formData.append("file", file);

@@ -917,6 +917,36 @@ def get_dataset_chart_suggestions(
         raise HTTPException(status_code=500, detail=f"Failed to generate chart suggestions: {str(e)}")
 
 
+@app.get("/api/datasets/{dataset_id}/signals")
+@limiter.limit("30/minute")
+def get_dataset_signals(
+    request: Request,
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns top ranked statistical signals (outliers, drift, correlations, missing clusters, category imbalance)
+    computed deterministically from profile & dataset without LLM calls.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+
+    try:
+        from .analytics.engine import AnalyticsEngine
+        prof = dataset.get_profile() if hasattr(dataset, "get_profile") else None
+        engine = AnalyticsEngine(dataset.file_path, profile=prof)
+        signals = engine.get_signals()
+        return {"dataset_id": dataset_id, "signals": signals}
+    except Exception as e:
+        logger.error(f"Failed to extract signals for dataset {dataset_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract signals: {str(e)}")
+
+
+
 
 @app.get("/api/analytics/usage")
 def get_usage_quota(

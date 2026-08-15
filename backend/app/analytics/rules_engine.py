@@ -21,18 +21,17 @@ supported pattern we:
 
 The public API is a single class ``ChartSuggester`` with a method
 ``suggest(self) -> list[dict]`` that returns the top‑ranked suggestions.
-''' 
+'''
 
 from __future__ import annotations
 
-import math
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import polars as pl
 from scipy import stats
 
-from .profiler import DatasetProfile, ColumnProfile
+from .profiler import ColumnProfile, DatasetProfile
 
 # ---------------------------------------------------------------------------
 # Helper utilities
@@ -67,7 +66,7 @@ def _missingness(series: pl.Series) -> float:
 # Scoring helpers – each returns a tuple (score, details)
 # ---------------------------------------------------------------------------
 
-def _score_single_numeric(col: ColumnProfile, df: pl.DataFrame) -> Tuple[float, Dict[str, Any]]:
+def _score_single_numeric(col: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
     series = df[col.name]
     skew = abs(_skewness(series))
     out_ratio = _outlier_ratio(series)
@@ -83,7 +82,7 @@ def _score_single_numeric(col: ColumnProfile, df: pl.DataFrame) -> Tuple[float, 
     details = {"chart": chart, "skew": skew, "outlier_ratio": out_ratio}
     return score, details
 
-def _score_single_categorical(col: ColumnProfile, df: pl.DataFrame) -> Tuple[float, Dict[str, Any]]:
+def _score_single_categorical(col: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
     cat_card = col.cardinality if hasattr(col, "cardinality") else df[col.name].n_unique()
     miss = _missingness(df[col.name])
     comp = 1 - miss
@@ -100,7 +99,7 @@ def _score_single_categorical(col: ColumnProfile, df: pl.DataFrame) -> Tuple[flo
     score = sig * clr * comp
     return score, {"chart": chart, "cardinality": cat_card}
 
-def _score_single_datetime(col: ColumnProfile, df: pl.DataFrame) -> Tuple[float, Dict[str, Any]]:
+def _score_single_datetime(col: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
     series = df[col.name]
     # simple missingness penalty
     miss = _missingness(series)
@@ -111,7 +110,7 @@ def _score_single_datetime(col: ColumnProfile, df: pl.DataFrame) -> Tuple[float,
     score = sig * clr * comp
     return score, {"chart": "area_time", "missingness": miss}
 
-def _score_numeric_numeric(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.DataFrame) -> Tuple[float, Dict[str, Any]]:
+def _score_numeric_numeric(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
     a = df[col_a.name].drop_nulls().to_numpy()
     b = df[col_b.name].drop_nulls().to_numpy()
     if len(a) < 2 or len(b) < 2:
@@ -124,11 +123,9 @@ def _score_numeric_numeric(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.Da
     chart = "scatter" if abs(r) > 0.3 else "scatter_no_rel"
     return score, {"chart": chart, "pearson_r": r}
 
-def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.DataFrame) -> Tuple[float, Dict[str, Any]]:
+def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
     # Determine cardinality
     cat_card = cat.cardinality if hasattr(cat, "cardinality") else df[cat.name].n_unique()
-    series_num = df[num.name].drop_nulls().to_numpy()
-    series_cat = df[cat.name].drop_nulls()
     # Align lengths (simple left join on index)
     # Compute ANOVA effect size (eta squared) as a proxy
     groups = []
@@ -148,10 +145,11 @@ def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.Da
     chart = "boxplot_grouped" if eta2 > 0.06 else "bar_means"
     return score, {"chart": chart, "eta_squared": eta2, "cardinality": cat_card}
 
-def _score_categorical_categorical(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.DataFrame) -> Tuple[float, Dict[str, Any]]:
-    a = df[col_a.name].cast(pl.Categorical)
-    b = df[col_b.name].cast(pl.Categorical)
-    contingency = pl.crosstab(a, b)
+def _score_categorical_categorical(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
+    import pandas as pd
+    a = df[col_a.name].to_pandas()
+    b = df[col_b.name].to_pandas()
+    contingency = pd.crosstab(a, b)
     chi2, p, dof, _ = stats.chi2_contingency(contingency.to_numpy())
     sig = (1 - p) * 0.7
     clr = 0.8 if max(col_a.cardinality, col_b.cardinality) <= 15 else 0.5
@@ -182,7 +180,7 @@ class ChartSuggester:
     # -------------------------------------------------------------------
     # Public API
     # -------------------------------------------------------------------
-    def suggest(self, top_n: int = 3) -> List[Dict[str, Any]]:
+    def suggest(self, top_n: int = 3) -> list[dict[str, Any]]:
         """Return the top‑N chart suggestions ordered by their score.
 
         Each suggestion dictionary contains:
@@ -191,7 +189,7 @@ class ChartSuggester:
         * ``columns`` – list of column names required for the chart
         * ``details`` – algorithm‑specific auxiliary information
         """
-        candidates: List[Tuple[float, Dict[str, Any]]] = []
+        candidates: list[tuple[float, dict[str, Any]]] = []
         cols = self.profile.columns
         # ---------------------------------------------------------------
         # Single‑column patterns

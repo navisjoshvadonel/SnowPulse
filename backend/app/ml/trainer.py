@@ -10,14 +10,18 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyClassifier, DummyRegressor
-from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import (
+    GradientBoostingRegressor,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
 from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score
@@ -104,7 +108,9 @@ class MLTrainer:
             self._profile = DatasetProfile.model_validate(ds.profile_json)
         else:
             logger.warning("ml.trainer.fallback_profile dataset_id=%d", dataset_id)
-            import polars as pl, io as _io
+            import io as _io
+
+            import polars as pl
             if ds.file_path.startswith("minio://"):
                 parts = ds.file_path.replace("minio://", "").split("/", 1)
                 fb = storage_service.get_file(parts[0], parts[1])
@@ -178,7 +184,7 @@ class MLTrainer:
                     "reason": reason.strip("; ")
                 })
 
-        candidates.sort(key=lambda x: x["score"], reverse=True)
+        candidates.sort(key=lambda x: float(x["score"]), reverse=True)
         return candidates[:3]
 
     def _resolve_target(self, requested_target: str | None) -> tuple[str, list[dict[str, Any]]]:
@@ -415,7 +421,7 @@ class MLTrainer:
         if resolved_task == "regression":
             baseline_model = DummyRegressor(strategy="mean")
             kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-            
+
             b_scores = []
             for train_idx, val_idx in kf.split(X_transformed):
                 baseline_model.fit(X_transformed[train_idx], y[train_idx])
@@ -459,7 +465,7 @@ class MLTrainer:
         elif resolved_task in ("classification", "binary_classification", "multiclass_classification"):
             baseline_model = DummyClassifier(strategy="stratified", random_state=42)
             skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
-            
+
             b_scores = []
             for train_idx, val_idx in skf.split(X_transformed, y):
                 baseline_model.fit(X_transformed[train_idx], y[train_idx])

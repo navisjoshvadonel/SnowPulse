@@ -1,4 +1,5 @@
-from typing import Any, Tuple
+from typing import Any
+
 import polars as pl
 
 from ..logging_config import logger
@@ -42,7 +43,7 @@ class PolarsCodeExecutor:
         cls,
         df: pl.DataFrame,
         code_snippet: str
-    ) -> Tuple[pl.DataFrame, dict[str, Any]]:
+    ) -> tuple[pl.DataFrame, dict[str, Any]]:
         """
         Converts df to a LazyFrame (ldf), executes code_snippet in a sandboxed environment,
         and calls .collect() to optimize and materialize the final DataFrame.

@@ -15,7 +15,8 @@ Signals Detected:
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional
+from typing import Any
+
 import numpy as np
 import polars as pl
 from pydantic import BaseModel, Field

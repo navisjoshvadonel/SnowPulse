@@ -9,8 +9,6 @@ os.environ.setdefault("ENV", "testing")
 
 from unittest.mock import patch
 
-import pytest
-
 from backend.app.models import Dataset
 
 
@@ -22,7 +20,7 @@ class TestAIRoutes:
     @patch("backend.app.ai.routes.DatabaseTools.get_dataset_statistics")
     def test_analyze_dataset_success(self, mock_stats, client, db, test_user, auth_headers):
         mock_stats.return_value = {"success": True, "kpis": {}}
-        
+
         ds = Dataset(owner_id=test_user.id, name="analyze-test", file_path="test.csv")
         db.add(ds)
         db.commit()

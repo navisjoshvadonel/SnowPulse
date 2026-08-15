@@ -12,7 +12,7 @@ from fastapi import HTTPException
 
 from backend.app.auth import create_access_token, create_refresh_token, get_password_hash
 from backend.app.dependencies import get_current_user, verify_dashboard_ownership
-from backend.app.models import User, UserDashboard, Dataset
+from backend.app.models import Dataset, User, UserDashboard
 
 
 class TestGetCurrentUser:

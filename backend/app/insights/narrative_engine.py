@@ -1,10 +1,11 @@
-from typing import Any, Dict, List
+from typing import Any
+
 import polars as pl
 
 
 class NarrativeEngine:
     @classmethod
-    def generate_narrative_summary(cls, df: pl.DataFrame, schema: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_narrative_summary(cls, df: pl.DataFrame, schema: dict[str, Any]) -> dict[str, Any]:
         """
         Ranks insights by statistical significance & magnitude of change,
         and provides causal explanations ("why" it changed, not just "what").
@@ -26,7 +27,6 @@ class NarrativeEngine:
                 mean_val = float(series.mean())
                 std_val = float(series.std()) if series.std() is not None else 0.0
                 max_val = float(series.max())
-                min_val = float(series.min())
 
                 ranked_insights.append({
                     "rank": 1,

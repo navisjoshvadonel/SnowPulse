@@ -66,7 +66,7 @@ class GeminiService:
             cached_count = getattr(usage_metadata, "cached_content_token_count", 0) or 0
         else:
             tokens = max(180, (len(prompt) + len(response_text)) // 4)
-        
+
         self.total_tokens_used += tokens
         self.cached_tokens_saved += cached_count
         return tokens
@@ -75,7 +75,7 @@ class GeminiService:
         gb_used = round(storage_used_bytes / (1024 ** 3), 2)
         mb_used = round(storage_used_bytes / (1024 ** 2), 1)
         storage_str = f"{gb_used} GB" if gb_used >= 0.1 else f"{max(0.1, mb_used)} MB"
-        
+
         return {
             "gemini_calls": self.call_count,
             "gemini_max_calls": self.call_limit,

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
 
 
@@ -11,11 +11,11 @@ class AuditEntry(BaseModel):
     action: str  # dataset_upload, copilot_query, report_export, model_train, connector_sync
     resource: str
     status: str
-    ip_address: Optional[str] = "127.0.0.1"
+    ip_address: str | None = "127.0.0.1"
 
 
 class AuditLogger:
-    _logs: List[AuditEntry] = []
+    _logs: list[AuditEntry] = []
 
     @classmethod
     def log(
@@ -42,6 +42,6 @@ class AuditLogger:
         return entry
 
     @classmethod
-    def get_logs(cls, tenant_id: str, limit: int = 50) -> List[AuditEntry]:
+    def get_logs(cls, tenant_id: str, limit: int = 50) -> list[AuditEntry]:
         tenant_logs = [log for log in cls._logs if log.tenant_id == tenant_id]
         return tenant_logs[-limit:]

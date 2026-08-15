@@ -7,10 +7,11 @@ os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from backend.app.ai.gateway.client import OllamaClient, ollama_client
+import pytest
+
+from backend.app.ai.gateway.client import OllamaClient
 
 
 class TestOllamaClient:

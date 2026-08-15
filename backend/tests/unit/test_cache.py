@@ -7,7 +7,6 @@ os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-import pytest
 
 from backend.app.cache.cache_service import CacheService
 

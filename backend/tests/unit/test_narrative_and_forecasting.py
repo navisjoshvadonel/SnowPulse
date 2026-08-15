@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
+from app.forecasting.generalized_forecaster import ForecastResult, GeneralizedForecaster
 from app.insights.narrative_engine import NarrativeEngine
-from app.forecasting.generalized_forecaster import GeneralizedForecaster, ForecastResult
 
 
 def test_narrative_engine_summary():

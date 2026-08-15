@@ -1,10 +1,12 @@
-import os
 import datetime
+import os
 import random
+
 import polars as pl
-from app.database import SessionLocal, engine, Base
-from app.models import User, Dataset
 from app.auth import get_password_hash
+from app.database import Base, SessionLocal, engine
+from app.models import Dataset, User
+
 
 def seed_demo_data():
     Base.metadata.create_all(bind=engine)
@@ -33,22 +35,22 @@ def seed_demo_data():
     csv_file_path_1 = os.path.join(local_dir, "sample_enterprise_sales.csv")
     regions = ["North America", "Europe", "APAC", "LATAM"]
     categories = ["Cloud Infrastructure", "AI Copilot", "Security Suite", "Data Warehouse"]
-    
+
     start_date = datetime.date(2025, 1, 1)
     data_1 = []
-    
+
     for i in range(150):
         current_date = start_date + datetime.timedelta(days=i * 2)
         region = random.choice(regions)
         category = random.choice(categories)
         base_rev = 12000 if region == "North America" else 8500 if region == "Europe" else 9500
-        
+
         # Inject occasional anomalies for telemetry
         anomaly_mult = 3.8 if i in [22, 55, 89, 134] else 1.0
         revenue = round(random.uniform(base_rev * 0.8, base_rev * 1.4) * anomaly_mult, 2)
         units_sold = int(revenue / random.uniform(150, 250))
         satisfaction = round(random.uniform(4.0, 5.0), 2)
-        
+
         data_1.append({
             "date": current_date.strftime("%Y-%m-%d"),
             "region": region,
@@ -84,18 +86,18 @@ def seed_demo_data():
     csv_file_path_2 = os.path.join(local_dir, "saas_customer_churn_analytics.csv")
     plan_tiers = ["Enterprise", "Pro", "Starter"]
     data_2 = []
-    
+
     for i in range(200):
         join_date = start_date + datetime.timedelta(days=random.randint(0, 300))
         tier = random.choice(plan_tiers)
         mrr = round(random.uniform(1200, 8500) if tier == "Enterprise" else random.uniform(299, 999) if tier == "Pro" else random.uniform(49, 149), 2)
         support_tickets = random.randint(0, 14)
         active_users = random.randint(1, 450)
-        
+
         # Real life dataset edge cases: missing churn scores, inconsistent regions, outliers
         churn_risk = None if i % 15 == 0 else round(random.uniform(0.05, 0.95), 2)
         region = random.choice(["North America", "USA", "Europe", "United States", "APAC", "LATAM"])
-        
+
         data_2.append({
             "customer_id": f"CUST-{1000 + i}",
             "join_date": join_date.strftime("%Y-%m-%d"),

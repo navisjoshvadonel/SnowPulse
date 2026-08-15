@@ -23,9 +23,11 @@ try:
     from backend.app.database import Base, SessionLocal, engine, get_db
     from backend.app.main import app
 except ModuleNotFoundError:
-    from app.auth import create_access_token
-    from app.database import Base, SessionLocal, engine, get_db
-    from app.main import app
+    import sys
+    sys.path.insert(0, os.path.dirname(__file__))
+    from app.auth import create_access_token  # type: ignore
+    from app.database import Base, SessionLocal, engine, get_db  # type: ignore
+    from app.main import app  # type: ignore
 
 
 
@@ -65,7 +67,7 @@ def client():
     try:
         from backend.app.limiter import limiter
     except ModuleNotFoundError:
-        from app.limiter import limiter
+        from app.limiter import limiter  # type: ignore
     limiter.enabled = False
 
     with TestClient(app) as c:
@@ -79,8 +81,8 @@ def test_user(db):
         from backend.app.auth import get_password_hash
         from backend.app.models import User
     except ModuleNotFoundError:
-        from app.auth import get_password_hash
-        from app.models import User
+        from app.auth import get_password_hash  # type: ignore
+        from app.models import User  # type: ignore
 
     user = User(
         email="testuser@snowpulse.com",

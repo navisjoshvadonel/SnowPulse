@@ -132,7 +132,7 @@ class StorageService:
         if os.path.exists(file_path):
             with open(file_path, "rb") as f:
                 return f.read()
-        
+
         # Direct path check
         if os.path.exists(object_name):
             with open(object_name, "rb") as f:

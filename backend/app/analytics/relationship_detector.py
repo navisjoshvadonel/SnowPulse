@@ -1,5 +1,5 @@
-from typing import Any, Dict, List
-import polars as pl
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -14,12 +14,12 @@ class RelationshipLink(BaseModel):
 
 class RelationshipDetector:
     @classmethod
-    def detect_relationships(cls, datasets: List[Dict[str, Any]]) -> List[RelationshipLink]:
+    def detect_relationships(cls, datasets: list[dict[str, Any]]) -> list[RelationshipLink]:
         """
         Scans uploaded datasets to auto-suggest foreign key relationships.
         e.g., customers.id = orders.customer_id
         """
-        links: List[RelationshipLink] = []
+        links: list[RelationshipLink] = []
 
         if len(datasets) < 2:
             return links

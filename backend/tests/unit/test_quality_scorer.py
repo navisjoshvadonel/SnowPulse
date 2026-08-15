@@ -15,12 +15,12 @@ from backend.app.validation.quality.quality_scorer import DataQualityScorer
 class TestDataQualityScorer:
     def test_valid_csv_with_nulls(self):
         data = (
-            "Date,Revenue,Category,Region\n"
-            "2026-06-01,100.5,A,North\n"
-            "2026-06-02,200.0,B,South\n"
-            "2026-06-03,,A,North\n"
-            "2026-06-04,150.2,B,East\n"
-        ).encode("utf-8")
+            b"Date,Revenue,Category,Region\n"
+            b"2026-06-01,100.5,A,North\n"
+            b"2026-06-02,200.0,B,South\n"
+            b"2026-06-03,,A,North\n"
+            b"2026-06-04,150.2,B,East\n"
+        )
 
         is_valid, report = DataQualityScorer.validate_and_score(data, "sales.csv")
         assert is_valid is True
@@ -36,16 +36,16 @@ class TestDataQualityScorer:
 
     def test_csv_with_outliers(self):
         data = (
-            "Date,Revenue,Category,Region\n"
-            "2026-01-01,100,A,North\n"
-            "2026-01-02,105,B,South\n"
-            "2026-01-03,110,A,East\n"
-            "2026-01-04,115,B,West\n"
-            "2026-01-05,120,A,North\n"
-            "2026-01-06,10000,B,South\n"  # Outlier
-            "2026-01-07,125,A,East\n"
-            "2026-01-08,130,B,West\n"
-        ).encode("utf-8")
+            b"Date,Revenue,Category,Region\n"
+            b"2026-01-01,100,A,North\n"
+            b"2026-01-02,105,B,South\n"
+            b"2026-01-03,110,A,East\n"
+            b"2026-01-04,115,B,West\n"
+            b"2026-01-05,120,A,North\n"
+            b"2026-01-06,10000,B,South\n"  # Outlier
+            b"2026-01-07,125,A,East\n"
+            b"2026-01-08,130,B,West\n"
+        )
 
         is_valid, report = DataQualityScorer.validate_and_score(data, "outlier_data.csv")
         assert report["total_records"] == 8
@@ -54,11 +54,11 @@ class TestDataQualityScorer:
     def test_non_sales_csv_uses_dynamic_schema(self):
         """CSVs without Date/Revenue should use dynamic schema."""
         data = (
-            "Name,Score,Grade\n"
-            "Alice,95,A\n"
-            "Bob,82,B\n"
-            "Charlie,76,C\n"
-        ).encode("utf-8")
+            b"Name,Score,Grade\n"
+            b"Alice,95,A\n"
+            b"Bob,82,B\n"
+            b"Charlie,76,C\n"
+        )
 
         is_valid, report = DataQualityScorer.validate_and_score(data, "grades.csv")
         assert report["schema_type"] == "dynamic_inferred"
@@ -78,11 +78,11 @@ class TestDataQualityScorer:
     def test_high_null_ratio_reduces_quality(self):
         """Lots of nulls should reduce quality score."""
         data = (
-            "A,B,C,D\n"
-            ",,,\n"
-            ",,,\n"
-            "1,2,3,4\n"
-        ).encode("utf-8")
+            b"A,B,C,D\n"
+            b",,,\n"
+            b",,,\n"
+            b"1,2,3,4\n"
+        )
 
         is_valid, report = DataQualityScorer.validate_and_score(data, "nulls.csv")
         assert report["quality_score"] < 90

@@ -9,8 +9,6 @@ os.environ.setdefault("ENV", "testing")
 
 import logging
 
-import structlog
-
 from backend.app.logging_config import configure_logging, logger
 
 

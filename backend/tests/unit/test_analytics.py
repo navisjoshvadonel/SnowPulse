@@ -1,5 +1,6 @@
 
 import pytest
+
 from backend.app.analytics.engine import AnalyticsEngine
 
 

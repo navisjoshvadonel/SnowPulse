@@ -8,7 +8,6 @@ tokens for any account. This version fails fast on boot instead.
 """
 import datetime
 import os
-import sys
 
 import bcrypt
 from fastapi import Response

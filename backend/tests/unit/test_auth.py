@@ -10,7 +10,6 @@ os.environ.setdefault("ENV", "testing")
 
 from unittest.mock import MagicMock
 
-import pytest
 from jose import jwt
 
 from backend.app.auth import (
@@ -25,7 +24,6 @@ from backend.app.auth import (
     set_refresh_token_cookie,
     verify_password,
 )
-
 
 # --- _require_secret ---
 

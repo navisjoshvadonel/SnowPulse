@@ -9,8 +9,6 @@ os.environ.setdefault("ENV", "testing")
 
 import datetime
 
-import pytest
-
 from backend.app.auth import get_password_hash
 from backend.app.models import Dataset, Insight, RefreshToken, User, UserDashboard
 

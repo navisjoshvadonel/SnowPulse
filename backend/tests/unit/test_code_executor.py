@@ -5,9 +5,10 @@ os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-import pytest
 import polars as pl
-from backend.app.analytics.code_executor import PolarsCodeExecutor, PolarsCodeExecutionError
+import pytest
+
+from backend.app.analytics.code_executor import PolarsCodeExecutionError, PolarsCodeExecutor
 
 
 class TestPolarsCodeExecutor:

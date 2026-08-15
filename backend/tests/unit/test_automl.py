@@ -2,12 +2,13 @@ import os
 
 import pandas as pd
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from backend.app.database import Base
 from backend.app.ml.serving import MLServing
 from backend.app.ml.trainer import MLTrainer
 from backend.app.models import Dataset
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 
 @pytest.fixture

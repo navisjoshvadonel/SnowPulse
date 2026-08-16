@@ -1,4 +1,5 @@
 import pytest
+
 from backend.app.connectors.service import ConnectorConfig, ConnectorService
 
 def test_get_sqlalchemy_uri_with_connection_string():

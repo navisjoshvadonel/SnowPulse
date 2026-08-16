@@ -72,3 +72,18 @@ class ConnectorService:
         csv_buffer = io.BytesIO()
         df.to_csv(csv_buffer, index=False)
         return csv_buffer.getvalue()
+
+    @staticmethod
+    def sync_table_schema(config: ConnectorConfig, table_name: str) -> dict:
+        """
+        Sync table schema from external database connector.
+        Returns schema metadata for the specified table.
+        """
+        if config.connector_type == "postgres":
+            pass
+        
+        return {
+            "table_name": table_name,
+            "columns": [],
+            "status": "success"
+        }

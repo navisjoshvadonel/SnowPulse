@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
+
 class ConnectorConfig(BaseModel):
     connector_type: str  # postgres, mysql, snowflake, bigquery, s3, google_sheets
     connection_string: str | None = None
@@ -60,13 +61,13 @@ class ConnectorService:
         """
         if not config.table_name:
             raise ValueError("table_name is required for syncing")
-            
+
         uri = cls.get_sqlalchemy_uri(config)
         engine = create_engine(uri)
-        
+
         # Read the table directly into a pandas DataFrame
         df = pd.read_sql_table(config.table_name, engine)
-        
+
         # Convert to CSV bytes
         csv_buffer = io.BytesIO()
         df.to_csv(csv_buffer, index=False)

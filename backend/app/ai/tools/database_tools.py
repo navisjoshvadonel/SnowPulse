@@ -137,10 +137,12 @@ class DatabaseTools:
         Provides `df` (pandas DataFrame) as a local variable.
         """
         try:
-            import pandas as pd
             import io
+
+            import pandas as pd
+
             from ...storage.service import storage_service
-            
+
             # Fetch data from MinIO or local path
             if dataset_path.startswith("minio://"):
                 bucket_name, object_name = dataset_path.replace("minio://", "").split("/", 1)
@@ -160,13 +162,13 @@ class DatabaseTools:
                 }
             }
             local_vars = {"df": df}
-            
+
             # Execute
             exec(python_code, safe_globals, local_vars)
-            
+
             # Expecting the user script to define a 'forecast_result' variable
             result = local_vars.get("forecast_result", "Script executed successfully but 'forecast_result' variable was not defined.")
-            
+
             return {
                 "success": True,
                 "result": result

@@ -230,7 +230,7 @@ class OllamaClient:
                 except Exception as e:
                     logger.error(f"Error calling Ollama chat model {current_model} (attempt {attempt}): {e}")
                     await asyncio.sleep(0.5 * (attempt + 1))
-        
+
         raise Exception("All local models failed for chat completion.")
 
 

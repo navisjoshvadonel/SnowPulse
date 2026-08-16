@@ -1,8 +1,10 @@
+import logging
+from typing import Any
+
 import polars as pl
 from pydantic import BaseModel
-from typing import Any, List, Optional
+
 from .engine import _load_df
-import logging
 
 logger = logging.getLogger("snowpulse.analytics.query_builder")
 
@@ -16,10 +18,10 @@ class QueryMetric(BaseModel):
     agg: str  # 'sum', 'avg', 'count', 'min', 'max'
 
 class QueryPayload(BaseModel):
-    dimensions: List[str] = []
-    metrics: List[QueryMetric] = []
-    filters: List[QueryFilter] = []
-    sort_by: Optional[str] = None
+    dimensions: list[str] = []
+    metrics: list[QueryMetric] = []
+    filters: list[QueryFilter] = []
+    sort_by: str | None = None
     sort_desc: bool = True
     limit: int = 100
 
@@ -32,12 +34,12 @@ class DynamicQueryEngine:
         """
         try:
             df = _load_df(file_path)
-            
+
             # Apply Filters
             for f in query.filters:
                 if f.column not in df.columns:
                     continue
-                
+
                 # Dynamic polars filtering
                 if f.op == '==':
                     df = df.filter(pl.col(f.column) == f.value)
@@ -81,7 +83,7 @@ class DynamicQueryEngine:
             # Sorting
             if query.sort_by and query.sort_by in df.columns:
                 df = df.sort(query.sort_by, descending=query.sort_desc)
-                
+
             # Limiting
             if query.limit > 0:
                 df = df.head(query.limit)

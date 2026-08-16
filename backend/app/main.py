@@ -1029,7 +1029,9 @@ def test_connector(config: ConnectorConfig, current_user: User = Depends(get_cur
 @app.post("/api/connectors/sync")
 def sync_connector(config: ConnectorConfig, table_name: str = "enterprise_table", current_user: User = Depends(get_current_user)):
     AuditLogger.log(str(current_user.id), "default_tenant", "connector_sync", f"{config.connector_type}:{table_name}")
-    return ConnectorService.sync_table_schema(config, table_name)
+    if table_name and not config.table_name:
+        config.table_name = table_name
+    return Response(content=ConnectorService.sync_table_to_storage(config), media_type="text/csv")
 
 
 @app.get("/api/analytics/lineage/{dataset_id}")

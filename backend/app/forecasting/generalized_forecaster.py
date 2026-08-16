@@ -1,5 +1,6 @@
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import polars as pl
 from pydantic import BaseModel
 
@@ -15,8 +16,8 @@ class ForecastPoint(BaseModel):
 class ForecastResult(BaseModel):
     metric_column: str
     temporal_column: str
-    historical_points: List[Dict[str, Any]]
-    forecast_points: List[ForecastPoint]
+    historical_points: list[dict[str, Any]]
+    forecast_points: list[ForecastPoint]
     scenario_multiplier: float = 1.0
     model_type: str = "Exponential Smoothing (Holt-Winters)"
 
@@ -27,7 +28,7 @@ class GeneralizedForecaster:
         cls,
         df: pl.DataFrame,
         metric_col: str,
-        temporal_col: Optional[str] = None,
+        temporal_col: str | None = None,
         periods: int = 12,
         scenario_multiplier: float = 1.0,
     ) -> ForecastResult:
@@ -57,7 +58,7 @@ class GeneralizedForecaster:
             time_labels = ["T1", "T2", "T3", "T4", "T5"]
 
         hist_points = []
-        for t, v in zip(time_labels, vals):
+        for t, v in zip(time_labels, vals, strict=False):
             hist_points.append({"ds": t, "y": v, "is_forecast": False})
 
         # Calculate Exponential Smoothing trend
@@ -70,7 +71,7 @@ class GeneralizedForecaster:
         mean_v = sum(vals) / len(vals)
         std_v = math.sqrt(sum((x - mean_v) ** 2 for x in vals) / len(vals)) if len(vals) > 1 else (mean_v * 0.1)
 
-        forecast_points: List[ForecastPoint] = []
+        forecast_points: list[ForecastPoint] = []
         last_val = vals[-1] if vals else 100.0
 
         for i in range(1, periods + 1):

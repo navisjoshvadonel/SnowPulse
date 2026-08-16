@@ -8,10 +8,10 @@ this module.
 
 from __future__ import annotations
 
-import re
 import logging
-from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+import re
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 import numpy as np
 import polars as pl
@@ -72,9 +72,9 @@ class ColumnProfile(BaseModel):
     is_primary_date: bool = False
     is_primary_category: bool = False
     is_primary_geo: bool = False
-    numeric_stats: Optional[dict[str, Optional[float]]] = None
-    top_values: Optional[list[dict[str, Any]]] = None
-    temporal_stats: Optional[dict[str, str]] = None
+    numeric_stats: dict[str, float | None] | None = None
+    top_values: list[dict[str, Any]] | None = None
+    temporal_stats: dict[str, str] | None = None
 
 
 class DataQualityReport(BaseModel):
@@ -109,9 +109,9 @@ class DatasetProfile(BaseModel):
     total_rows: int
     total_columns: int
     columns: list[ColumnProfile]
-    quality_report: Optional[DataQualityReport] = None
-    correlation_matrix: Optional[CorrelationMatrix] = None
-    mutual_information: Optional[MutualInformation] = None
+    quality_report: DataQualityReport | None = None
+    correlation_matrix: CorrelationMatrix | None = None
+    mutual_information: MutualInformation | None = None
 
 
 # Keep DatasetSchema as a thin alias for backwards compat with existing routes
@@ -119,7 +119,7 @@ class DatasetSchema(BaseModel):
     total_rows: int
     total_columns: int
     columns: list[ColumnProfile]
-    quality_report: Optional[DataQualityReport] = None
+    quality_report: DataQualityReport | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ class DatasetProfiler:
 
         return DatasetProfile(
             profile_version=PROFILE_VERSION,
-            profiled_at=datetime.now(timezone.utc).isoformat(),
+            profiled_at=datetime.now(UTC).isoformat(),
             total_rows=total_rows,
             total_columns=total_columns,
             columns=col_profiles,
@@ -499,7 +499,7 @@ class DatasetProfiler:
         cls,
         df: pl.DataFrame,
         col_profiles: list[ColumnProfile],
-    ) -> Optional[CorrelationMatrix]:
+    ) -> CorrelationMatrix | None:
         numeric_cols = [p.name for p in col_profiles if p.dtype_category == "numeric"]
         if len(numeric_cols) < 2:
             return None
@@ -531,7 +531,7 @@ class DatasetProfiler:
         df: pl.DataFrame,
         col_profiles: list[ColumnProfile],
         total_rows: int,
-    ) -> Optional[MutualInformation]:
+    ) -> MutualInformation | None:
         if total_rows > MI_ROW_LIMIT:
             logger.info("MI skipped: dataset has %d rows (limit %d)", total_rows, MI_ROW_LIMIT)
             # Return a skipped sentinel so the frontend knows
@@ -548,7 +548,7 @@ class DatasetProfiler:
             return None
 
         try:
-            from sklearn.feature_selection import mutual_info_regression  # type: ignore
+            from sklearn.feature_selection import mutual_info_regression
 
             # Candidate columns: numeric, not the target itself, not identifiers
             candidates = [
@@ -589,9 +589,9 @@ class DatasetProfiler:
 
             scores = [
                 {"column": p.name, "mi_score": round(float(s), 6)}
-                for p, s in zip(candidates, mi_scores)
+                for p, s in zip(candidates, mi_scores, strict=False)
             ]
-            scores.sort(key=lambda x: x["mi_score"], reverse=True)
+            scores.sort(key=lambda x: float(x["mi_score"]), reverse=True)
 
             return MutualInformation(
                 target_column=primary.name,
@@ -608,7 +608,7 @@ class DatasetProfiler:
     # ------------------------------------------------------------------
 
     @classmethod
-    def _calc_numeric_stats(cls, series: pl.Series) -> dict[str, Optional[float]]:
+    def _calc_numeric_stats(cls, series: pl.Series) -> dict[str, float | None]:
         clean = series.drop_nulls()
         if len(clean) == 0:
             return {"min": None, "max": None, "mean": None, "std": None,
@@ -619,11 +619,11 @@ class DatasetProfiler:
         mean_v = float(clean.mean()) if clean.mean() is not None else None
         std_v = float(clean.std()) if clean.std() is not None else None
 
-        skew_v: Optional[float] = None
+        skew_v: float | None = None
         try:
-            if len(clean) >= 3 and std_v and std_v > 0:
+            if len(clean) >= 3 and std_v and std_v > 0 and mean_v is not None:
                 median_v = float(clean.median())
-                skew_v = round(3.0 * (mean_v - median_v) / std_v, 2)  # type: ignore[operator]
+                skew_v = round(3.0 * (mean_v - median_v) / std_v, 2)
         except Exception:
             pass
 

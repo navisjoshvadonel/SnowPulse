@@ -1,14 +1,13 @@
 """Tests for backend.app.monitoring — MetricsManager, TracingManager, AlertingManager, health checks."""
 
 import os
-import time
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey")
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -23,7 +22,6 @@ from backend.app.monitoring import (
     run_readiness_check,
     tracer,
 )
-
 
 # --- MetricsManager ---
 

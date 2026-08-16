@@ -1,9 +1,10 @@
-import pytest
-from unittest.mock import MagicMock, patch
-import joblib
 import io
-import pandas as pd
+from unittest.mock import patch
+
+import joblib
 import numpy as np
+import pytest
+
 from app.forecasting.predictor import ForecastingPredictor
 
 

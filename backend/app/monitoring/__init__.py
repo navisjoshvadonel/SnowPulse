@@ -9,6 +9,9 @@ from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_late
 from ..logging_config import logger
 from .audit import AuditLogger
 
+__all__ = ["AuditLogger"]
+
+
 # --- Prometheus Metrics Definitions & Helpers ---
 def _safe_counter(name: str, documentation: str, labelnames: list[str] = ()):
     try:

@@ -1,11 +1,11 @@
 import io
-from typing import Tuple
+
 import polars as pl
 
 
 class DataCleaner:
     @classmethod
-    def sanitize_bytes(cls, raw_bytes: bytes, filename: str = "dataset.csv") -> Tuple[pl.DataFrame, dict]:
+    def sanitize_bytes(cls, raw_bytes: bytes, filename: str = "dataset.csv") -> tuple[pl.DataFrame, dict]:
         """
         Sanitizes raw uploaded file bytes:
         - Tries UTF-8, Latin-1, CP1252 encodings

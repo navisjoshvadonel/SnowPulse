@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -45,7 +45,7 @@ class AnalyticsEngine:
     this class never performs its own column-name heuristics.
     """
 
-    def __init__(self, file_path: str, profile: Optional[DatasetProfile] = None):
+    def __init__(self, file_path: str, profile: DatasetProfile | None = None):
         self.file_path = file_path
         self.df = _load_df(file_path)
         self.headers = self.df.columns
@@ -64,16 +64,16 @@ class AnalyticsEngine:
             self._profile = DatasetProfiler.profile_full(self.df)
 
         # Extract canonical column references from profile flags
-        self.metric_col: Optional[str] = next(
+        self.metric_col: str | None = next(
             (c.name for c in self._profile.columns if c.is_primary_metric), None
         )
-        self.date_col: Optional[str] = next(
+        self.date_col: str | None = next(
             (c.name for c in self._profile.columns if c.is_primary_date), None
         )
-        self.category_col: Optional[str] = next(
+        self.category_col: str | None = next(
             (c.name for c in self._profile.columns if c.is_primary_category), None
         )
-        self.geo_col: Optional[str] = next(
+        self.geo_col: str | None = next(
             (c.name for c in self._profile.columns if c.is_primary_geo), None
         )
 
@@ -330,7 +330,7 @@ class AnalyticsEngine:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def get_dataset_df(file_path: str) -> Optional[pl.DataFrame]:
+    def get_dataset_df(file_path: str) -> pl.DataFrame | None:
         try:
             return _load_df(file_path)
         except Exception:

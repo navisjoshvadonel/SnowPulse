@@ -14,11 +14,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel
 
-from .profiler import DatasetProfile
 from ..ai.gemini_service import GeminiService
+from .profiler import DatasetProfile
 
 logger = logging.getLogger("snowpulse.analytics.semantic")
 
@@ -51,13 +52,13 @@ class SemanticEnricher:
     - Human-friendly chart titles & annotations
     """
 
-    def __init__(self, gemini_service: Optional[GeminiService] = None):
+    def __init__(self, gemini_service: GeminiService | None = None):
         self.gemini = gemini_service or GeminiService()
 
     def enrich(
         self,
         profile: DatasetProfile,
-        chart_suggestions: List[Dict[str, Any]],
+        chart_suggestions: list[dict[str, Any]],
         dataset_name: str = "Dataset"
     ) -> DatasetSemanticEnrichment:
         """
@@ -162,12 +163,12 @@ Return ONLY valid JSON.
     def _fallback_enrichment(
         self,
         profile: DatasetProfile,
-        chart_suggestions: List[Dict[str, Any]],
+        chart_suggestions: list[dict[str, Any]],
         dataset_name: str
     ) -> DatasetSemanticEnrichment:
         """Deterministic rule-based fallback when Gemini API is offline or unavailable."""
         col_names = {c.name: c.name.replace("_", " ").title() for c in profile.columns}
-        
+
         primary_metric = next((c.name for c in profile.columns if c.is_primary_metric), None)
         summary = f"Dataset '{dataset_name}' contains {profile.total_rows:,} records across {len(profile.columns)} attributes."
         if primary_metric:
@@ -189,7 +190,7 @@ Return ONLY valid JSON.
             chart_type = s.get("chart", "bar")
             cols_involved = s.get("columns", [])
             col_labels = [col_names.get(c, c) for c in cols_involved]
-            
+
             title = f"{chart_type.replace('_', ' ').title()}: {' vs '.join(col_labels)}"
             subtitle = f"Visualizing relationship across {len(cols_involved)} variables."
             takeaway = "Suggested based on statistical distribution and completeness."

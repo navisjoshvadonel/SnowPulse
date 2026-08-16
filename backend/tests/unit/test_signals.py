@@ -1,5 +1,5 @@
 import polars as pl
-import pytest
+
 from backend.app.analytics.profiler import DatasetProfiler
 from backend.app.analytics.signals import SignalDetector
 

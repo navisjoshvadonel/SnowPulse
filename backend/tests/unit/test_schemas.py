@@ -13,7 +13,6 @@ from pydantic import ValidationError
 
 from backend.app.schemas import (
     DashboardCreate,
-    DashboardResponse,
     DatasetCreate,
     DatasetResponse,
     InsightResponse,

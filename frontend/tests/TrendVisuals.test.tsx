@@ -46,8 +46,8 @@ test('renders dynamic series labels based on metric', () => {
 
   render(<TrendVisuals trends={mockTrends} aiTrendNote="Trending upwards" loading={false} />)
 
-  // Verify static title
-  expect(screen.getByText('Performance Analytics')).toBeInTheDocument()
+  // Verify dynamic title
+  expect(screen.getByText('Sales Performance Trends')).toBeInTheDocument()
 
   // ECharts init should be called
   expect(echarts.init).toHaveBeenCalled()

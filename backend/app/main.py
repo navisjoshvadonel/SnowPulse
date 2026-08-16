@@ -15,8 +15,8 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
 from .ai.gemini_service import GeminiService
-from .analytics.profiler import DatasetProfile, DatasetProfiler, PROFILE_VERSION
 from .analytics.engine import AnalyticsEngine
+from .analytics.profiler import PROFILE_VERSION, DatasetProfile, DatasetProfiler
 from .auth import (
     ALGORITHM,
     JWT_REFRESH_SECRET_KEY,
@@ -34,15 +34,14 @@ from .database import Base, SessionLocal, engine, get_db
 from .dependencies import get_current_user, verify_dashboard_ownership
 from .forecasting.generalized_forecaster import GeneralizedForecaster
 from .forecasting.predictor import ForecastingPredictor
-from .insights.narrative_engine import NarrativeEngine
 from .jobs.manager import JobManager
 from .limiter import limiter
-from .monitoring.audit import AuditLogger
 from .logging_config import configure_logging, logger
 from .ml.registry import ModelRegistry
 from .ml.serving import MLServing
 from .models import Dataset, Insight, RefreshToken, User, UserDashboard
 from .monitoring import get_metrics_response, run_liveness_check, run_readiness_check
+from .monitoring.audit import AuditLogger
 from .schemas import (
     DashboardCreate,
     DashboardResponse,
@@ -334,7 +333,10 @@ def get_dataset_profile(
         dataset_id,
     )
     try:
-        import io as _io, polars as _pl
+        import io as _io
+
+        import polars as _pl
+
         from .storage.service import storage_service as _ss
         if dataset.file_path.startswith("minio://"):
             _parts = dataset.file_path.replace("minio://", "").split("/", 1)
@@ -370,7 +372,10 @@ def reprofile_dataset(
     )
 
     try:
-        import io as _io, polars as _pl
+        import io as _io
+
+        import polars as _pl
+
         from .storage.service import storage_service as _ss
         if dataset.file_path.startswith("minio://"):
             _parts = dataset.file_path.replace("minio://", "").split("/", 1)
@@ -670,6 +675,7 @@ async def upload_dataset(
     # 2b. Compute and persist DatasetProfile synchronously (fast — runs on already-read bytes)
     try:
         import io as _io
+
         import polars as _pl
         _pl_df = _pl.read_csv(_io.BytesIO(content_bytes))
         _profile = DatasetProfiler.profile_full(_pl_df)
@@ -802,73 +808,6 @@ def get_analytics_insights(
             detail=f"Failed to generate insights: {str(e)}"
         )
 
-
-@app.get("/api/datasets/{dataset_id}/profile")
-def get_dataset_profile(
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Retrieve stored DatasetProfile JSON (single source of truth).
-    """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
-    if not dataset:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
-
-    if dataset.profile_json:
-        return dataset.profile_json
-
-    # Fallback: compute synchronously and persist
-    try:
-        df = AnalyticsEngine.get_dataset_df(dataset.file_path)
-        if df is None:
-            raise HTTPException(status_code=500, detail="Could not load dataset file")
-        profile = DatasetProfiler.profile_full(df)
-        dataset.profile_json = profile.model_dump()
-        dataset.profile_version = PROFILE_VERSION
-        db.commit()
-        return dataset.profile_json
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to profile dataset: {str(e)}")
-
-
-@app.post("/api/datasets/{dataset_id}/reprofile")
-def reprofile_dataset(
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Recompute and persist DatasetProfile for a dataset.
-    """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
-    if not dataset:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
-
-    was_stale = (dataset.profile_version != PROFILE_VERSION) if dataset.profile_version else True
-    try:
-        df = AnalyticsEngine.get_dataset_df(dataset.file_path)
-        if df is None:
-            raise HTTPException(status_code=500, detail="Could not load dataset file")
-        profile = DatasetProfiler.profile_full(df)
-        dataset.profile_json = profile.model_dump()
-        dataset.profile_version = PROFILE_VERSION
-        db.commit()
-        return {
-            "status": "success",
-            "was_stale": was_stale,
-            "profile_version": PROFILE_VERSION,
-            "profile": dataset.profile_json
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Reprofiling failed: {str(e)}")
-
-
 @app.get("/api/datasets/{dataset_id}/suggestions")
 @limiter.limit("30/minute")
 def get_dataset_chart_suggestions(
@@ -899,10 +838,10 @@ def get_dataset_chart_suggestions(
         # 1. Deterministic profile & rules_engine chart candidates (Fast, free, reliable)
         _profile_dict = dataset.profile_json or DatasetProfiler.profile_full(df).model_dump()
         profile = DatasetProfile.model_validate(_profile_dict)
-        
-        from .analytics.suggestions import suggest_charts
+
         from .analytics.semantic_enricher import SemanticEnricher
-        
+        from .analytics.suggestions import suggest_charts
+
         raw_suggestions = suggest_charts(df, profile, top_n=5)
 
         # 2. Gemini Soft Semantic Layer (Titles, human summaries, relationship callouts)
@@ -1022,7 +961,7 @@ def run_generalized_forecast(
 
     if dataset and dataset.file_path and os.path.exists(dataset.file_path):
         try:
-            df = analytics_engine.get_dataset_df(dataset.file_path)
+            df = AnalyticsEngine.get_dataset_df(dataset.file_path)
             if df is not None and metric_col in df.columns:
                 res = GeneralizedForecaster.forecast(df, metric_col, temporal_col, periods, multiplier)
                 return res.dict()

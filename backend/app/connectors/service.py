@@ -1,23 +1,24 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel
 
 
 class ConnectorConfig(BaseModel):
     connector_type: str  # postgres, mysql, snowflake, bigquery, s3, google_sheets
-    connection_string: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    database: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    bucket_url: Optional[str] = None
-    sheet_id: Optional[str] = None
+    connection_string: str | None = None
+    host: str | None = None
+    port: int | None = None
+    database: str | None = None
+    username: str | None = None
+    password: str | None = None
+    bucket_url: str | None = None
+    sheet_id: str | None = None
     sync_frequency: str = "daily"  # hourly, daily, weekly, manual
 
 
 class ConnectorService:
     @classmethod
-    def test_connection(cls, config: ConnectorConfig) -> Dict[str, Any]:
+    def test_connection(cls, config: ConnectorConfig) -> dict[str, Any]:
         """
         Validates connectivity to external data source.
         """
@@ -29,7 +30,7 @@ class ConnectorService:
         }
 
     @classmethod
-    def sync_table_schema(cls, config: ConnectorConfig, table_name: str) -> Dict[str, Any]:
+    def sync_table_schema(cls, config: ConnectorConfig, table_name: str) -> dict[str, Any]:
         """
         Auto-detects schema without requiring manual column mappings.
         """

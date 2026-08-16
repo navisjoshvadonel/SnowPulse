@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 from backend.app.ai.gemini_service import GeminiService
 
-
 MOCK_STATS_CONTEXT = """Primary target metric: Revenue
 Total rows: 100
 Total aggregate value: 50,000.00
@@ -95,7 +94,7 @@ class TestGeminiContextCaching:
     def test_record_usage_counts_cached_content_tokens(self):
         service = GeminiService()
         initial_cached = service.cached_tokens_saved
-        
+
         class MockUsageMetadata:
             total_token_count = 500
             cached_content_token_count = 350

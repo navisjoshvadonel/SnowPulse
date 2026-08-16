@@ -8,11 +8,8 @@ os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-import pytest
 
-from backend.app.auth import create_access_token, get_password_hash
-from backend.app.models import Dataset, Insight, User, UserDashboard
-
+from backend.app.models import Dataset, Insight
 
 # --- Registration ---
 

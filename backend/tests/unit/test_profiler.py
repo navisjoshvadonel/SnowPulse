@@ -1,6 +1,7 @@
 import polars as pl
-import pytest
+
 from app.analytics.profiler import DatasetProfiler
+
 
 def test_profiler_sales_dataset():
     df = pl.DataFrame({

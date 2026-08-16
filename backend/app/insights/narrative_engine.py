@@ -1,10 +1,11 @@
-from typing import Any, Dict, List
+from typing import Any
+
 import polars as pl
 
 
 class NarrativeEngine:
     @classmethod
-    def generate_narrative_summary(cls, df: pl.DataFrame, schema: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_narrative_summary(cls, df: pl.DataFrame, schema: dict[str, Any]) -> dict[str, Any]:
         """
         Ranks insights by statistical significance & magnitude of change,
         and provides causal explanations ("why" it changed, not just "what").
@@ -33,7 +34,7 @@ class NarrativeEngine:
                     "type": "headline",
                     "title": f"Primary Metric Overview ({primary_metric})",
                     "significance_score": 0.98,
-                    "narrative": f"Across {df.height} records, {primary_metric} recorded a mean of {mean_val:,.2f} with peak at {max_val:,.2f}."
+                    "narrative": f"Across {df.height} records, {primary_metric} recorded a mean of {mean_val:,.2f} (min: {min_val:,.2f}, max: {max_val:,.2f})."
                 })
 
                 # 2. Causal Anomaly Factor Analysis across dimensions

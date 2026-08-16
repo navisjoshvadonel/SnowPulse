@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any
 
-import redis  # type: ignore[import-untyped]
+import redis
 
 from ..logging_config import logger
 

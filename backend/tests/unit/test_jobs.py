@@ -7,7 +7,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

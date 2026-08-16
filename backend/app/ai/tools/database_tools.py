@@ -131,6 +131,51 @@ class DatabaseTools:
             return {"success": False, "error": str(e)}
 
     @staticmethod
+    def run_python_forecast(dataset_path: str, python_code: str) -> dict[str, Any]:
+        """
+        Executes custom Python code using pandas/polars on the dataset for ad-hoc forecasting.
+        Provides `df` (pandas DataFrame) as a local variable.
+        """
+        try:
+            import pandas as pd
+            import io
+            from ...storage.service import storage_service
+            
+            # Fetch data from MinIO or local path
+            if dataset_path.startswith("minio://"):
+                bucket_name, object_name = dataset_path.replace("minio://", "").split("/", 1)
+                data_bytes = storage_service.get_file(bucket_name, object_name)
+                df = pd.read_csv(io.BytesIO(data_bytes))
+            else:
+                df = pd.read_csv(dataset_path)
+
+            # Restrict harmful builtins
+            safe_globals = {
+                "pd": pd,
+                "__builtins__": {
+                    "print": print, "range": range, "len": len,
+                    "sum": sum, "min": min, "max": max, "abs": abs,
+                    "float": float, "int": int, "str": str, "list": list, "dict": dict,
+                    "Exception": Exception
+                }
+            }
+            local_vars = {"df": df}
+            
+            # Execute
+            exec(python_code, safe_globals, local_vars)
+            
+            # Expecting the user script to define a 'forecast_result' variable
+            result = local_vars.get("forecast_result", "Script executed successfully but 'forecast_result' variable was not defined.")
+            
+            return {
+                "success": True,
+                "result": result
+            }
+        except Exception as e:
+            logger.error("run_python_forecast_error", path=dataset_path, error=str(e))
+            return {"success": False, "error": str(e)}
+
+    @staticmethod
     def get_forecast_scenarios(dataset_id: int, steps: int = 30) -> dict[str, Any]:
         """
         Runs statsmodels prediction model and builds optimistic/pessimistic comparison ranges.

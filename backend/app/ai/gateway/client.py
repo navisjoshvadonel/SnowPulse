@@ -189,6 +189,51 @@ class OllamaClient:
             logger.critical(f"Gemini fallback failed: {e}. Executing rule-based offline fallback summary.")
             return self._rule_based_fallback(prompt)
 
+    async def chat(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        retries: int = 0
+    ) -> dict[str, Any]:
+        """
+        Synchronous/blocking chat completion from Ollama, supporting function calling (tools).
+        """
+        models_to_try = [model] if model else [self.primary_model, self.fallback_1, self.fallback_2]
+
+        for attempt in range(retries + 1):
+            for current_model in models_to_try:
+                try:
+                    if not await self.ensure_model_pulled(current_model):
+                        logger.info(f"Skipping model {current_model} because it is not pulled yet.")
+                        continue
+
+                    payload = {
+                        "model": current_model,
+                        "messages": messages,
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.1,
+                            "top_p": 0.9
+                        }
+                    }
+                    if tools:
+                        payload["tools"] = tools
+
+                    async with httpx.AsyncClient(timeout=self.timeout) as client:
+                        res = await client.post(f"{self.base_url}/api/chat", json=payload)
+                        if res.status_code == 200:
+                            resp_json = res.json()
+                            return resp_json.get("message", {})
+                        else:
+                            logger.warning(f"Ollama {current_model} chat call returned status {res.status_code}")
+                except Exception as e:
+                    logger.error(f"Error calling Ollama chat model {current_model} (attempt {attempt}): {e}")
+                    await asyncio.sleep(0.5 * (attempt + 1))
+        
+        raise Exception("All local models failed for chat completion.")
+
+
     async def generate_stream(
         self,
         prompt: str,

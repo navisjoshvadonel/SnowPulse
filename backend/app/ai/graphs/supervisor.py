@@ -132,24 +132,64 @@ async def forecast_agent_node(state: AgentState) -> dict[str, Any]:
     query = state["query"]
     context = state["context"]
     dataset_id = context.get("dataset_id")
+    dataset_path = context.get("dataset_path")
 
     forecast_data = {}
     if dataset_id:
         forecast_data = DatabaseTools.get_forecast_scenarios(dataset_id)
 
-    prompt = f"""
-Query: "{query}"
-Forecast Scenarios:
-{json.dumps(forecast_data, indent=2)}
-"""
     agent_prompt = AGENTS_REGISTRY["forecast_agent"]["prompt"].format(context=json.dumps(forecast_data))
 
-    response = await ollama_client.generate(prompt, agent_prompt)
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "run_python_forecast",
+                "description": "Execute a Python script using Pandas to perform custom ad-hoc forecasting on the dataset. The DataFrame is provided as a local variable named 'df'. You MUST assign your final output to a variable named 'forecast_result'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "python_code": {
+                            "type": "string",
+                            "description": "The python code to execute. Example: forecast_result = df['sales'].sum()"
+                        }
+                    },
+                    "required": ["python_code"]
+                }
+            }
+        }
+    ]
+
+    messages = [
+        {"role": "system", "content": agent_prompt},
+        {"role": "user", "content": f'Query: "{query}"\nForecast Scenarios:\n{json.dumps(forecast_data, indent=2)}'}
+    ]
+
+    response_msg = await ollama_client.chat(messages=messages, tools=tools)
+
+    response_text = response_msg.get("content", "")
+    citations = list(state["citations"])
+
+    # Handle tool calls
+    if response_msg.get("tool_calls"):
+        tool_results = []
+        for tc in response_msg["tool_calls"]:
+            if tc["function"]["name"] == "run_python_forecast" and dataset_path:
+                code = tc["function"]["arguments"].get("python_code", "")
+                result = DatabaseTools.run_python_forecast(dataset_path, code)
+                tool_results.append(f"Result from python script: {result}")
+                citations.append({
+                    "source": "Python Code Execution Tool",
+                    "type": "agent_tool",
+                    "details": "Ran dynamic python code for forecast generation."
+                })
+
+        if tool_results:
+            response_text += "\n\n**Agent utilized Custom Python Tool**:\n" + "\n".join(tool_results)
 
     outputs = dict(state["agent_outputs"])
-    outputs["forecast_agent"] = response
+    outputs["forecast_agent"] = response_text
 
-    citations = list(state["citations"])
     if dataset_id:
         citations.append({
             "source": f"Statsmodels Prediction Engine (Dataset ID {dataset_id})",

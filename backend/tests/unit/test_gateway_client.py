@@ -87,3 +87,24 @@ class TestOllamaClient:
         reply = await client.generate_text("Hello")
         assert "degraded" in reply.lower() or "offline" in reply.lower()
 
+    @patch.object(OllamaClient, "ensure_model_pulled", return_value=True)
+    @patch("backend.app.ai.gateway.client.httpx.AsyncClient.post")
+    @pytest.mark.asyncio
+    async def test_chat_success(self, mock_post, mock_pull):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"message": {"content": "Hello from Chat!"}}
+        mock_post.return_value = mock_response
+
+        client = OllamaClient()
+        reply = await client.chat([{"role": "user", "content": "Hi"}])
+        assert reply == {"content": "Hello from Chat!"}
+
+    @patch.object(OllamaClient, "ensure_model_pulled", return_value=True)
+    @patch("backend.app.ai.gateway.client.httpx.AsyncClient.post")
+    @pytest.mark.asyncio
+    async def test_chat_failure(self, mock_post, mock_pull):
+        mock_post.side_effect = Exception("Connection error")
+        client = OllamaClient()
+        with pytest.raises(Exception, match="All local models failed for chat completion."):
+            await client.chat([{"role": "user", "content": "Hi"}])

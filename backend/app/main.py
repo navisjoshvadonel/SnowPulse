@@ -715,7 +715,7 @@ async def import_external_dataset(
     """
     if config.connector_type != "postgres":
         raise HTTPException(status_code=400, detail="Currently only 'postgres' connector is fully implemented.")
-        
+
     try:
         content_bytes = ConnectorService.sync_table_to_storage(config)
     except Exception as e:
@@ -754,6 +754,7 @@ async def import_external_dataset(
     # 2b. Compute and persist DatasetProfile synchronously
     try:
         import io as _io
+
         import polars as _pl
         _pl_df = _pl.read_csv(_io.BytesIO(content_bytes))
         _profile = DatasetProfiler.profile_full(_pl_df)
@@ -791,7 +792,7 @@ def execute_dynamic_query(
     db: Session = Depends(get_db)
 ):
     """
-    Execute a dynamic JSON query against the dataset. 
+    Execute a dynamic JSON query against the dataset.
     Allows custom aggregations, group bys, and filtering.
     """
     # Verify dataset ownership
@@ -799,7 +800,7 @@ def execute_dynamic_query(
         Dataset.id == dataset_id,
         Dataset.owner_id == current_user.id
     ).first()
-    
+
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found or unauthorized")
 

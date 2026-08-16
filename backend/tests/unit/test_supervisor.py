@@ -78,7 +78,7 @@ class TestSupervisorGraph:
         from backend.app.ai.graphs.supervisor import forecast_agent_node
 
         mock_forecast.return_value = {"success": True, "forecast_points": []}
-        mock_chat.return_value = {"message": {"content": "Forecast is stable."}}
+        mock_chat.return_value = {"content": "Forecast is stable."}
 
         state: AIState = {
             "query": "Give me a forecast",

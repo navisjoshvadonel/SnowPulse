@@ -1,7 +1,9 @@
-import pytest
-import polars as pl
-from backend.app.analytics.query_builder import QueryPayload, QueryFilter, QueryMetric, DynamicQueryEngine
 from unittest.mock import patch
+
+import polars as pl
+
+from backend.app.analytics.query_builder import DynamicQueryEngine, QueryFilter, QueryMetric, QueryPayload
+
 
 @patch("backend.app.analytics.query_builder._load_df")
 def test_dynamic_query_engine_basic(mock_load_df):
@@ -23,12 +25,12 @@ def test_dynamic_query_engine_basic(mock_load_df):
     )
 
     result = DynamicQueryEngine.execute_query("dummy_path", payload)
-    
+
     assert result["success"] is True
     assert result["total_rows"] == 3
     assert "category" in result["columns"]
     assert "value_sum" in result["columns"]
-    
+
     # Check data sorted correctly
     data = result["data"]
     assert data[0]["category"] == "A"
@@ -62,6 +64,6 @@ def test_dynamic_query_engine_error(mock_load_df):
 
     payload = QueryPayload()
     result = DynamicQueryEngine.execute_query("dummy_path", payload)
-    
+
     assert result["success"] is False
     assert result["error"] == "File read error"

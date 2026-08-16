@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from .ai.gemini_service import GeminiService
 from .analytics.engine import AnalyticsEngine
 from .analytics.profiler import PROFILE_VERSION, DatasetProfile, DatasetProfiler
+from .analytics.query_builder import DynamicQueryEngine, QueryPayload
 from .auth import (
     ALGORITHM,
     JWT_REFRESH_SECRET_KEY,
@@ -778,6 +779,35 @@ async def import_external_dataset(
 
     db_dataset.job_id = job_id
     return db_dataset
+
+
+@app.post("/api/datasets/{dataset_id}/query")
+@limiter.limit("120/minute")
+def execute_dynamic_query(
+    request: Request,
+    dataset_id: int,
+    query: QueryPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Execute a dynamic JSON query against the dataset. 
+    Allows custom aggregations, group bys, and filtering.
+    """
+    # Verify dataset ownership
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id,
+        Dataset.owner_id == current_user.id
+    ).first()
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found or unauthorized")
+
+    result = DynamicQueryEngine.execute_query(dataset.file_path, query)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+
+    return result
 
 
 @app.get("/api/analytics/summary/{dataset_id}")

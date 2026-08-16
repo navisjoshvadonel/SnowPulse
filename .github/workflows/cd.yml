@@ -46,7 +46,7 @@ jobs:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
     needs: [ validate-production-ready ]
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.DOCKER_REGISTRY_USERNAME != ''
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     strategy:
       matrix:
         service: [ backend, frontend ]

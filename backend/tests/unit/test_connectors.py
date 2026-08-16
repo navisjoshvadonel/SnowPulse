@@ -1,5 +1,7 @@
 import pytest
+
 from backend.app.connectors.service import ConnectorConfig, ConnectorService
+
 
 def test_get_sqlalchemy_uri_with_connection_string():
     config = ConnectorConfig(connector_type="postgres", connection_string="postgresql://user:pass@localhost:5432/db")

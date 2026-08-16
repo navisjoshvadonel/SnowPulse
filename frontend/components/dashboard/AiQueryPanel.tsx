@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Sparkles, Send, Bot, User, Loader2 } from "lucide-react";
+import GenerativeWidget from "./GenerativeWidget";
 
 const placeholders = [
   "What is the root cause of the API latency spike?",
@@ -17,6 +18,7 @@ export default function AiQueryPanel() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
+  const [generativePayload, setGenerativePayload] = useState<any | null>(null);
   
   // Typewriter effect for placeholder
   useEffect(() => {
@@ -55,21 +57,20 @@ export default function AiQueryPanel() {
     setQuery(finalQuery);
     setIsSubmitting(true);
     setResponse(null);
+    setGenerativePayload(null);
 
     // Simulate SSE streaming response
     try {
       // In a real scenario, this would be a fetch with ReadableStream or EventSource
       // const res = await fetch('/api/ai/query', { method: 'POST', body: JSON.stringify({ prompt: finalQuery }) });
       
-      let simulatedResponse = `Analyzing systems for: "${finalQuery}"...\n\n`;
+      let simulatedResponse = `Analyzing datasets for: "${finalQuery}"...\n\n`;
       setResponse(simulatedResponse);
       
       const parts = [
-        "Based on recent telemetry, ",
-        "the worker queue has 142 pending jobs ",
-        "which is a 12% increase from the baseline. ",
-        "However, API latency remains stable at 42ms p50. ",
-        "No critical anomalies detected in the last 24h window."
+        "Based on the dataset metadata and your request, I generated a dynamic query. ",
+        "The system has executed the Polars-based query engine. ",
+        "Here is the generated interactive visual: "
       ];
       
       for (let i = 0; i < parts.length; i++) {
@@ -77,6 +78,20 @@ export default function AiQueryPanel() {
         simulatedResponse += parts[i];
         setResponse(simulatedResponse);
       }
+      
+      // Simulate backend JSON payload from Phase 3: Dynamic Query Engine
+      setGenerativePayload({
+        title: "Dynamic AI Insight",
+        columns: ["category", "value", "growth"],
+        data: [
+          { category: "Enterprise", value: 1200, growth: 12 },
+          { category: "Mid-Market", value: 800, growth: 5 },
+          { category: "SMB", value: 400, growth: 2 },
+          { category: "Startup", value: 650, growth: 15 }
+        ],
+        total_rows: 4
+      });
+      
     } catch (err) {
       setResponse("Failed to communicate with AI core.");
     } finally {
@@ -159,6 +174,12 @@ export default function AiQueryPanel() {
                 </div>
               )}
             </div>
+            
+            {generativePayload && (
+              <div className="mt-6">
+                <GenerativeWidget payload={generativePayload} type="bar" />
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from pgvector.sqlalchemy import Vector
 
 revision: str = "0000000000"
 down_revision: str | None = None
@@ -91,12 +92,16 @@ def upgrade() -> None:
     op.create_table(
         "semantic_memory",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("dataset_id", sa.Integer(), nullable=True),
+        sa.Column("category", sa.String(length=50), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("source", sa.String(), nullable=True),
-        sa.Column("embedding", sa.Numeric(precision=384), nullable=True),
+        sa.Column("metadata_json", sa.JSON(), nullable=True),
+        sa.Column("embedding", Vector(dim=384), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
     )
     op.create_index("ix_semantic_memory_id", "semantic_memory", ["id"], unique=False)
+    op.create_index("ix_semantic_memory_user_id", "semantic_memory", ["user_id"], unique=False)
 
 
 def downgrade() -> None:

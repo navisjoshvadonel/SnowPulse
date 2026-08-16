@@ -82,7 +82,7 @@ jobs:
         with:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
-          push: true
+          push: ${{ env.REGISTRY_USERNAME != '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -94,7 +94,6 @@ jobs:
     needs: [ validate-production-ready ]
     steps:
       - name: Checkout Code
-
         uses: actions/checkout@v4
       - name: Set up Docker Buildx        
         uses: docker/setup-buildx-action@v3 
@@ -104,14 +103,21 @@ jobs:
         run: docker compose build
 
       - name: Start Docker Compose Stack
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
-          REDIS_PASSWORD: ${{ secrets.PRODUCTION_REDIS_PASSWORD }}
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-          MINIO_ROOT_PASSWORD: ${{ secrets.PRODUCTION_MINIO_PASSWORD }}
-          MEILI_MASTER_KEY: ${{ secrets.PRODUCTION_MEILI_KEY }}
         run: |
+          export DB_PASSWORD="${{ secrets.PRODUCTION_DB_PASSWORD }}"
+          export REDIS_PASSWORD="${{ secrets.PRODUCTION_REDIS_PASSWORD }}"
+          export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
+          export MINIO_ROOT_PASSWORD="${{ secrets.PRODUCTION_MINIO_PASSWORD }}"
+          export MEILI_MASTER_KEY="${{ secrets.PRODUCTION_MEILI_KEY }}"
+          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+
+          [ -z "$DB_PASSWORD" ] && export DB_PASSWORD="change_me_in_production"
+          [ -z "$REDIS_PASSWORD" ] && export REDIS_PASSWORD="change_me_in_production"
+          [ -z "$JWT_SECRET_KEY" ] && export JWT_SECRET_KEY="change_me_in_production_jwt_secret_key_1234"
+          [ -z "$MINIO_ROOT_PASSWORD" ] && export MINIO_ROOT_PASSWORD="change_me_in_production"
+          [ -z "$MEILI_MASTER_KEY" ] && export MEILI_MASTER_KEY="change_me_in_production"
+          [ -z "$GEMINI_API_KEY" ] && export GEMINI_API_KEY="mock"
+
           docker compose up -d
           echo "⏳ Waiting 40 seconds for services to stabilize..."
           sleep 40

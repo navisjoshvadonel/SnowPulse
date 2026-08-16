@@ -46,14 +46,18 @@ export default function GenerativeWidget({ payload, type = "auto" }: GenerativeW
     const categoryCol = catCols[0] || columns[0];
     const xAxisData = data.map((row) => row[categoryCol]);
     
-    const series = numericCols.map((col) => ({
-      name: col,
-      type: renderType,
-      data: data.map((row) => row[col]),
-      smooth: renderType === "line",
-      itemStyle: { borderRadius: renderType === "bar" ? [4, 4, 0, 0] : 0 },
-      emphasis: { focus: 'series' }
-    }));
+    let series: echarts.SeriesOption[] = [];
+
+    if (renderType !== "pie") {
+      series = numericCols.map((col) => ({
+        name: col,
+        type: renderType as "bar" | "line",
+        data: data.map((row) => row[col]),
+        smooth: renderType === "line",
+        itemStyle: { borderRadius: renderType === "bar" ? [4, 4, 0, 0] : 0 },
+        emphasis: { focus: 'series' }
+      }));
+    }
 
     if (renderType === "pie") {
        const pieData = data.map((row) => ({ name: row[categoryCol], value: row[numericCols[0]] }));

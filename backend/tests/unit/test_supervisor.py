@@ -72,13 +72,13 @@ class TestSupervisorGraph:
         assert "Data quality is excellent" in new_state["agent_outputs"]["dataset_agent"]
 
     @patch("backend.app.ai.graphs.supervisor.DatabaseTools.get_forecast_scenarios")
-    @patch("backend.app.ai.graphs.supervisor.ollama_client.generate")
+    @patch("backend.app.ai.graphs.supervisor.ollama_client.chat")
     @pytest.mark.asyncio
-    async def test_forecaster_node(self, mock_generate, mock_forecast):
-        from backend.app.ai.graphs.supervisor import forecaster_node
+    async def test_forecaster_node(self, mock_chat, mock_forecast):
+        from backend.app.ai.graphs.supervisor import forecast_agent_node
 
         mock_forecast.return_value = {"success": True, "forecast_points": []}
-        mock_generate.return_value = "Forecast is stable."
+        mock_chat.return_value = {"message": {"content": "Forecast is stable."}}
 
         state: AIState = {
             "query": "Give me a forecast",
@@ -91,7 +91,7 @@ class TestSupervisorGraph:
             "final_response": None
         }
 
-        new_state = await forecaster_node(state)
+        new_state = await forecast_agent_node(state)
         assert "forecast_agent" in new_state["agent_outputs"]
         assert "Forecast is stable" in new_state["agent_outputs"]["forecast_agent"]
 

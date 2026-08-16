@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-
 from app.ml.features import FeaturePipeline
 
 

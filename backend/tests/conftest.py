@@ -23,10 +23,9 @@ try:
     from backend.app.database import Base, SessionLocal, engine, get_db
     from backend.app.main import app
 except ModuleNotFoundError:
-    from app.auth import create_access_token
-    from app.database import Base, SessionLocal, engine, get_db
-    from app.main import app
-
+    from app.auth import create_access_token  # type: ignore[no-redef]
+    from app.database import Base, SessionLocal, engine, get_db  # type: ignore[no-redef]
+    from app.main import app  # type: ignore[no-redef]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -65,7 +64,7 @@ def client():
     try:
         from backend.app.limiter import limiter
     except ModuleNotFoundError:
-        from app.limiter import limiter
+        from app.limiter import limiter  # type: ignore[no-redef]
     limiter.enabled = False
 
     with TestClient(app) as c:
@@ -79,8 +78,8 @@ def test_user(db):
         from backend.app.auth import get_password_hash
         from backend.app.models import User
     except ModuleNotFoundError:
-        from app.auth import get_password_hash
-        from app.models import User
+        from app.auth import get_password_hash  # type: ignore[no-redef]
+        from app.models import User  # type: ignore[no-redef]
 
     user = User(
         email="testuser@snowpulse.com",

@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
-
 from app.ml.serving import MLServing
 
 

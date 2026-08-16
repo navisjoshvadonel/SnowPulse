@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
-
 from app.cache.cache_service import cache_service
 from app.jobs.manager import JobManager
 from app.ml.features import FeaturePipeline

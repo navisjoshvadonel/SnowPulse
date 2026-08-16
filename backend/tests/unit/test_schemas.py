@@ -123,7 +123,7 @@ class TestJobSchemas:
             queue="ml",
             arguments={"epochs": 10},
         )
-        assert j.arguments["epochs"] == 10
+        assert j.arguments is not None and j.arguments["epochs"] == 10
 
     def test_job_status_response(self):
         j = JobStatusResponse(

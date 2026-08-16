@@ -81,7 +81,7 @@ class ConnectorService:
         """
         if config.connector_type == "postgres":
             pass
-        
+
         return {
             "table_name": table_name,
             "columns": [],

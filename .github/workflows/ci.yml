@@ -202,7 +202,11 @@ jobs:
 
           # Run Alembic migrations to create all tables before starting the app
           cd backend
-          alembic upgrade head || echo "WARNING: alembic migrations failed, tables may be missing"
+          if ! DATABASE_URL="postgresql://postgres:testpass@localhost:5432/snowpulse" alembic upgrade head; then
+            echo "❌ Alembic migrations failed — aborting backend startup"
+            exit 1
+          fi
+          echo "✓ Database migrations completed successfully"
           cd ..
 
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &

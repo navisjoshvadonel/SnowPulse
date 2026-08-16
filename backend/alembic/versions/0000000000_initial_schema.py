@@ -1,12 +1,8 @@
-"""Initial schema — create all base tables
+"""Initial schema — create base tables before alter migrations
 
 Revision ID: 0000000000
 Revises:
 Create Date: 2026-08-16
-
-This migration creates the foundational tables that all subsequent ALTER
-migrations depend on. It runs first (down_revision = None) and the former
-first migration (8def80638f06) is re-chained to depend on this one.
 """
 
 from collections.abc import Sequence
@@ -21,13 +17,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Enable pgvector extension (no-op if already enabled)
+    # Enable pgvector extension
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
-
-    # NOTE: Do NOT use index=True or unique=True on Column() defs inside
-    # op.create_table() — those flags cause SQLAlchemy to auto-generate an
-    # anonymous index, which then conflicts with the explicit named
-    # op.create_index() calls below, producing DuplicateTable errors.
 
     # ── users ────────────────────────────────────────────────────────────────
     op.create_table(
@@ -43,10 +34,10 @@ def upgrade() -> None:
     op.create_index("ix_users_email", "users", ["email"], unique=True)
 
     # ── datasets ─────────────────────────────────────────────────────────────
+    # Created without owner_id; fa07d17f079b adds owner_id & changes index.
     op.create_table(
         "datasets",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("owner_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("description", sa.String(), nullable=True),
         sa.Column("file_path", sa.String(), nullable=False),
@@ -54,7 +45,6 @@ def upgrade() -> None:
     )
     op.create_index("ix_datasets_id", "datasets", ["id"], unique=False)
     op.create_index("ix_datasets_name", "datasets", ["name"], unique=True)
-    op.create_index("ix_datasets_owner_id", "datasets", ["owner_id"], unique=False)
 
     # ── user_dashboards ───────────────────────────────────────────────────────
     op.create_table(
@@ -98,8 +88,6 @@ def upgrade() -> None:
     op.create_index("ix_insights_id", "insights", ["id"], unique=False)
 
     # ── semantic_memory ───────────────────────────────────────────────────────
-    # Created as NUMERIC initially; the fa07d17f079b migration converts it to
-    # pgvector.Vector(384) — preserve that upgrade chain by using NUMERIC here.
     op.create_table(
         "semantic_memory",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),

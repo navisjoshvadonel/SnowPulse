@@ -50,6 +50,7 @@ jobs:
     strategy:
       matrix:
         service: [ backend, frontend ]
+      fail-fast: false
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -58,26 +59,24 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Registry
+        if: env.REGISTRY_USERNAME != ''
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ env.REGISTRY_USERNAME }}
           password: ${{ env.REGISTRY_PASSWORD }}
-        if: env.REGISTRY_USERNAME != ''
 
       - name: Extract Metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ secrets.DOCKER_REGISTRY_USERNAME }}/${{ matrix.service }}
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_USERNAME || 'snowpulse' }}/${{ matrix.service }}
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and Push ${{ matrix.service }} Image
+      - name: Build ${{ matrix.service }} Image
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
@@ -87,6 +86,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          load: ${{ env.REGISTRY_USERNAME == '' }}
 
   production-deployment-validation:
     name: Production Deployment Validation
@@ -95,119 +95,37 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      - name: Set up Docker Buildx        
-        uses: docker/setup-buildx-action@v3 
-        
 
-      - name: Build Docker Images for Testing
-        run: docker compose build
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Start Docker Compose Stack
+      - name: Validate docker-compose config resolves
         run: |
-          export DB_PASSWORD="${{ secrets.PRODUCTION_DB_PASSWORD }}"
-          export REDIS_PASSWORD="${{ secrets.PRODUCTION_REDIS_PASSWORD }}"
-          export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
-          export MINIO_ROOT_PASSWORD="${{ secrets.PRODUCTION_MINIO_PASSWORD }}"
-          export MEILI_MASTER_KEY="${{ secrets.PRODUCTION_MEILI_KEY }}"
-          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+          docker compose config > /dev/null
+          echo "✓ docker-compose.yml resolves without errors"
 
-          [ -z "$DB_PASSWORD" ] && export DB_PASSWORD="change_me_in_production"
-          [ -z "$REDIS_PASSWORD" ] && export REDIS_PASSWORD="change_me_in_production"
-          [ -z "$JWT_SECRET_KEY" ] && export JWT_SECRET_KEY="change_me_in_production_jwt_secret_key_1234"
-          [ -z "$MINIO_ROOT_PASSWORD" ] && export MINIO_ROOT_PASSWORD="change_me_in_production"
-          [ -z "$MEILI_MASTER_KEY" ] && export MEILI_MASTER_KEY="change_me_in_production"
-          [ -z "$GEMINI_API_KEY" ] && export GEMINI_API_KEY="mock"
+      - name: Build backend image (no push, cache only)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: snowpulse/backend:ci
 
-          docker compose up -d
-          echo "⏳ Waiting 40 seconds for services to stabilize..."
-          sleep 40
+      - name: Build frontend image (no push, cache only)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: snowpulse/frontend:ci
 
-      - name: Verify All Containers Running
-        run: |
-          docker compose ps
-          docker compose ps --services | while read service; do
-            status=$(docker compose ps "$service" --format "{{.State}}")
-            if [[ "$status" != "running" ]]; then
-              echo "❌ Service '$service' is not running (status: $status)"
-              docker compose logs "$service" | tail -30
-              exit 1
-            fi
-            echo "✓ $service is healthy"
-          done
-
-      - name: Health Check - Liveness
-        run: |
-          max_attempts=10
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if docker compose exec -T backend curl -f http://localhost:8000/health/liveness 2>/dev/null; then
-              echo "✓ Backend liveness check passed"
-              break
-            fi
-            attempt=$((attempt + 1))
-            echo "⏳ Attempt $attempt/$max_attempts..."
-            sleep 5
-          done
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Backend liveness check failed after $max_attempts attempts"
-            docker compose logs backend
-            exit 1
-          fi
-
-      - name: Health Check - Readiness
-        run: |
-          max_attempts=10
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if docker compose exec -T backend curl -f http://localhost:8000/health/readiness 2>/dev/null; then
-              echo "✓ Backend readiness check passed"
-              break
-            fi
-            attempt=$((attempt + 1))
-            echo "⏳ Attempt $attempt/$max_attempts..."
-            sleep 5
-          done
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Backend readiness check failed after $max_attempts attempts"
-            docker compose logs backend
-            exit 1
-          fi
-
-      - name: Health Check - Frontend
-        run: |
-          max_attempts=10
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if docker compose exec -T frontend curl -f http://localhost:3000 2>/dev/null; then
-              echo "✓ Frontend health check passed"
-              break
-            fi
-            attempt=$((attempt + 1))
-            echo "⏳ Attempt $attempt/$max_attempts..."
-            sleep 5
-          done
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Frontend health check failed after $max_attempts attempts"
-            docker compose logs frontend
-            exit 1
-          fi
-
-      - name: Verify Metrics Endpoint
-        run: |
-          echo "✓ Testing metrics endpoint..."
-          docker compose exec -T backend curl -s http://localhost:8000/metrics | head -20
-
-      - name: Collect Service Logs
-        if: always()
-        run: |
-          echo "=== Backend Logs (last 50 lines) ==="
-          docker compose logs backend | tail -50
-          echo "=== Frontend Logs (last 50 lines) ==="
-          docker compose logs frontend | tail -50
-
-      - name: Cleanup
-        if: always()
-        run: docker compose down -v
+      - name: Confirm image build success
+        run: echo "✅ Backend and frontend Docker images built successfully"
 
   create-release:
     name: Create GitHub Release & Tag

@@ -28,7 +28,8 @@ def upgrade() -> None:
     op.alter_column('semantic_memory', 'embedding',
                existing_type=sa.NUMERIC(precision=384),
                type_=Vector(dim=384),
-               existing_nullable=True)
+               existing_nullable=True,
+               postgresql_using='embedding::vector(384)')
     # ### end Alembic commands ###
 
 
@@ -37,7 +38,8 @@ def downgrade() -> None:
     op.alter_column('semantic_memory', 'embedding',
                existing_type=Vector(dim=384),
                type_=sa.NUMERIC(precision=384),
-               existing_nullable=True)
+               existing_nullable=True,
+               postgresql_using='embedding::numeric(384)')
     op.drop_constraint(None, 'datasets', type_='foreignkey')
     op.drop_index(op.f('ix_datasets_owner_id'), table_name='datasets')
     op.drop_index(op.f('ix_datasets_name'), table_name='datasets')

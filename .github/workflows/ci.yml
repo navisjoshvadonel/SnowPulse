@@ -345,7 +345,7 @@ jobs:
           MEILI_MASTER_KEY: testpass1234567890
         run: |
           docker compose up -d
-          sleep 60
+          sleep 120
 
       - name: Check Container Health
         run: |

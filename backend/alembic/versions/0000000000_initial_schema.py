@@ -24,14 +24,19 @@ def upgrade() -> None:
     # Enable pgvector extension (no-op if already enabled)
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
+    # NOTE: Do NOT use index=True or unique=True on Column() defs inside
+    # op.create_table() — those flags cause SQLAlchemy to auto-generate an
+    # anonymous index, which then conflicts with the explicit named
+    # op.create_index() calls below, producing DuplicateTable errors.
+
     # ── users ────────────────────────────────────────────────────────────────
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("email", sa.String(), nullable=False, unique=True, index=True),
+        sa.Column("email", sa.String(), nullable=False),
         sa.Column("hashed_password", sa.String(), nullable=False),
         sa.Column("avatar_url", sa.String(), nullable=True),
-        sa.Column("is_active", sa.Boolean(), default=True, nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
         sa.Column("created_at", sa.DateTime(), nullable=True),
     )
     op.create_index("ix_users_id", "users", ["id"], unique=False)
@@ -41,14 +46,15 @@ def upgrade() -> None:
     op.create_table(
         "datasets",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("owner_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
-        sa.Column("name", sa.String(), nullable=False, index=True),
+        sa.Column("owner_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
         sa.Column("description", sa.String(), nullable=True),
         sa.Column("file_path", sa.String(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=True),
     )
     op.create_index("ix_datasets_id", "datasets", ["id"], unique=False)
     op.create_index("ix_datasets_name", "datasets", ["name"], unique=True)
+    op.create_index("ix_datasets_owner_id", "datasets", ["owner_id"], unique=False)
 
     # ── user_dashboards ───────────────────────────────────────────────────────
     op.create_table(
@@ -67,10 +73,10 @@ def upgrade() -> None:
     op.create_table(
         "refresh_tokens",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("token", sa.String(), nullable=False, unique=True, index=True),
+        sa.Column("token", sa.String(), nullable=False),
         sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("expires_at", sa.DateTime(), nullable=False),
-        sa.Column("revoked", sa.Boolean(), default=False, nullable=False),
+        sa.Column("revoked", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("created_at", sa.DateTime(), nullable=True),
     )
     op.create_index("ix_refresh_tokens_id", "refresh_tokens", ["id"], unique=False)
@@ -92,8 +98,8 @@ def upgrade() -> None:
     op.create_index("ix_insights_id", "insights", ["id"], unique=False)
 
     # ── semantic_memory ───────────────────────────────────────────────────────
-    # Created with NUMERIC initially; the fa07d17f079b migration will convert
-    # it to pgvector.Vector(384) — so we use NUMERIC here to preserve that chain.
+    # Created as NUMERIC initially; the fa07d17f079b migration converts it to
+    # pgvector.Vector(384) — preserve that upgrade chain by using NUMERIC here.
     op.create_table(
         "semantic_memory",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),

@@ -145,12 +145,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Generated release version: $VERSION"
 
-      - name: Create Git Tag
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a v${{ steps.release.outputs.version }} -m "Production release ${{ steps.release.outputs.version }}"
-          git push origin v${{ steps.release.outputs.version }}
+
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1

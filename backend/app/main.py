@@ -703,6 +703,83 @@ async def upload_dataset(
     return db_dataset
 
 
+@app.post("/api/datasets/import", response_model=DatasetResponse, status_code=status.HTTP_201_CREATED)
+async def import_external_dataset(
+    config: ConnectorConfig,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Connect to an external database, fetch a table, persist in MinIO, and trigger the analytics pipeline.
+    """
+    if config.connector_type != "postgres":
+        raise HTTPException(status_code=400, detail="Currently only 'postgres' connector is fully implemented.")
+        
+    try:
+        content_bytes = ConnectorService.sync_table_to_storage(config)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch data from external source: {str(e)}"
+        )
+
+    # 1. Upload to MinIO S3
+    filename = f"{config.database}_{config.table_name}.csv"
+    file_key = f"{datetime.datetime.utcnow().timestamp()}_{filename}"
+    try:
+        storage_service.upload_file(
+            bucket_name="datasets",
+            object_name=file_key,
+            data=content_bytes,
+            content_type="text/csv"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload imported dataset to storage server: {str(e)}"
+        )
+
+    # 2. Save metadata in DB
+    db_dataset = Dataset(
+        owner_id=current_user.id,
+        name=f"{config.database} - {config.table_name}",
+        description=f"Imported from {config.connector_type.upper()} by {current_user.email} (In-flight validation)",
+        file_path=f"minio://datasets/{file_key}"
+    )
+    db.add(db_dataset)
+    db.commit()
+    db.refresh(db_dataset)
+
+    # 2b. Compute and persist DatasetProfile synchronously
+    try:
+        import io as _io
+        import polars as _pl
+        _pl_df = _pl.read_csv(_io.BytesIO(content_bytes))
+        _profile = DatasetProfiler.profile_full(_pl_df)
+        db_dataset.profile_json = _profile.model_dump()
+        db_dataset.profile_version = PROFILE_VERSION
+        db.commit()
+        db.refresh(db_dataset)
+        logger.info(f"DatasetProfile stored for imported dataset {db_dataset.id}")
+    except Exception as _pe:
+        logger.warning(f"DatasetProfile computation failed for dataset {db_dataset.id}: {_pe}")
+
+    # 3. Trigger asynchronous background pipeline coordinator
+    job_id = None
+    try:
+        job_id = await JobManager.submit_job(
+            "process_pipeline_task",
+            dataset_id=db_dataset.id,
+            file_key=file_key,
+            original_filename=filename
+        )
+    except Exception as e:
+        logger.error(f"Failed to enqueue background pipeline for dataset {db_dataset.id}: {e}")
+
+    db_dataset.job_id = job_id
+    return db_dataset
+
+
 @app.get("/api/analytics/summary/{dataset_id}")
 @limiter.limit("60/minute")
 def get_analytics_summary(

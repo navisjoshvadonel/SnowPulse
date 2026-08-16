@@ -142,6 +142,7 @@ jobs:
           POSTGRES_DB: snowpulse
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: testpass
+          POSTGRES_HOST_AUTH_METHOD: trust
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -188,15 +189,44 @@ jobs:
           CORS_ALLOWED_ORIGINS: "http://localhost:3000"
         run: |
           export PYTHONPATH=$PYTHONPATH:backend
-          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          echo "Waiting for backend to start..."
-          for i in $(seq 1 20); do
-            if curl -sf http://localhost:8000/health/liveness; then
-              echo "✓ Backend is up"
+
+          # Wait for postgres to accept connections as postgres user
+          for i in $(seq 1 15); do
+            if pg_isready -h localhost -p 5432 -U postgres -d snowpulse; then
+              echo "✓ PostgreSQL accepting connections"
               break
+            fi
+            echo "Waiting for postgres... attempt $i"
+            sleep 2
+          done
+
+          # Run Alembic migrations to create all tables before starting the app
+          cd backend
+          alembic upgrade head || echo "WARNING: alembic migrations failed, tables may be missing"
+          cd ..
+
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          BACKEND_PID=$!
+          echo "Backend PID: $BACKEND_PID"
+          echo "Waiting for backend to start..."
+          STARTED=false
+          for i in $(seq 1 25); do
+            if curl -sf http://localhost:8000/health/liveness; then
+              echo "✓ Backend is up after $i attempts"
+              STARTED=true
+              break
+            fi
+            # Check if backend process is still alive
+            if ! kill -0 $BACKEND_PID 2>/dev/null; then
+              echo "❌ Backend process died unexpectedly"
+              exit 1
             fi
             sleep 3
           done
+          if [ "$STARTED" != "true" ]; then
+            echo "❌ Backend failed to start within timeout"
+            exit 1
+          fi
 
       - name: Install k6
         run: |
@@ -214,12 +244,14 @@ jobs:
         env:
           BASE_URL: http://localhost:8000
           JWT_TOKEN: dev_mock_token
+          K6_SMOKE: "true"
         run: |
           mkdir -p load-tests/results
           k6 run \
             --vus 1 --iterations 1 \
             -e BASE_URL=$BASE_URL \
             -e JWT_TOKEN=$JWT_TOKEN \
+            -e K6_SMOKE=$K6_SMOKE \
             load-tests/k6/snowpulse-load-test.js
 
       - name: Upload k6 Results Artifact

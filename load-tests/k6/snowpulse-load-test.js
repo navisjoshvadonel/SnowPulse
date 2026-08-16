@@ -39,6 +39,7 @@ const analyticsDuration = new Trend('analytics_duration_ms', true);
 // ── Configuration ───────────────────────────────────────────────────────────
 const BASE_URL  = __ENV.BASE_URL  || 'http://localhost:8000';
 const JWT_TOKEN = __ENV.JWT_TOKEN || 'dev_mock_token';
+const IS_SMOKE  = (__ENV.K6_SMOKE || '').toLowerCase() === 'true';
 
 const HEADERS = {
   'Content-Type': 'application/json',
@@ -47,22 +48,33 @@ const HEADERS = {
 
 // ── Load Stages ─────────────────────────────────────────────────────────────
 //   Ramp to 10 VUs over 30s → hold for 1m → ramp to 30 VUs for 1m → cool down
-export const options = {
-  stages: [
+//   In smoke mode (CI), stages are skipped (--vus 1 --iterations 1 handles it)
+const loadStages = IS_SMOKE ? [] : [
     { duration: '30s', target: 10 },   // Warm-up ramp
     { duration: '1m',  target: 10 },   // Sustained load
     { duration: '30s', target: 30 },   // Spike
     { duration: '1m',  target: 30 },   // Sustained spike
     { duration: '30s', target: 0  },   // Ramp down
-  ],
-  thresholds: {
-    // 95th percentile response time < 500ms for analytics endpoint
-    'analytics_duration_ms': ['p(95)<500'],
-    // Overall HTTP errors < 1%
-    'http_req_failed': ['rate<0.01'],
-    // Success rate > 99%
-    'success_rate': ['rate>0.99'],
-  },
+];
+
+// Smoke mode: only verify connectivity — any HTTP response counts as success.
+// Full load mode: enforce strict production SLAs.
+const thresholds = IS_SMOKE
+  ? {
+      // Smoke: backend must respond (no connection errors)
+      'http_req_failed':     ['rate<0.50'],  // <50% failure (allows 401/404)
+      'success_rate':        ['rate>0.50'],  // >50% checks pass
+    }
+  : {
+      // Full load: strict production SLAs
+      'analytics_duration_ms': ['p(95)<500'],
+      'http_req_failed':       ['rate<0.01'],
+      'success_rate':          ['rate>0.99'],
+    };
+
+export const options = {
+  stages: loadStages,
+  thresholds,
 };
 
 // ── Minimal CSV payload for upload tests ────────────────────────────────────

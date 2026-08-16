@@ -342,7 +342,7 @@ jobs:
           REDIS_PASSWORD: testpass123
           JWT_SECRET_KEY: test-secret-key
           MINIO_ROOT_PASSWORD: testpass123
-          MEILI_MASTER_KEY: testpass123
+          MEILI_MASTER_KEY: testpass1234567890
         run: |
           docker compose up -d
           sleep 60

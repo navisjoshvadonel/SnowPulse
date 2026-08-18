@@ -294,14 +294,43 @@ class AnalyticsEngine:
         mean_val = np.mean(vals)
         score_percentile_5 = np.percentile(anomaly_scores, 5)
 
+        # Precompute means of all other numeric columns for causal analysis
+        other_numeric_cols = [c for c in self.numeric_cols if c != self.metric_col and c in self.headers]
+        col_means = {col: self.df[col].mean() for col in other_numeric_cols}
+        col_stds = {col: self.df[col].std() for col in other_numeric_cols}
+
         anomalies: list[dict[str, Any]] = []
         for i, (pred, score, val) in enumerate(zip(preds, anomaly_scores, vals)):
             if pred == -1: # Anomaly detected dynamically by ML
                 severity = "Critical" if score <= score_percentile_5 else "High"
 
-                date_str     = str(self.df.row(i)[self.headers.index(self.date_col)]) if self.date_col else f"Row {i + 1}"
-                category_str = str(self.df.row(i)[self.headers.index(self.category_col)]) if self.category_col else "General"
-                region_str   = str(self.df.row(i)[self.headers.index(self.geo_col)]) if self.geo_col else "Global"
+                row_dict = self.df.row(i, named=True)
+                date_str     = str(row_dict.get(self.date_col, f"Row {i + 1}"))
+                category_str = str(row_dict.get(self.category_col, "General"))
+                region_str   = str(row_dict.get(self.geo_col, "Global"))
+
+                # ------------------------------------------------------------------
+                # DYNAMIC LEARNING: Causal Inference (Root Cause Analysis)
+                # We identify which secondary metric deviated the most concurrently
+                # ------------------------------------------------------------------
+                root_cause = "No clear secondary driver detected."
+                max_deviation_z = 0.0
+                primary_driver = None
+                
+                for col in other_numeric_cols:
+                    if col_stds[col] and col_stds[col] > 0:
+                        cell_val = row_dict.get(col, col_means[col])
+                        if cell_val is not None:
+                            z_dev = abs(float(cell_val) - float(col_means[col])) / float(col_stds[col])
+                            if z_dev > max_deviation_z and z_dev > 1.5: # At least 1.5 sigma deviation
+                                max_deviation_z = z_dev
+                                primary_driver = col
+                
+                if primary_driver:
+                    driver_val = row_dict[primary_driver]
+                    driver_mean = col_means[primary_driver]
+                    direction = "spiked" if driver_val > driver_mean else "dropped"
+                    root_cause = f"Likely driven by {primary_driver}, which {direction} to {driver_val:.1f} (avg: {driver_mean:.1f})."
 
                 anomalies.append({
                     "row_index": i + 1,
@@ -309,9 +338,10 @@ class AnalyticsEngine:
                     "category": category_str,
                     "region": region_str,
                     "value": float(val),
-                    "z_score": float(score), # Repurposing to send anomaly score to frontend
+                    "z_score": float(score),
                     "deviation_pct": float(((val - mean_val) / (mean_val or 1.0)) * 100),
                     "severity": severity,
+                    "root_cause": root_cause
                 })
         
         # Sort anomalies by severity (lowest score = most severe)

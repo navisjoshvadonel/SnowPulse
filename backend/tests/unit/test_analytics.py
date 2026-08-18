@@ -15,13 +15,18 @@ def sample_csv(tmp_path):
         "2024-04-01,250,Apparel,South,25\n"
         "2024-05-01,1000,Electronics,East,100\n"  # Anomaly
         "2024-06-01,300,Home,West,30\n"
+        "2024-07-01,105,Electronics,North,11\n"
+        "2024-08-01,145,Electronics,North,14\n"
+        "2024-09-01,210,Apparel,South,21\n"
+        "2024-10-01,240,Apparel,South,24\n"
+        "2024-11-01,290,Home,West,29\n"
     )
     csv_file.write_text(content)
     return str(csv_file)
 
 def test_engine_init(sample_csv):
     engine = AnalyticsEngine(sample_csv)
-    assert engine.num_rows == 6
+    assert engine.num_rows == 11
     assert "Revenue" in engine.numeric_cols
     assert "Date" in engine.date_cols
     assert "Category" in engine.categorical_cols
@@ -32,9 +37,9 @@ def test_engine_init(sample_csv):
 def test_engine_kpis(sample_csv):
     engine = AnalyticsEngine(sample_csv)
     kpis = engine.get_kpis()
-    assert kpis["total_value"] == 2000
-    assert kpis["mean_value"] == pytest.approx(333.33, 0.01)
-    assert kpis["total_records"] == 6
+    assert kpis["total_value"] == 2990
+    assert kpis["mean_value"] == pytest.approx(271.81, 0.01)
+    assert kpis["total_records"] == 11
     assert kpis["unique_categories"] == 3
     assert kpis["unique_regions"] == 4
     assert kpis["quality_score"] == 100
@@ -43,9 +48,9 @@ def test_engine_trends(sample_csv):
     engine = AnalyticsEngine(sample_csv)
     trends = engine.get_trends()
     assert trends["metric"] == "Revenue"
-    assert len(trends["dates"]) == 6
-    assert len(trends["values"]) == 6
-    assert len(trends["moving_average"]) == 6
+    assert len(trends["dates"]) == 11
+    assert len(trends["values"]) == 11
+    assert len(trends["moving_average"]) == 11
 
 def test_engine_geo_metrics(sample_csv):
     engine = AnalyticsEngine(sample_csv)
@@ -62,6 +67,8 @@ def test_engine_anomalies(sample_csv):
     assert len(anoms) > 0
     assert any(a["value"] == 1000 for a in anoms)
     assert any(a["severity"] in ["Critical", "High", "Medium"] for a in anoms)
+    # The root cause analysis should trace it to Outliers
+    assert "root_cause" in anoms[0]
 
 def test_engine_correlations(sample_csv):
     engine = AnalyticsEngine(sample_csv)
@@ -78,7 +85,7 @@ def test_engine_context_summary(sample_csv):
     engine = AnalyticsEngine(sample_csv)
     summary = engine.generate_statistical_context_summary()
     assert "Primary target metric" in summary
-    assert "Total rows: 6" in summary
-    assert "Total aggregate value: 2,000.00" in summary
+    assert "Total rows: 11" in summary
+    assert "Total aggregate value: 2,990.00" in summary
     assert "Electronics" in summary
     assert "North" in summary

@@ -17,10 +17,13 @@ import {
   Layers,
   Zap,
 } from "lucide-react";
+import { apiService } from "@/services/api";
 
 interface DataQualityReportPanelProps {
+  datasetId?: number;
   schema: any;
   loading: boolean;
+  onDatasetHealed?: () => void;
 }
 
 interface ActionLog {
@@ -30,11 +33,26 @@ interface ActionLog {
   timestamp: string;
 }
 
-export default function DataQualityReportPanel({ schema, loading }: DataQualityReportPanelProps) {
+export default function DataQualityReportPanel({ datasetId, schema, loading, onDatasetHealed }: DataQualityReportPanelProps) {
   const [activeTab, setActiveTab] = useState<"all" | "nulls" | "duplicates" | "outliers" | "categories">("all");
   const [appliedActions, setAppliedActions] = useState<Record<string, string>>({});
   const [actionLogs, setActionLogs] = useState<ActionLog[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isHealing, setIsHealing] = useState(false);
+
+  const handleAutoHeal = async () => {
+    if (!datasetId) return;
+    setIsHealing(true);
+    try {
+      await apiService.healDataset(datasetId);
+      setToastMessage("Dataset Auto-Healed Successfully! Refreshing schema...");
+      if (onDatasetHealed) onDatasetHealed();
+    } catch (e) {
+      setToastMessage("Failed to Auto-Heal dataset.");
+    } finally {
+      setIsHealing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -172,6 +190,20 @@ export default function DataQualityReportPanel({ schema, loading }: DataQualityR
           </div>
 
           <div className="flex items-center gap-4">
+            {currentHealthScore < 100 && datasetId && (
+              <button
+                onClick={handleAutoHeal}
+                disabled={isHealing}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${
+                  isHealing 
+                    ? "bg-emerald-500/50 text-emerald-100 cursor-wait" 
+                    : "bg-emerald-500 hover:bg-emerald-400 text-slate-900 hover:scale-105"
+                }`}
+              >
+                <Sparkles size={16} />
+                {isHealing ? "Healing Dataset..." : "Auto-Heal Dataset"}
+              </button>
+            )}
             <div className="text-right">
               <span className="text-[10px] text-white/40 font-mono block">Dataset Health Score</span>
               <span className={`text-2xl font-extrabold font-mono ${currentHealthScore >= 90 ? "text-emerald-400" : "text-amber-400"}`}>

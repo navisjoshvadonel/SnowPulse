@@ -1386,7 +1386,12 @@ export default function HomePage() {
 
               {/* ── DATA QUALITY REPORT SECTION ── */}
               {activeSection === "data-quality" && (
-                <DataQualityReportPanel schema={datasetSchema} loading={loadingSchema} />
+                <DataQualityReportPanel 
+                  datasetId={selectedDatasetId ?? undefined} 
+                  schema={datasetSchema} 
+                  loading={loadingSchema}
+                  onDatasetHealed={() => selectedDatasetId && handleSelectDataset(selectedDatasetId, selectedDatasetName)} 
+                />
               )}
 
               {/* ── CORRELATION MATRIX SECTION ── */}

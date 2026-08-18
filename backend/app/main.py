@@ -704,6 +704,68 @@ async def upload_dataset(
     return db_dataset
 
 
+@app.post("/api/datasets/{dataset_id}/auto-heal", response_model=DatasetResponse)
+async def auto_heal_dataset(
+    dataset_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Automatically impute missing values, cap outliers, and fix schema issues using AI-driven heuristic heuristics.
+    """
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    try:
+        from .validation.quality.healer import DataHealer
+        import io
+        import polars as pl
+        
+        # 1. Fetch file from storage
+        parts = dataset.file_path.replace("minio://", "").split("/", 1)
+        file_bytes = storage_service.get_file(parts[0], parts[1])
+        
+        # 2. Convert to pandas
+        from .validation.quality.quality_scorer import DataQualityScorer
+        df = DataQualityScorer.read_file_to_pandas(file_bytes, parts[1])
+        
+        # 3. Heal Data
+        healed_df = DataHealer.auto_heal(df)
+        
+        # 4. Save back to MinIO
+        csv_buffer = io.BytesIO()
+        healed_df.to_csv(csv_buffer, index=False)
+        healed_bytes = csv_buffer.getvalue()
+        
+        new_file_key = f"healed_{datetime.datetime.utcnow().timestamp()}_{parts[1].split('_', 1)[-1]}"
+        storage_service.upload_file(
+            bucket_name=parts[0],
+            object_name=new_file_key,
+            data=healed_bytes,
+            content_type="text/csv"
+        )
+        
+        # 5. Update Database Record
+        dataset.file_path = f"minio://{parts[0]}/{new_file_key}"
+        dataset.description = dataset.description + " (Auto-Healed)" if dataset.description else "Auto-Healed Dataset"
+        
+        # 6. Re-profile
+        pl_df = pl.read_csv(io.BytesIO(healed_bytes))
+        profile = DatasetProfiler.profile_full(pl_df)
+        dataset.profile_json = profile.model_dump()
+        
+        db.commit()
+        db.refresh(dataset)
+        return dataset
+        
+    except Exception as e:
+        logger.error(f"Error auto-healing dataset {dataset_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Auto-Heal failed: {e}")
+
+
 @app.post("/api/datasets/import", response_model=DatasetResponse, status_code=status.HTTP_201_CREATED)
 async def import_external_dataset(
     config: ConnectorConfig,

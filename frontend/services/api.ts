@@ -117,6 +117,12 @@ export const apiService = {
     });
   },
 
+  async healDataset(datasetId: number) {
+    return fetchAPI(`/api/datasets/${datasetId}/auto-heal`, {
+      method: "POST"
+    });
+  },
+
   // Forecasting
   async getForecastPredict(datasetId: number, steps: number = 30) {
     return fetchAPI(`/api/forecast/predict/${datasetId}?steps=${steps}`);

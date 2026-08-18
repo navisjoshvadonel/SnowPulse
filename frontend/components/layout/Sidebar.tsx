@@ -21,6 +21,7 @@ import {
   BookOpen,
   ChevronDown,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -29,7 +30,7 @@ export type SnowSection =
   | "dataset-overview"
   | "data-quality"
   | "correlation-matrix"
-  | "production-env";
+  | "ai-copilot";
 
 export interface UsageQuota {
   gemini_calls: number;
@@ -83,6 +84,7 @@ function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className
 
 const navItems: { id: SnowSection; label: string; icon: React.ElementType }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "ai-copilot", label: "AI Copilot & Generative UI", icon: Sparkles },
   { id: "dataset-overview", label: "Dataset Overview", icon: Database },
   { id: "data-quality", label: "Data Quality Report", icon: ShieldCheck },
   { id: "correlation-matrix", label: "Correlation Matrix", icon: Grid },
@@ -102,8 +104,6 @@ export default function Sidebar({
 }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [env, setEnv] = useState<"Production" | "Staging" | "Development">("Production");
-  const [envOpen, setEnvOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -134,11 +134,7 @@ export default function Sidebar({
     );
   }
 
-  const envColors = {
-    Production: "bg-emerald-400 text-emerald-400",
-    Staging: "bg-amber-400 text-amber-400",
-    Development: "bg-cyan-400 text-cyan-400",
-  };
+
 
   return (
     <motion.aside
@@ -316,71 +312,9 @@ export default function Sidebar({
         );
       })()}
 
-      {/* ── Bottom Controls & Environment Switcher ── */}
+      {/* ── Bottom Controls ── */}
       <div className="flex flex-col gap-0.5 px-2 pb-3 border-t border-white/[0.06] pt-2 flex-shrink-0 relative">
-        {/* Interactive Environment Switcher Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setEnvOpen(!envOpen)}
-            className={`w-full flex items-center justify-between p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-all cursor-pointer ${
-              collapsed ? "justify-center" : ""
-            }`}
-            title={collapsed ? `Environment: ${env}` : undefined}
-          >
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${envColors[env].split(" ")[0]}`} />
-              {!collapsed && (
-                <span className="text-xs font-semibold text-white truncate">{env} Env</span>
-              )}
-            </div>
-            {!collapsed && <ChevronDown size={14} className="text-white/40" />}
-          </button>
-
-          <AnimatePresence>
-            {envOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 5 }}
-                className="absolute bottom-full left-0 mb-2 w-48 rounded-xl py-1 z-50 border border-white/10 shadow-2xl"
-                style={{ background: "#12151e" }}
-              >
-                {(["Production", "Staging", "Development"] as const).map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => { setEnv(e); setEnvOpen(false); }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs text-white/70 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${envColors[e].split(" ")[0]}`} />
-                      {e}
-                    </span>
-                    {env === e && <Check size={13} className="text-indigo-400" />}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         {/* Shortcuts */}
-        <button
-          onClick={() => onOpenModal?.("team")}
-          className={`sidebar-nav-item ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
-          title={collapsed ? "Team Members" : undefined}
-        >
-          <Users size={16} className="text-indigo-400 flex-shrink-0" />
-          {!collapsed && <span className="ml-3">Team & Invites</span>}
-        </button>
-
-        <button
-          onClick={() => onOpenModal?.("apikeys")}
-          className={`sidebar-nav-item ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
-          title={collapsed ? "API Keys" : undefined}
-        >
-          <Key size={16} className="text-cyan-400 flex-shrink-0" />
-          {!collapsed && <span className="ml-3">API Keys & Webhooks</span>}
-        </button>
 
         <button
           onClick={onToggleCollapsed}

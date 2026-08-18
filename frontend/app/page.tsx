@@ -395,7 +395,7 @@ export default function HomePage() {
   const [loadingDatasets, setLoadingDatasets] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [showFullInsightsModal, setShowFullInsightsModal] = useState(false);
+
 
   const [activeSection, setActiveSection] = useState<SnowSection>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1405,15 +1405,17 @@ export default function HomePage() {
                 />
               )}
 
-              {/* ── PRODUCTION ENV (placeholder) ── */}
-              {activeSection === "production-env" && (
-                <div className="rounded-xl p-8 text-center"
-                  style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <Sparkles className="w-8 h-8 text-brand-primary mx-auto mb-3" />
-                  <h3 className="text-base font-semibold text-white mb-2">Production Environment</h3>
-                  <p className="text-xs text-white/35">
-                    Connect your production data pipelines and deployment targets here.
-                  </p>
+              {/* ── AI COPILOT & GENERATIVE UI ── */}
+              {activeSection === "ai-copilot" && (
+                <div className="flex-1 w-full flex flex-col max-h-[85vh]">
+                  <InsightsCenter
+                    datasetId={selectedDatasetId}
+                    kpis={kpis}
+                    trends={trends}
+                    anomalies={anomalies}
+                    recommendations={aiInsights?.recommendations || null}
+                    loading={false}
+                  />
                 </div>
               )}
             </>
@@ -1421,48 +1423,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── Full AI Analysis Modal ── */}
-      {showFullInsightsModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }}
-        >
-          <div
-            className="w-full max-w-5xl flex flex-col overflow-hidden rounded-2xl"
-            style={{
-              height: "85vh",
-              background: "#090a10",
-              border: "1px solid rgba(255,255,255,0.09)",
-              boxShadow: "0 40px 80px rgba(0,0,0,0.7)",
-            }}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0"
-              style={{ background: "#12151e" }}>
-              <div className="flex items-center gap-2">
-                <BrainCircuit className="w-5 h-5 text-brand-primary animate-pulse" />
-                <span className="font-semibold text-white">SNOW Intelligence Copilot & Insights</span>
-              </div>
-              <button
-                onClick={() => setShowFullInsightsModal(false)}
-                className="px-3 py-1.5 text-xs text-white/50 hover:text-white rounded-lg transition-all cursor-pointer font-mono"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}
-              >
-                Close Panel
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <InsightsCenter
-                datasetId={selectedDatasetId}
-                kpis={kpis}
-                trends={trends}
-                anomalies={anomalies}
-                recommendations={aiInsights?.recommendations || null}
-                loading={false}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* ── Enterprise Modals & Command Palette ── */}
       <TeamAccessModal

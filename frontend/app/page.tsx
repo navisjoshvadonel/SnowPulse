@@ -83,7 +83,18 @@ function generateMockTrends() {
     moving_average.push(Math.round(ma));
   }
 
-  return { dates, values, moving_average, metric: "revenue" };
+  const forecast_dates: string[] = [];
+  const forecast_values: number[] = [];
+  let forecastBase = base;
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + (i * 30));
+    forecast_dates.push(d.toISOString().split("T")[0]);
+    forecastBase = forecastBase * 1.05; 
+    forecast_values.push(Math.round(forecastBase));
+  }
+
+  return { dates, values, moving_average, metric: "revenue", forecast_dates, forecast_values };
 }
 
 function generateMockGeo(schema?: any) {
@@ -449,7 +460,20 @@ export default function HomePage() {
         ma = Math.max(mean_value * 0.25, ma + maNoise + (mean_value * 0.004));
         moving_average.push(Math.round(ma));
       }
-      setTrends({ dates, values, moving_average, metric: metric_name });
+
+      // Generate dynamic ML mock forecast
+      const forecast_dates: string[] = [];
+      const forecast_values: number[] = [];
+      let forecastBase = base;
+      for (let i = 1; i <= 6; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + (i * 30));
+        forecast_dates.push(d.toISOString().split("T")[0]);
+        forecastBase = forecastBase * 1.05; // 5% growth 
+        forecast_values.push(Math.round(forecastBase));
+      }
+
+      setTrends({ dates, values, moving_average, metric: metric_name, forecast_dates, forecast_values });
 
       const calculatedGeo = schema.category_shares && schema.category_shares.length > 0
         ? schema.category_shares
@@ -1425,6 +1449,7 @@ export default function HomePage() {
               <InsightsCenter
                 datasetId={selectedDatasetId}
                 kpis={kpis}
+                trends={trends}
                 anomalies={anomalies}
                 recommendations={aiInsights?.recommendations || null}
                 loading={false}

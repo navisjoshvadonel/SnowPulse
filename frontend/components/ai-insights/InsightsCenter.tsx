@@ -27,6 +27,7 @@ interface ForecastOption {
 interface InsightsCenterProps {
   datasetId: number;
   kpis?: any;
+  trends?: any;
   anomalies: Anomaly[] | null;
   recommendations: string[] | null;
   initialHistory?: { query: string; timestamp: string; response: string }[];
@@ -36,6 +37,7 @@ interface InsightsCenterProps {
 export default function InsightsCenter({
   datasetId,
   kpis,
+  trends,
   anomalies,
   recommendations,
   initialHistory = [],
@@ -222,6 +224,24 @@ export default function InsightsCenter({
   // Creates a clean futuristic prediction line with shadow bounds
   const getForecastPoints = () => {
     const points: ForecastPoint[] = [];
+    
+    // Dynamic Machine Learning Forecast (from Ridge Regression or other models in backend)
+    if (trends && trends.forecast_dates && trends.forecast_values) {
+      for (let i = 0; i < trends.forecast_dates.length; i++) {
+        const prediction = trends.forecast_values[i];
+        const dateStr = trends.forecast_dates[i];
+        const variance = prediction * 0.05 * (i + 1); // Dynamic confidence interval widening
+        points.push({
+          date: dateStr,
+          prediction: prediction,
+          lower: prediction - variance,
+          upper: prediction + variance
+        });
+      }
+      return points;
+    }
+
+    // Fallback: math-based forecast if API doesn't return full charts
     const baseVal = kpis?.mean_value || 120000;
     const step = baseVal * 0.0375;
     const dateToday = new Date();
@@ -231,7 +251,7 @@ export default function InsightsCenter({
       const dateStr = forecastDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
       
       let prediction = baseVal + (i * step);
-      let variance = (baseVal * 0.125) + (i * (baseVal * 0.016)); // Uncertainty grows over time
+      let variance = (baseVal * 0.125) + (i * (baseVal * 0.016)); 
       
       if (forecastModel === "exponential") {
         prediction = baseVal * Math.pow(1.04, i);

@@ -38,8 +38,8 @@ export default function GenerativeChart({ schema }: { schema: UISchema }) {
             <div 
               className="w-full bg-brand-primary/80 rounded-t-sm transition-all duration-1000 ease-out hover:bg-brand-primary"
               style={{ 
-                height: \`\${Math.max(10, ((val - minVal) / range) * 100)}%\`,
-                animation: \`fadeUp 0.5s ease-out \${idx * 0.1}s both\`
+                height: `${Math.max(10, ((val - minVal) / range) * 100)}%`,
+                animation: `fadeUp 0.5s ease-out ${idx * 0.1}s both`
               }}
             >
               <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 border border-white/10 text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap transition-opacity z-10 font-mono">
@@ -56,7 +56,7 @@ export default function GenerativeChart({ schema }: { schema: UISchema }) {
            <div className="w-full h-full relative">
               <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
                 <path 
-                  d={\`M \${schema.data.map((val, idx) => \`\${(idx / (schema.data.length - 1)) * 100},\${100 - (((val - minVal) / range) * 100)}\`).join(' L ')}\`}
+                  d={`M ${schema.data.map((val, idx) => `${(idx / (schema.data.length - 1)) * 100},${100 - (((val - minVal) / range) * 100)}`).join(' L ')}`}
                   fill="none" 
                   stroke="var(--color-brand-primary, #6366f1)" 
                   strokeWidth="2"
@@ -72,7 +72,7 @@ export default function GenerativeChart({ schema }: { schema: UISchema }) {
                      cy={100 - (((val - minVal) / range) * 100)}
                      r="2"
                      className="fill-white stroke-brand-primary stroke-2"
-                     style={{ animation: \`fadeUp 0.3s ease-out \${idx * 0.1}s both\` }}
+                     style={{ animation: `fadeUp 0.3s ease-out ${idx * 0.1}s both` }}
                    />
                 ))}
               </svg>
@@ -92,7 +92,7 @@ export default function GenerativeChart({ schema }: { schema: UISchema }) {
         </div>
       )}
 
-      <style>{\`
+      <style>{`
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
@@ -104,7 +104,7 @@ export default function GenerativeChart({ schema }: { schema: UISchema }) {
         .animate-draw {
           animation: draw 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
-      \`}</style>
+      `}</style>
     </div>
   );
 }

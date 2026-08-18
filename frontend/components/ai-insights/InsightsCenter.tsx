@@ -8,8 +8,11 @@ interface Anomaly {
   date: string;
   value: number;
   z_score: number;
-  explanation: string;
-  impact: string;
+  deviation_pct: number;
+  category: string;
+  region: string;
+  severity: string;
+  root_cause?: string;
 }
 
 interface ForecastPoint {
@@ -419,8 +422,19 @@ export default function InsightsCenter({
                   <h4 className="text-xs font-semibold text-white mt-2">
                     Outlier detected: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(anom.value)}
                   </h4>
-                  <p className="text-xs text-gray-300 mt-1 leading-relaxed">{anom.explanation}</p>
-                  <p className="text-[10px] text-brand-muted mt-2 font-mono">Impact: {anom.impact}</p>
+                  <p className="text-xs text-gray-300 mt-1 leading-relaxed">
+                    Detected {anom.deviation_pct > 0 ? "spike" : "drop"} of {Math.abs(anom.deviation_pct).toFixed(1)}% vs historical mean.
+                    Region: {anom.region}, Segment: {anom.category}.
+                  </p>
+                  {anom.root_cause && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <p className="text-[10px] text-brand-error/90 font-mono flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3" />
+                        AI Root Cause Inference
+                      </p>
+                      <p className="text-xs text-gray-300 mt-1 leading-relaxed">{anom.root_cause}</p>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (

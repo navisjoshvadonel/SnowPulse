@@ -151,9 +151,9 @@ function generateMockAnomalies() {
       z_score: 3.8,
       severity: "High",
       region: "APAC",
-      category: "Metric spike",
-      explanation: "Unusual value spike detected — 3.8σ above historical mean.",
-      impact: "Positive outlier — investigate cause for potential replication.",
+      category: "Hardware",
+      deviation_pct: 124.5,
+      root_cause: "Likely driven by Marketing_Spend, which spiked to 54200.0 (avg: 21000.0).",
     },
     {
       date: "2025-07-02",
@@ -161,10 +161,10 @@ function generateMockAnomalies() {
       z_score: -2.9,
       severity: "Medium",
       region: "MEA",
-      category: "Metric drop",
-      explanation: "Value dip detected below expected statistical boundary.",
-      impact: "Variance impact: -12.4%. Monitor for ongoing trend shifts.",
-    },
+      category: "Software",
+      deviation_pct: -45.2,
+      root_cause: "Likely driven by Support_Tickets, which dropped to 12.0 (avg: 45.0).",
+    }
   ];
 }
 

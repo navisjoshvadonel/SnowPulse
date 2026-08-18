@@ -17,6 +17,7 @@ import polars as pl
 
 from ..analytics.profiler import DatasetProfile, DatasetProfiler
 from ..storage.service import storage_service
+from .semantic_layer import semantic_layer, SemanticModel, DimensionDef, MetricDef
 
 logger = logging.getLogger("snowpulse.analytics.engine")
 
@@ -95,6 +96,41 @@ class AnalyticsEngine:
             for c in self._profile.columns
             if c.top_values
         }
+
+        # Automatically construct and register a Semantic Model
+        self.semantic_model_name = f"model_{os.path.basename(file_path).split('.')[0]}"
+        dimensions = []
+        metrics = []
+        
+        for c in self._profile.columns:
+            clean_name = c.name.replace(" ", "_").lower()
+            if c.dtype_category in ("categorical", "datetime") or c.inferred_role in ("geo", "temporal", "category"):
+                dimensions.append(DimensionDef(
+                    name=clean_name,
+                    description=f"{c.semantic_type or c.inferred_role or 'general'} dimension",
+                    column=c.name
+                ))
+            elif c.dtype_category == "numeric":
+                metrics.append(MetricDef(
+                    name=f"total_{clean_name}",
+                    description=f"Total sum of {c.name}",
+                    column=c.name,
+                    agg="sum"
+                ))
+                metrics.append(MetricDef(
+                    name=f"average_{clean_name}",
+                    description=f"Average of {c.name}",
+                    column=c.name,
+                    agg="avg"
+                ))
+        
+        sm = SemanticModel(
+            name=self.semantic_model_name,
+            description=f"Auto-generated semantic model for {os.path.basename(file_path)}",
+            dimensions=dimensions,
+            metrics=metrics
+        )
+        semantic_layer.register_model(sm)
 
     # ------------------------------------------------------------------
     # KPIs
@@ -310,6 +346,10 @@ class AnalyticsEngine:
                 f"with value {anom['value']:,.2f} (Z-Score: {anom['z_score']:.2f})"
             )
 
+        # Append Semantic Context Layer to force LLM compliance
+        semantic_ctx = semantic_layer.get_context_for_llm(self.semantic_model_name)
+        summary.append(f"\n{semantic_ctx}\n")
+        
         return "\n".join(summary)
 
     def get_signals(self) -> list[dict[str, Any]]:

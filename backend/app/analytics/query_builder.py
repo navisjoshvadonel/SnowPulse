@@ -5,6 +5,7 @@ import polars as pl
 from pydantic import BaseModel
 
 from .engine import _load_df
+from .semantic_layer import semantic_layer
 
 logger = logging.getLogger("snowpulse.analytics.query_builder")
 
@@ -21,6 +22,12 @@ class QueryPayload(BaseModel):
     dimensions: list[str] = []
     metrics: list[QueryMetric] = []
     filters: list[QueryFilter] = []
+    
+    # Semantic Layer Support
+    semantic_model_name: str | None = None
+    semantic_dimensions: list[str] = []
+    semantic_metrics: list[str] = []
+    
     sort_by: str | None = None
     sort_desc: bool = True
     limit: int = 100
@@ -31,8 +38,26 @@ class DynamicQueryEngine:
         """
         Takes a JSON payload describing filters, dimensions, and aggregations,
         and translates it into highly optimized Polars dataframe operations.
+        Resolves semantic metrics and dimensions if a semantic model is provided.
         """
         try:
+            # Semantic Layer Resolution
+            if query.semantic_model_name:
+                for s_metric in query.semantic_metrics:
+                    m_def = semantic_layer.resolve_metric(query.semantic_model_name, s_metric)
+                    if m_def:
+                        # Convert semantic metric to physical metric
+                        query.metrics.append(QueryMetric(column=m_def.column, agg=m_def.agg))
+                    else:
+                        logger.warning(f"Semantic metric '{s_metric}' not found in model '{query.semantic_model_name}'.")
+
+                for s_dim in query.semantic_dimensions:
+                    d_def = semantic_layer.resolve_dimension(query.semantic_model_name, s_dim)
+                    if d_def:
+                        query.dimensions.append(d_def.column)
+                    else:
+                        logger.warning(f"Semantic dimension '{s_dim}' not found in model '{query.semantic_model_name}'.")
+
             df = _load_df(file_path)
 
             # Apply Filters

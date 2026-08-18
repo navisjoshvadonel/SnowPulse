@@ -202,10 +202,49 @@ class AnalyticsEngine:
             values = self.df[self.metric_col].to_list()
 
         values_np = np.array(values, dtype=float)
-        window = max(2, len(values_np) // 5)
-        sma = np.convolve(values_np, np.ones(window) / window, mode="same").tolist()
-
-        return {"metric": self.metric_col, "dates": dates, "values": values, "moving_average": sma}
+        
+        if len(values_np) >= 5:
+            # ------------------------------------------------------------------
+            # DYNAMIC LEARNING: Trend Forecasting (No hardcoded moving averages)
+            # ------------------------------------------------------------------
+            from sklearn.linear_model import Ridge
+            import pandas as pd
+            
+            X = np.arange(len(values_np)).reshape(-1, 1)
+            model = Ridge(alpha=1.0)
+            model.fit(X, values_np)
+            
+            # Predict historical trend line
+            trend_line = model.predict(X).tolist()
+            
+            # Dynamically forecast next 3 periods
+            X_future = np.arange(len(values_np), len(values_np) + 3).reshape(-1, 1)
+            forecast_preds = model.predict(X_future).tolist()
+            
+            future_dates = []
+            if self.date_col:
+                try:
+                    last_date = pd.to_datetime(dates[-1])
+                    diff = pd.to_datetime(dates[-1]) - pd.to_datetime(dates[-2])
+                    for i in range(1, 4):
+                        future_dates.append(str((last_date + (diff * i)).date()))
+                except Exception:
+                    future_dates = [f"Forecast {i}" for i in range(1, 4)]
+            else:
+                future_dates = [f"Period {len(values_np) + i}" for i in range(1, 4)]
+                
+            return {
+                "metric": self.metric_col, 
+                "dates": dates, 
+                "values": values, 
+                "moving_average": trend_line, # Keep key for frontend compat
+                "forecast_dates": future_dates,
+                "forecast_values": forecast_preds
+            }
+        else:
+            window = max(2, len(values_np) // 5)
+            sma = np.convolve(values_np, np.ones(window) / window, mode="same").tolist()
+            return {"metric": self.metric_col, "dates": dates, "values": values, "moving_average": sma}
 
     # ------------------------------------------------------------------
     # Geo metrics
@@ -237,45 +276,46 @@ class AnalyticsEngine:
             return []
 
         vals = self.df[self.metric_col].to_numpy().astype(float)
-        if len(vals) < 3:
+        if len(vals) < 10:
             return []
 
-        mean = np.mean(vals)
-        std  = np.std(vals) or 1.0
-        q75, q25 = np.percentile(vals, [75, 25])
-        iqr = q75 - q25
-        lower_bound = q25 - 1.5 * iqr
-        upper_bound = q75 + 1.5 * iqr
+        # ------------------------------------------------------------------
+        # DYNAMIC LEARNING: Isolation Forest (No hardcoded Z-Score thresholds)
+        # ------------------------------------------------------------------
+        from sklearn.ensemble import IsolationForest
+
+        # We learn the data distribution dynamically. "auto" contamination means 
+        # the model decides the threshold based on the tree depth distributions.
+        X = vals.reshape(-1, 1)
+        iso_forest = IsolationForest(contamination="auto", random_state=42)
+        preds = iso_forest.fit_predict(X)
+        anomaly_scores = iso_forest.decision_function(X) # lower is more anomalous
+
+        mean_val = np.mean(vals)
+        score_percentile_5 = np.percentile(anomaly_scores, 5)
 
         anomalies: list[dict[str, Any]] = []
-        for i, val in enumerate(vals):
-            z_score  = (val - mean) / std
-            is_out   = abs(z_score) > 2.0 or val < lower_bound or val > upper_bound
-            if not is_out:
-                continue
+        for i, (pred, score, val) in enumerate(zip(preds, anomaly_scores, vals)):
+            if pred == -1: # Anomaly detected dynamically by ML
+                severity = "Critical" if score <= score_percentile_5 else "High"
 
-            severity = "Low"
-            if abs(z_score) >= 3.0:
-                severity = "Critical"
-            elif abs(z_score) >= 2.4:
-                severity = "High"
-            elif abs(z_score) >= 1.8:
-                severity = "Medium"
+                date_str     = str(self.df.row(i)[self.headers.index(self.date_col)]) if self.date_col else f"Row {i + 1}"
+                category_str = str(self.df.row(i)[self.headers.index(self.category_col)]) if self.category_col else "General"
+                region_str   = str(self.df.row(i)[self.headers.index(self.geo_col)]) if self.geo_col else "Global"
 
-            date_str     = str(self.df.row(i)[self.headers.index(self.date_col)]) if self.date_col else f"Row {i + 1}"
-            category_str = str(self.df.row(i)[self.headers.index(self.category_col)]) if self.category_col else "General"
-            region_str   = str(self.df.row(i)[self.headers.index(self.geo_col)]) if self.geo_col else "Global"
-
-            anomalies.append({
-                "row_index": i + 1,
-                "date": date_str,
-                "category": category_str,
-                "region": region_str,
-                "value": float(val),
-                "z_score": float(z_score),
-                "deviation_pct": float(((val - mean) / (mean or 1.0)) * 100),
-                "severity": severity,
-            })
+                anomalies.append({
+                    "row_index": i + 1,
+                    "date": date_str,
+                    "category": category_str,
+                    "region": region_str,
+                    "value": float(val),
+                    "z_score": float(score), # Repurposing to send anomaly score to frontend
+                    "deviation_pct": float(((val - mean_val) / (mean_val or 1.0)) * 100),
+                    "severity": severity,
+                })
+        
+        # Sort anomalies by severity (lowest score = most severe)
+        anomalies.sort(key=lambda x: x["z_score"])
         return anomalies
 
     # ------------------------------------------------------------------

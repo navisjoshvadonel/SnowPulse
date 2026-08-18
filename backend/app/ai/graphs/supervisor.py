@@ -392,6 +392,21 @@ Guidelines:
 - Do not repeat headings. Organize the output logically.
 - At the bottom of your response, list exact Source Citations in a clean bulleted section: `**Citations:**`
 - Ensure all statements are strictly backed by the evidence. No hallucinations.
+
+**GENERATIVE UI TRIGGER**:
+If the user's query asks for a chart, visualization, graph, or dashboard, OR if the data naturally benefits from a visual representation (like comparing categories or showing a trend), you MUST append a JSON block at the very end of your response to render a dynamic UI widget. 
+Use EXACTLY this format:
+
+```json ui_schema
+{{
+  "type": "bar", // or "line"
+  "title": "Clear Title for Chart",
+  "labels": ["Category A", "Category B", "Category C"],
+  "data": [100, 250, 80],
+  "insight": "1 sentence summarizing the visual takeaway."
+}}
+```
+Only include ONE ui_schema block, and only if it makes sense based on the agent findings. Keep the data array under 15 items.
 """
     system_prompt = "You are a professional business analytics compiler. Return clear, concise markdown."
 

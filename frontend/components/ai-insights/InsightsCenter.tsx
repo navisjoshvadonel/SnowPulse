@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Send, AlertTriangle, TrendingUp, Sparkles, MessageSquare, CheckSquare, BrainCircuit, RefreshCw, FileText } from "lucide-react";
 import { apiService } from "@/services/api";
 
+import GenerativeChart, { UISchema } from "./GenerativeChart";
+
 interface Anomaly {
   date: string;
   value: number;
@@ -40,7 +42,7 @@ export default function InsightsCenter({
   loading,
 }: InsightsCenterProps) {
   const [activeTab, setActiveTab] = useState<"copilot" | "anomalies" | "forecast" | "recommendations">("copilot");
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string; thoughts?: string }[]>([
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string; thoughts?: string; ui?: UISchema }[]>([
     { role: "assistant", text: "Hello! I am your SNOW intelligence copilot. Ask me anything about your loaded dataset, like 'What is our best performing region?' or 'Summarize our anomalies.'" }
   ]);
   const [input, setInput] = useState("");
@@ -138,10 +140,26 @@ export default function InsightsCenter({
               setMessages((prev) => {
                 const updated = [...prev];
                 if (updated.length > 0) {
+                  let parsedUiSchema = undefined;
+                  let displayText = assistantText;
+                  
+                  // Look for our specific JSON UI Schema block
+                  const uiMatch = assistantText.match(/```json\s+ui_schema\s*([\s\S]*?)\s*```/);
+                  if (uiMatch && uiMatch[1]) {
+                    try {
+                      parsedUiSchema = JSON.parse(uiMatch[1]);
+                      // Remove the block from the user-facing text
+                      displayText = assistantText.replace(/```json\s+ui_schema\s*([\s\S]*?)\s*```/g, '');
+                    } catch (e) {
+                      // Silently fail if JSON is still streaming/incomplete
+                    }
+                  }
+
                   updated[updated.length - 1] = {
                     role: "assistant",
-                    text: assistantText,
+                    text: displayText.trim(),
                     thoughts: thoughtsText,
+                    ui: parsedUiSchema
                   };
                 }
                 return updated;
@@ -326,6 +344,9 @@ export default function InsightsCenter({
                       </div>
                     )}
                     <p className="whitespace-pre-line font-sans">{msg.text}</p>
+                    {msg.ui && (
+                      <GenerativeChart schema={msg.ui} />
+                    )}
                   </div>
                 </div>
               ))}

@@ -5,10 +5,12 @@ import structlog
 
 
 def configure_logging():
+    logging.getLogger().setLevel(logging.INFO)
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=logging.INFO,
+        force=True,
     )
 
     structlog.configure(

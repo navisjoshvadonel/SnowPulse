@@ -394,7 +394,7 @@ Guidelines:
 - Ensure all statements are strictly backed by the evidence. No hallucinations.
 
 **GENERATIVE UI TRIGGER**:
-If the user's query asks for a chart, visualization, graph, or dashboard, OR if the data naturally benefits from a visual representation (like comparing categories or showing a trend), you MUST append a JSON block at the very end of your response to render a dynamic UI widget. 
+If the user's query asks for a chart, visualization, graph, or dashboard, OR if the data naturally benefits from a visual representation (like comparing categories or showing a trend), you MUST append a JSON block at the very end of your response to render a dynamic UI widget.
 Use EXACTLY this format:
 
 ```json ui_schema

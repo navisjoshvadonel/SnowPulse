@@ -1,5 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useSyncExternalStore } from "react";
 import { BarChart3, LineChart, TrendingUp } from "lucide-react";
+
+const emptySubscribe = () => () => {};
+function useIsMounted() {
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
+}
 
 export interface UISchema {
   type: "bar" | "line" | "scatter" | "metric";
@@ -11,11 +16,7 @@ export interface UISchema {
 }
 
 export default function GenerativeChart({ schema }: { schema: UISchema }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsMounted();
 
   if (!mounted) return null;
 

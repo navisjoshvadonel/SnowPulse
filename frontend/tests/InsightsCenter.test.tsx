@@ -1,5 +1,5 @@
 import { expect, test, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import InsightsCenter from '@/components/ai-insights/InsightsCenter'
 import React from 'react'
 
@@ -11,10 +11,9 @@ vi.mock('@/services/api', () => ({
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => {
-  const React = require('react')
   const icons = ['Send', 'AlertTriangle', 'TrendingUp', 'Sparkles', 'MessageSquare', 'CheckSquare', 'BrainCircuit', 'RefreshCw', 'FileText']
   const mockExports: any = {}
-  icons.forEach(i => mockExports[i] = (props: any) => <div data-testid={`icon-${i.toLowerCase()}`} {...props} />)
+  icons.forEach(i => mockExports[i] = (props: any) => React.createElement('div', { 'data-testid': `icon-${i.toLowerCase()}`, ...props }))
   return mockExports
 })
 

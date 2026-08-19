@@ -218,12 +218,8 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
   const defaultTarget = targetCols.find((c) => c.is_primary_metric)?.name ??
     targetCols[0]?.name ?? "";
 
-  const [targetCol, setTargetCol] = useState<string>(defaultTarget);
-
-  // Keep targetCol in sync if profile loads after mount
-  React.useEffect(() => {
-    if (defaultTarget && !targetCol) setTargetCol(defaultTarget);
-  }, [defaultTarget]);
+  const [targetCol, setTargetCol] = useState<string>("");
+  const activeTargetCol = targetCol || defaultTarget;
 
   const handleRunAutoML = async () => {
     if (!datasetId) return;
@@ -231,7 +227,7 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
     setTrainError(null);
     try {
       const [res] = await Promise.all([
-        apiService.trainMlModel(datasetId, trainingTask, targetCol || undefined)
+        apiService.trainMlModel(datasetId, trainingTask, activeTargetCol || undefined)
           .catch(() => ({ ok: false, json: async () => ({ detail: "Backend offline - Mock training complete" }) })),
         new Promise(resolve => setTimeout(resolve, 2500))
       ]);
@@ -285,7 +281,7 @@ export default function PredictionPanel({ datasetId, forecast, trainingHistory, 
               <div className="flex flex-col gap-0.5">
                 <label className="text-[10px] text-white/30 uppercase tracking-wider">Target Column</label>
                 <select
-                  value={targetCol}
+                  value={activeTargetCol}
                   onChange={(e) => setTargetCol(e.target.value)}
                   className="bg-black/40 text-white text-xs border border-white/15 rounded-lg px-3 py-2 outline-none focus:border-emerald-500"
                 >

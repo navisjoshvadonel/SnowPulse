@@ -17,7 +17,7 @@ import polars as pl
 
 from ..analytics.profiler import DatasetProfile, DatasetProfiler
 from ..storage.service import storage_service
-from .semantic_layer import semantic_layer, SemanticModel, DimensionDef, MetricDef
+from .semantic_layer import DimensionDef, MetricDef, SemanticModel, semantic_layer
 
 logger = logging.getLogger("snowpulse.analytics.engine")
 
@@ -101,7 +101,7 @@ class AnalyticsEngine:
         self.semantic_model_name = f"model_{os.path.basename(file_path).split('.')[0]}"
         dimensions = []
         metrics = []
-        
+
         for c in self._profile.columns:
             clean_name = c.name.replace(" ", "_").lower()
             if c.dtype_category in ("categorical", "datetime") or c.inferred_role in ("geo", "temporal", "category"):
@@ -123,7 +123,7 @@ class AnalyticsEngine:
                     column=c.name,
                     agg="avg"
                 ))
-        
+
         sm = SemanticModel(
             name=self.semantic_model_name,
             description=f"Auto-generated semantic model for {os.path.basename(file_path)}",
@@ -202,25 +202,25 @@ class AnalyticsEngine:
             values = self.df[self.metric_col].to_list()
 
         values_np = np.array(values, dtype=float)
-        
+
         if len(values_np) >= 5:
             # ------------------------------------------------------------------
             # DYNAMIC LEARNING: Trend Forecasting (No hardcoded moving averages)
             # ------------------------------------------------------------------
-            from sklearn.linear_model import Ridge
             import pandas as pd
-            
+            from sklearn.linear_model import Ridge
+
             X = np.arange(len(values_np)).reshape(-1, 1)
             model = Ridge(alpha=1.0)
             model.fit(X, values_np)
-            
+
             # Predict historical trend line
             trend_line = model.predict(X).tolist()
-            
+
             # Dynamically forecast next 3 periods
             X_future = np.arange(len(values_np), len(values_np) + 3).reshape(-1, 1)
             forecast_preds = model.predict(X_future).tolist()
-            
+
             future_dates = []
             if self.date_col:
                 try:
@@ -232,11 +232,11 @@ class AnalyticsEngine:
                     future_dates = [f"Forecast {i}" for i in range(1, 4)]
             else:
                 future_dates = [f"Period {len(values_np) + i}" for i in range(1, 4)]
-                
+
             return {
-                "metric": self.metric_col, 
-                "dates": dates, 
-                "values": values, 
+                "metric": self.metric_col,
+                "dates": dates,
+                "values": values,
                 "moving_average": trend_line, # Keep key for frontend compat
                 "forecast_dates": future_dates,
                 "forecast_values": forecast_preds
@@ -284,7 +284,7 @@ class AnalyticsEngine:
         # ------------------------------------------------------------------
         from sklearn.ensemble import IsolationForest
 
-        # We learn the data distribution dynamically. "auto" contamination means 
+        # We learn the data distribution dynamically. "auto" contamination means
         # the model decides the threshold based on the tree depth distributions.
         X = vals.reshape(-1, 1)
         iso_forest = IsolationForest(contamination="auto", random_state=42)
@@ -300,7 +300,7 @@ class AnalyticsEngine:
         col_stds = {col: self.df[col].std() for col in other_numeric_cols}
 
         anomalies: list[dict[str, Any]] = []
-        for i, (pred, score, val) in enumerate(zip(preds, anomaly_scores, vals)):
+        for i, (pred, score, val) in enumerate(zip(preds, anomaly_scores, vals, strict=False)):
             if pred == -1: # Anomaly detected dynamically by ML
                 severity = "Critical" if score <= score_percentile_5 else "High"
 
@@ -316,7 +316,7 @@ class AnalyticsEngine:
                 root_cause = "No clear secondary driver detected."
                 max_deviation_z = 0.0
                 primary_driver = None
-                
+
                 for col in other_numeric_cols:
                     if col_stds[col] and col_stds[col] > 0:
                         cell_val = row_dict.get(col, col_means[col])
@@ -325,10 +325,10 @@ class AnalyticsEngine:
                             if z_dev > max_deviation_z and z_dev > 1.5: # At least 1.5 sigma deviation
                                 max_deviation_z = z_dev
                                 primary_driver = col
-                
+
                 if primary_driver:
-                    driver_val = row_dict[primary_driver]
-                    driver_mean = col_means[primary_driver]
+                    driver_val = float(row_dict[primary_driver])
+                    driver_mean = float(col_means[primary_driver])
                     direction = "spiked" if driver_val > driver_mean else "dropped"
                     root_cause = f"Likely driven by {primary_driver}, which {direction} to {driver_val:.1f} (avg: {driver_mean:.1f})."
 
@@ -343,7 +343,7 @@ class AnalyticsEngine:
                     "severity": severity,
                     "root_cause": root_cause
                 })
-        
+
         # Sort anomalies by severity (lowest score = most severe)
         anomalies.sort(key=lambda x: x["z_score"])
         return anomalies
@@ -419,7 +419,7 @@ class AnalyticsEngine:
         # Append Semantic Context Layer to force LLM compliance
         semantic_ctx = semantic_layer.get_context_for_llm(self.semantic_model_name)
         summary.append(f"\n{semantic_ctx}\n")
-        
+
         return "\n".join(summary)
 
     def get_signals(self) -> list[dict[str, Any]]:

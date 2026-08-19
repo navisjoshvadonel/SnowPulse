@@ -10,7 +10,7 @@ class PipelineSingleton {
   static model = "Xenova/LaMini-Flan-T5-77M";
   static instance: any = null;
 
-  static async getInstance(progress_callback?: Function) {
+  static async getInstance(progress_callback?: (progress: any) => void) {
     if (this.instance === null) {
       this.instance = pipeline(this.task as any, this.model, { progress_callback });
     }

@@ -1,10 +1,8 @@
 import logging
-import io
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from sklearn.impute import SimpleImputer
-from ...storage.service import storage_service
-from ...analytics.profiler import DatasetProfiler
 
 logger = logging.getLogger("snowpulse.validation.healer")
 
@@ -17,14 +15,14 @@ class DataHealer:
         - Categorical cols: Impute with most frequent
         """
         df_healed = df.copy()
-        
+
         # Numeric columns
         num_cols = df_healed.select_dtypes(include=[np.number]).columns
         if len(num_cols) > 0:
             # Impute median
             num_imputer = SimpleImputer(strategy='median')
             df_healed[num_cols] = num_imputer.fit_transform(df_healed[num_cols])
-            
+
             # Cap outliers (winsorize 1st and 99th percentiles)
             for col in num_cols:
                 lower = df_healed[col].quantile(0.01)

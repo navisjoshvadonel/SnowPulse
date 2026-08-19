@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sliders, TrendingUp, RefreshCw } from "lucide-react";
+import { Sliders } from "lucide-react";
 
 interface WhatIfSimulatorProps {
   onMultiplierChange: (multiplier: number) => void;
@@ -19,7 +19,7 @@ export default function WhatIfSimulator({ onMultiplierChange }: WhatIfSimulatorP
     <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-white flex items-center gap-2">
-          <Sliders size={14} className="text-indigo-400" /> Interactive "What-If" Scenario Adjuster
+          <Sliders size={14} className="text-indigo-400" /> Interactive &quot;What-If&quot; Scenario Adjuster
         </span>
         <span className="text-xs font-mono font-bold text-indigo-300">
           {multiplier > 1.0 ? `+${Math.round((multiplier - 1.0) * 100)}% Growth` : multiplier < 1.0 ? `-${Math.round((1.0 - multiplier) * 100)}% Drop` : "Baseline (0%)"}

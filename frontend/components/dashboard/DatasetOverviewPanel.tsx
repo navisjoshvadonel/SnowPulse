@@ -134,17 +134,19 @@ export default function DatasetOverviewPanel({ schema, loading }: DatasetOvervie
   const [loadingSignals, setLoadingSignals] = useState<boolean>(false);
 
   useEffect(() => {
+    let active = true;
     if (schema?.dataset_id) {
-      setLoadingSignals(true);
       apiService.getDatasetSignals(schema.dataset_id)
         .then((res: any) => {
-          if (res?.signals) {
+          if (active && res?.signals) {
             setSignals(res.signals);
           }
         })
-        .catch((err: unknown) => console.error("Failed to fetch signals", err))
-        .finally(() => setLoadingSignals(false));
+        .catch((err: unknown) => console.error("Failed to fetch signals", err));
     }
+    return () => {
+      active = false;
+    };
   }, [schema?.dataset_id]);
 
   if (loading || !schema) {

@@ -21,15 +21,14 @@ vi.mock('echarts', () => ({
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => {
-  const React = require('react')
   return {
-    Brain: (props: any) => <div data-testid="icon-brain" {...props} />,
-    Cpu: (props: any) => <div data-testid="icon-cpu" {...props} />,
-    Play: (props: any) => <div data-testid="icon-play" {...props} />,
-    Sparkles: (props: any) => <div data-testid="icon-sparkles" {...props} />,
-    Target: (props: any) => <div data-testid="icon-target" {...props} />,
-    Trophy: (props: any) => <div data-testid="icon-trophy" {...props} />,
-    Zap: (props: any) => <div data-testid="icon-zap" {...props} />
+    Brain: (props: any) => React.createElement('div', { 'data-testid': 'icon-brain', ...props }),
+    Cpu: (props: any) => React.createElement('div', { 'data-testid': 'icon-cpu', ...props }),
+    Play: (props: any) => React.createElement('div', { 'data-testid': 'icon-play', ...props }),
+    Sparkles: (props: any) => React.createElement('div', { 'data-testid': 'icon-sparkles', ...props }),
+    Target: (props: any) => React.createElement('div', { 'data-testid': 'icon-target', ...props }),
+    Trophy: (props: any) => React.createElement('div', { 'data-testid': 'icon-trophy', ...props }),
+    Zap: (props: any) => React.createElement('div', { 'data-testid': 'icon-zap', ...props })
   }
 })
 

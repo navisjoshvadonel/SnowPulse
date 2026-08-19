@@ -5,11 +5,10 @@ import React from 'react'
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => {
-  const React = require('react')
   return {
-    ArrowUpRight: (props: any) => <div data-testid="icon-arrowupright" {...props} />,
-    ArrowDownRight: (props: any) => <div data-testid="icon-arrowdownright" {...props} />,
-    CheckCircle: (props: any) => <div data-testid="icon-checkcircle" {...props} />
+    ArrowUpRight: (props: any) => React.createElement('div', { 'data-testid': 'icon-arrowupright', ...props }),
+    ArrowDownRight: (props: any) => React.createElement('div', { 'data-testid': 'icon-arrowdownright', ...props }),
+    CheckCircle: (props: any) => React.createElement('div', { 'data-testid': 'icon-checkcircle', ...props })
   }
 })
 

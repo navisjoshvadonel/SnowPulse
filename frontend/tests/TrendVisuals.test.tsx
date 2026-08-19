@@ -23,12 +23,11 @@ vi.mock('echarts', () => {
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => {
-  const React = require('react')
   return {
-    TrendingUp: (props: any) => <div data-testid="icon-trendingup" {...props} />,
-    Clock: (props: any) => <div data-testid="icon-clock" {...props} />,
-    BarChart3: (props: any) => <div data-testid="icon-barchart3" {...props} />,
-    LineChart: (props: any) => <div data-testid="icon-linechart" {...props} />
+    TrendingUp: (props: any) => React.createElement('div', { 'data-testid': 'icon-trendingup', ...props }),
+    Clock: (props: any) => React.createElement('div', { 'data-testid': 'icon-clock', ...props }),
+    BarChart3: (props: any) => React.createElement('div', { 'data-testid': 'icon-barchart3', ...props }),
+    LineChart: (props: any) => React.createElement('div', { 'data-testid': 'icon-linechart', ...props })
   }
 })
 

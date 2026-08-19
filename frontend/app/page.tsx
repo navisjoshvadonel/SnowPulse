@@ -538,19 +538,19 @@ export default function HomePage() {
         if (Array.isArray(list) && list.length > 0) {
           setDatasets(list);
         } else {
-          useMockDataset();
+          setMockDatasets();
         }
       } else {
-        useMockDataset();
+        setMockDatasets();
       }
     } catch {
-      useMockDataset();
+      setMockDatasets();
     } finally {
       setLoadingDatasets(false);
     }
   };
 
-  const useMockDataset = () => {
+  const setMockDatasets = () => {
     const mock = [{ id: 1, name: "Sample Analytics (Mock)", description: "Auto-generated sample dataset" }];
     setDatasets(mock);
     setLoadingDashboard(false);
@@ -600,21 +600,29 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     if (!selectedDatasetId) return;
 
-    setLoadingSchema(true);
     if (dynamicSchemas[selectedDatasetId]) {
-      setDatasetSchema(dynamicSchemas[selectedDatasetId]);
-      setLoadingSchema(false);
+      Promise.resolve().then(() => {
+        if (active) setDatasetSchema(dynamicSchemas[selectedDatasetId]);
+      });
       return;
     }
 
     apiService
       .getDatasetSchema(selectedDatasetId)
       .then((res) => (res.ok ? res.json() : generateMockSchema()))
-      .then(setDatasetSchema)
-      .catch(() => setDatasetSchema(generateMockSchema()))
-      .finally(() => setLoadingSchema(false));
+      .then((schema) => {
+        if (active) setDatasetSchema(schema);
+      })
+      .catch(() => {
+        if (active) setDatasetSchema(generateMockSchema());
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedDatasetId, dynamicSchemas]);
 
 
@@ -1197,7 +1205,7 @@ export default function HomePage() {
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
                   Welcome, <span className="bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">{user?.email?.split('@')[0] || "Analyst"}</span>!<br />
-                  Let's begin the data storytelling.
+                  Let&apos;s begin the data storytelling.
                 </h1>
                 <p className="text-sm text-white/50 max-w-[620px] mx-auto leading-relaxed">
                   Upload any real-time dataset (CSV, Excel, TSV) to dynamically extract column schemas, compute executive KPIs, detect statistical anomalies, and generate AI insights tailored precisely to your data.

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Code2, HelpCircle, Terminal, Check } from "lucide-react";
+import { Code2, Terminal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CalculationLineagePopoverProps {

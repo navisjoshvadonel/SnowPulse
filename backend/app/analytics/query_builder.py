@@ -22,12 +22,12 @@ class QueryPayload(BaseModel):
     dimensions: list[str] = []
     metrics: list[QueryMetric] = []
     filters: list[QueryFilter] = []
-    
+
     # Semantic Layer Support
     semantic_model_name: str | None = None
     semantic_dimensions: list[str] = []
     semantic_metrics: list[str] = []
-    
+
     sort_by: str | None = None
     sort_desc: bool = True
     limit: int = 100

@@ -1,5 +1,5 @@
-from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
+
 
 class DimensionDef(BaseModel):
     name: str
@@ -11,13 +11,13 @@ class MetricDef(BaseModel):
     description: str
     column: str
     agg: str
-    format: Optional[str] = None
+    format: str | None = None
 
 class SemanticModel(BaseModel):
     name: str
     description: str
-    dimensions: List[DimensionDef]
-    metrics: List[MetricDef]
+    dimensions: list[DimensionDef]
+    metrics: list[MetricDef]
 
 class SemanticLayerManager:
     """
@@ -27,12 +27,12 @@ class SemanticLayerManager:
     def __init__(self):
         # In a real enterprise system, these would be loaded from a database, YAML, or dbt integration.
         # For this implementation, we initialize an empty registry that can be built dynamically.
-        self.models: Dict[str, SemanticModel] = {}
+        self.models: dict[str, SemanticModel] = {}
 
     def register_model(self, model: SemanticModel):
         self.models[model.name] = model
 
-    def resolve_metric(self, model_name: str, metric_name: str) -> Optional[MetricDef]:
+    def resolve_metric(self, model_name: str, metric_name: str) -> MetricDef | None:
         model = self.models.get(model_name)
         if not model:
             return None
@@ -41,7 +41,7 @@ class SemanticLayerManager:
                 return m
         return None
 
-    def resolve_dimension(self, model_name: str, dim_name: str) -> Optional[DimensionDef]:
+    def resolve_dimension(self, model_name: str, dim_name: str) -> DimensionDef | None:
         model = self.models.get(model_name)
         if not model:
             return None
@@ -58,19 +58,19 @@ class SemanticLayerManager:
         model = self.models.get(model_name)
         if not model:
             return "No semantic model found."
-        
+
         ctx = f"### Semantic Model: {model.name}\n{model.description}\n\n"
-        
+
         ctx += "#### Available Metrics:\n"
         for m in model.metrics:
             ctx += f"- **{m.name}**: {m.description} (Aggregation: {m.agg})\n"
-            
+
         ctx += "\n#### Available Dimensions:\n"
         for d in model.dimensions:
             ctx += f"- **{d.name}**: {d.description}\n"
-            
-        ctx += f"\nIMPORTANT: When generating a query payload, YOU MUST ONLY use the metric and dimension names listed above. Do not hallucinate columns.\n"
-        ctx += f"Ensure your JSON payload includes the following fields instead of raw 'metrics' and 'dimensions':\n"
+
+        ctx += "\nIMPORTANT: When generating a query payload, YOU MUST ONLY use the metric and dimension names listed above. Do not hallucinate columns.\n"
+        ctx += "Ensure your JSON payload includes the following fields instead of raw 'metrics' and 'dimensions':\n"
         ctx += f'{{\n  "semantic_model_name": "{model.name}",\n  "semantic_metrics": ["total_revenue", "average_cost"],\n  "semantic_dimensions": ["category_name"],\n  "filters": []\n}}\n'
         return ctx
 

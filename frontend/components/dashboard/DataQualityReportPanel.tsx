@@ -490,8 +490,8 @@ export default function DataQualityReportPanel({ datasetId, schema, loading, onD
                           </div>
                           <p className="text-[11px] text-white/60 mt-1">
                             Different variations for same category:{" "}
-                            <span className="text-amber-300 font-mono">"{issue.valueA}"</span> vs{" "}
-                            <span className="text-amber-300 font-mono">"{issue.valueB}"</span> ({issue.count} rows affected)
+                            <span className="text-amber-300 font-mono">&quot;{issue.valueA}&quot;</span> vs{" "}
+                            <span className="text-amber-300 font-mono">&quot;{issue.valueB}&quot;</span> ({issue.count} rows affected)
                           </p>
                         </div>
 
@@ -511,7 +511,7 @@ export default function DataQualityReportPanel({ datasetId, schema, loading, onD
                             }
                             className="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 border border-cyan-500/30 text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5"
                           >
-                            <Sparkles size={13} /> Merge to "{issue.valueB}"
+                            <Sparkles size={13} /> Merge to &quot;{issue.valueB}&quot;
                           </button>
                         )}
                       </div>

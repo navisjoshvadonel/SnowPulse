@@ -84,7 +84,7 @@ export default function GeographicMap({
 }: GeographicMapProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(() => typeof window !== "undefined" && Boolean((echarts as any).getMap("world")));
   const [mapError, setMapError] = useState(false);
 
   const hasGeoData = geoData && geoData.length > 0;
@@ -100,7 +100,6 @@ export default function GeographicMap({
   useEffect(() => {
     // Check if world map is already registered
     if ((echarts as any).getMap("world")) {
-      setMapLoaded(true);
       return;
     }
 
@@ -314,7 +313,7 @@ export default function GeographicMap({
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center z-10 bg-black/40 backdrop-blur-sm">
               <Globe className="w-8 h-8 text-white/20 mb-2" />
               <p className="text-sm font-semibold text-white/60">No Geographic Data</p>
-              <p className="text-xs text-white/30">Dataset lacks columns with 'geo' roles.</p>
+              <p className="text-xs text-white/30">Dataset lacks columns with &apos;geo&apos; roles.</p>
             </div>
           ) : (
             <div ref={chartRef} className="w-full h-full" />

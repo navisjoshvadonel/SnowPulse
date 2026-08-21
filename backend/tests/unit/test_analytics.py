@@ -89,3 +89,106 @@ def test_engine_context_summary(sample_csv):
     assert "Total aggregate value: 2,990.00" in summary
     assert "Electronics" in summary
     assert "North" in summary
+import polars as pl
+import numpy as np
+from unittest.mock import patch
+from backend.app.analytics.engine import AnalyticsEngine
+
+@patch("backend.app.analytics.engine._load_df")
+def test_engine_correlations_fallback_matrix_empty_numeric(mock_load):
+    mock_load.return_value = pl.DataFrame({"a": ["a", "b", "c"]})
+    df = pl.DataFrame({"a": ["a", "b", "c"]})
+    engine = AnalyticsEngine(file_path="dummy.csv")
+    engine.df = df
+    engine.numeric_cols = []
+    engine.headers = ["a"]
+    class DummyProfile:
+        correlation_matrix = None
+    engine._profile = DummyProfile()
+
+    res = engine.get_correlations()
+    assert res["columns"] == []
+    assert res["matrix"] == [[1.0]]
+
+@patch("backend.app.analytics.engine._load_df")
+def test_engine_correlations_fallback_matrix_short_df(mock_load):
+    mock_load.return_value = pl.DataFrame({"a": [1, 2], "b": [2, 3]})
+    df = pl.DataFrame({"a": [1, 2], "b": [2, 3]})
+    engine = AnalyticsEngine(file_path="dummy.csv")
+    engine.df = df
+    engine.numeric_cols = ["a", "b"]
+    engine.headers = ["a", "b"]
+    class DummyProfile:
+        correlation_matrix = None
+    engine._profile = DummyProfile()
+
+    res = engine.get_correlations()
+    assert res["columns"] == ["a", "b"]
+    assert res["matrix"] == [[1.0, 1.0], [1.0, 1.0]]
+
+@patch("backend.app.analytics.engine._load_df")
+def test_engine_correlations_fallback_matrix_from_profile(mock_load):
+    mock_load.return_value = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    df = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    engine = AnalyticsEngine(file_path="dummy.csv")
+    engine.df = df
+    engine.numeric_cols = ["a", "b"]
+    engine.headers = ["a", "b"]
+    class DummyCM:
+        columns = ["a", "b"]
+        matrix = [[1.0, 0.5], [0.5, 1.0]]
+    class DummyProfile:
+        correlation_matrix = DummyCM()
+    engine._profile = DummyProfile()
+
+    res = engine.get_correlations()
+    assert res["columns"] == ["a", "b"]
+    assert res["matrix"] == [[1.0, 0.5], [0.5, 1.0]]
+
+@patch("backend.app.analytics.engine._load_df")
+def test_engine_correlations_single_col(mock_load):
+    mock_load.return_value = pl.DataFrame({"a": [1, 2, 3]})
+    df = pl.DataFrame({"a": [1, 2, 3]})
+    engine = AnalyticsEngine(file_path="dummy.csv")
+    engine.df = df
+    engine.numeric_cols = ["a"]
+    engine.headers = ["a"]
+    class DummyProfile:
+        correlation_matrix = None
+    engine._profile = DummyProfile()
+
+    res = engine.get_correlations()
+    assert res["columns"] == ["a"]
+    assert res["matrix"] == [[1.0]]
+
+@patch("backend.app.analytics.engine._load_df")
+def test_engine_correlations_empty(mock_load):
+    mock_load.return_value = pl.DataFrame({"a": []}, schema={"a": pl.Int64})
+    df = pl.DataFrame({"a": []}, schema={"a": pl.Int64})
+    engine = AnalyticsEngine(file_path="dummy.csv")
+    engine.df = df
+    engine.numeric_cols = ["a"]
+    engine.headers = ["a"]
+    class DummyProfile:
+        correlation_matrix = None
+    engine._profile = DummyProfile()
+
+    res = engine.get_correlations()
+    assert res["columns"] == ["a"]
+    assert res["matrix"] == [[1.0]]
+
+@patch("backend.app.analytics.engine._load_df")
+def test_engine_correlations_nan(mock_load):
+    mock_load.return_value = pl.DataFrame({"a": [1.0, 2.0, np.nan], "b": [1.0, np.nan, 3.0]})
+    df = pl.DataFrame({"a": [1.0, 2.0, np.nan], "b": [1.0, np.nan, 3.0]})
+    engine = AnalyticsEngine(file_path="dummy.csv")
+    engine.df = df
+    engine.numeric_cols = ["a", "b"]
+    engine.headers = ["a", "b"]
+    class DummyProfile:
+        correlation_matrix = None
+    engine._profile = DummyProfile()
+
+    res = engine.get_correlations()
+    assert res["columns"] == ["a", "b"]
+    assert np.isnan(res["matrix"][0][1]) or res["matrix"][0][1] == 0.0

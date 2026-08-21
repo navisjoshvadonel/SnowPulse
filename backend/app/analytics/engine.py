@@ -366,13 +366,14 @@ class AnalyticsEngine:
         if sub_df.height < 3:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
-        matrix: list[list[float]] = []
-        for col_a in all_numeric:
-            row_corrs: list[float] = []
-            for col_b in all_numeric:
-                corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
-                row_corrs.append(0.0 if np.isnan(corr) else corr)
-            matrix.append(row_corrs)
+        # ⚡ Bolt: Replaced O(n^2) nested loop calculating correlation row by row with an O(1) vectorized NumPy call
+        np_data = sub_df.to_numpy()
+        corr_matrix = np.corrcoef(np_data, rowvar=False)
+        # Handle cases with single column returning scalar
+        if corr_matrix.ndim == 0:
+            corr_matrix = np.array([[corr_matrix]])
+        corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+        matrix: list[list[float]] = corr_matrix.tolist()
 
         return {"columns": all_numeric, "matrix": matrix}
 

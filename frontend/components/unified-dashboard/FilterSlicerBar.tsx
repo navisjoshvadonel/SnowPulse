@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Filter, X, RefreshCw, ChevronDown } from "lucide-react";
-import { useFilterStore } from "@/store/useFilterStore";
+import { useFilterStore } from "@/store/filterStore";
 
 interface FilterSlicerBarProps {
   columns: any[];
@@ -15,7 +15,7 @@ export default function FilterSlicerBar({
   totalRows = 0,
   filteredRows,
 }: FilterSlicerBarProps) {
-  const { filters, removeFilter, clearFilters, toggleCategoryValue } = useFilterStore();
+  const { selectedFilters: filters, removeFilter, clearFilters, toggleCategoryValue } = useFilterStore();
 
   const categoricalCols = columns.filter(
     (c) => c.dtype_category === "categorical" || c.inferred_role === "dimension" || c.inferred_role === "geo"

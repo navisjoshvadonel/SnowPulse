@@ -126,7 +126,7 @@ export default function DistributionPanel({
       const binIdx = params.dataIndex;
       if (binIdx >= 0 && binIdx < bins.length) {
         const selectedBin = bins[binIdx];
-        setNumericRange(selectedCol, selectedBin.min, selectedBin.max);
+        setNumericRange(selectedCol, [selectedBin.min, selectedBin.max]);
       }
     };
 

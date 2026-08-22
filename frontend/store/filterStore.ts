@@ -32,6 +32,7 @@ export interface FilterStoreState {
   removeFilter: (columnOrKey: string) => void;
   clearFilters: () => void;
   toggleCategoryValue: (column: string, value: string) => void;
+  setNumericRange: (column: string, range: [number, number] | null) => void;
 }
 
 export const useFilterStore = create<FilterStoreState>((set, get) => ({
@@ -228,6 +229,28 @@ export const useFilterStore = create<FilterStoreState>((set, get) => ({
 
     set({
       activeCategoryValues: nextCategoryValues,
+      selectedFilters: updatedFilters,
+    });
+  },
+
+  setNumericRange: (column, range) => {
+    const nextRanges = { ...get().activeNumericRanges };
+    let updatedFilters = get().selectedFilters.filter((f) => f.column !== column);
+
+    if (range) {
+      nextRanges[column] = range;
+      updatedFilters.push({
+        column,
+        op: "between",
+        value: range,
+        label: `${column}: ${range[0]} - ${range[1]}`,
+      });
+    } else {
+      delete nextRanges[column];
+    }
+
+    set({
+      activeNumericRanges: nextRanges,
       selectedFilters: updatedFilters,
     });
   },

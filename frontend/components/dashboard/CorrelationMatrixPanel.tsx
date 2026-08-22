@@ -35,15 +35,24 @@ export default function CorrelationMatrixPanel({
     );
   }
 
-  // Fallback / Mock correlation matrix if no numeric correlation columns exist
+  // Dynamic correlation matrix columns derived strictly from dataset schema
   const cols = correlations?.columns?.length
     ? correlations.columns
-    : (schema?.columns?.filter((c: { role?: string; min?: number }) => c.role === "metric" || c.role === "numeric" || c.min !== undefined).map((c: { name: string }) => c.name) || [
-        "Revenue",
-        "Units_Sold",
-        "Discount_Pct",
-        "Profit_Margin",
-      ]);
+    : (schema?.columns
+        ?.filter((c: any) => c.role === "metric" || c.role === "numeric" || c.inferred_role === "metric" || c.dtype_category === "numeric" || c.min !== undefined)
+        .map((c: any) => c.name) || []);
+
+  if (cols.length < 2) {
+    return (
+      <div className="bg-brand-surface/40 border border-white/10 rounded-2xl p-8 text-center space-y-3">
+        <Grid className="w-10 h-10 text-indigo-400 mx-auto opacity-40" />
+        <h3 className="text-base font-bold text-white">Correlation Matrix</h3>
+        <p className="text-xs text-white/50 max-w-md mx-auto leading-relaxed">
+          The active dataset contains {cols.length} numeric column{cols.length === 1 ? "" : "s"}. At least 2 numeric variables are required to compute linear feature correlations.
+        </p>
+      </div>
+    );
+  }
 
   // Ensure matrix matches cols length
   let matrix: (number | null)[][] = correlations?.matrix || [];
@@ -83,8 +92,8 @@ export default function CorrelationMatrixPanel({
     }
   }
 
-  const primaryMetric = schema?.primary_metric || kpis?.metric_name || "Primary Metric";
-  const primaryCategory = schema?.primary_category || "Segment";
+  const primaryMetric = schema?.primary_metric || kpis?.metric_name || schema?.columns?.find((c: any) => c.dtype_category === 'numeric')?.name || "Primary Metric";
+  const primaryCategory = schema?.primary_category || schema?.columns?.find((c: any) => c.inferred_role === 'dimension' || c.dtype_category === 'categorical')?.name || "Category";
 
   // Get color scale for correlation value
   const getCellColor = (val: number | null, isSelf: boolean) => {

@@ -181,7 +181,7 @@ Respond in clean markdown. Format numbers, percentages, and metrics clearly. Kee
                 k, v = line.split(":", 1)
                 stats[k.strip().lower()] = v.strip()
 
-        metric = stats.get("primary target metric", "Revenue")
+        metric = stats.get("primary target metric", "Primary Metric")
         total_val = stats.get("total aggregate value", "0.00")
         growth = stats.get("growth rate (period-over-period)", "0.0%")
         top_geo = stats.get("top performing region/segment", "Global")
@@ -208,7 +208,7 @@ Respond in clean markdown. Format numbers, percentages, and metrics clearly. Kee
                 k, v = line.split(":", 1)
                 stats[k.strip().lower()] = v.strip()
 
-        metric = stats.get("primary target metric", "Revenue")
+        metric = stats.get("primary target metric", "Primary Metric")
         total_val = stats.get("total aggregate value", "0.00")
         growth = stats.get("growth rate (period-over-period)", "0.0%")
         top_geo = stats.get("top performing region/segment", "Global")

@@ -1140,7 +1140,18 @@ def run_generalized_forecast(
     db: Session = Depends(get_db)
 ):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
-    metric_col = payload.get("metric_column", "revenue")
+    metric_col = payload.get("metric_column")
+    if not metric_col and dataset and dataset.profile_json:
+        try:
+            prof = json.loads(dataset.profile_json) if isinstance(dataset.profile_json, str) else dataset.profile_json
+            cols = prof.get("columns", [])
+            primary_col = next((c.get("name") for c in cols if c.get("is_primary_metric")), None)
+            numeric_col = next((c.get("name") for c in cols if c.get("dtype_category") == "numeric" or c.get("inferred_role") == "metric"), None)
+            metric_col = primary_col or numeric_col
+        except Exception:
+            pass
+    if not metric_col:
+        metric_col = "metric"
     temporal_col = payload.get("temporal_column")
     periods = payload.get("periods", 12)
     multiplier = payload.get("scenario_multiplier", 1.0)

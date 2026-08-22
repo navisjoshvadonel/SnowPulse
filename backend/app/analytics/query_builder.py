@@ -78,6 +78,10 @@ class DynamicQueryEngine:
                         df = df.filter(pl.col(f.column) == f.value)
                     elif f.op == '!=':
                         df = df.filter(pl.col(f.column) != f.value)
+                    elif f.op == '>=' or f.op == 'gte':
+                        df = df.filter(pl.col(f.column) >= f.value)
+                    elif f.op == '<=' or f.op == 'lte':
+                        df = df.filter(pl.col(f.column) <= f.value)
                     elif f.op == '>':
                         df = df.filter(pl.col(f.column) > f.value)
                     elif f.op == '<':
@@ -129,6 +133,7 @@ class DynamicQueryEngine:
                 "success": True,
                 "data": data,
                 "row_count": len(data),
+                "total_rows": len(data),
                 "columns": result_df.columns
             }
         except Exception as e:
@@ -137,7 +142,8 @@ class DynamicQueryEngine:
                 "success": False,
                 "error": str(e),
                 "data": [],
-                "row_count": 0
+                "row_count": 0,
+                "total_rows": 0
             }
 
     @staticmethod

@@ -70,7 +70,13 @@ export default function AutoPowerBIDashboard({
           c.dtype_category === "categorical"
       )
       .map((c) => c.name);
-    return found.length > 0 ? found : ["Segment", "Region", "Category"];
+
+    if (found.length > 0) return found;
+    // Dynamic fallback to any non-numeric/low cardinality column in uploaded dataset
+    const fallback = allColumns
+      .filter((c) => c.dtype_category !== "numeric" && c.dtype_category !== "datetime")
+      .map((c) => c.name);
+    return fallback;
   }, [allColumns]);
 
   const numericCols = useMemo(() => {
@@ -84,7 +90,13 @@ export default function AutoPowerBIDashboard({
           c.dtype_category === "numeric"
       )
       .map((c) => c.name);
-    return found.length > 0 ? found : ["Revenue", "Volume"];
+
+    if (found.length > 0) return found;
+    // Dynamic fallback to any column with numeric statistics in uploaded dataset
+    const fallback = allColumns
+      .filter((c) => c.numeric_stats !== undefined || c.mean !== undefined)
+      .map((c) => c.name);
+    return fallback;
   }, [allColumns]);
 
   const geoCols = useMemo(() => {
@@ -119,9 +131,16 @@ export default function AutoPowerBIDashboard({
     }
 
     const catObj = allColumns.find((c) => c.name === colName);
+    if ((catObj as any)?.top_values && Array.isArray((catObj as any).top_values) && (catObj as any).top_values.length > 0) {
+      return (catObj as any).top_values.slice(0, 8).map((tv: any) => ({
+        name: String(tv.value ?? tv.name ?? tv.category),
+        value: Number(tv.count ?? tv.value ?? 100),
+      }));
+    }
+
     if (catObj?.unique_values && catObj.unique_values.length > 0) {
       const totalBase = 1250000;
-      return catObj.unique_values.slice(0, 7).map((val, idx) => ({
+      return catObj.unique_values.slice(0, 8).map((val, idx) => ({
         name: String(val),
         value: Math.round((totalBase / (idx + 1)) * (0.8 + Math.random() * 0.4)),
       }));
@@ -129,11 +148,11 @@ export default function AutoPowerBIDashboard({
 
     const cleanCat = formatTitle(colName);
     return [
-      { name: `${cleanCat} Alpha`, value: 540000 },
-      { name: `${cleanCat} Beta`, value: 380000 },
-      { name: `${cleanCat} Gamma`, value: 240000 },
-      { name: `${cleanCat} Delta`, value: 160000 },
-      { name: `${cleanCat} Epsilon`, value: 95000 },
+      { name: `${cleanCat} Group 1`, value: 540000 },
+      { name: `${cleanCat} Group 2`, value: 380000 },
+      { name: `${cleanCat} Group 3`, value: 240000 },
+      { name: `${cleanCat} Group 4`, value: 160000 },
+      { name: `${cleanCat} Group 5`, value: 95000 },
     ];
   };
 

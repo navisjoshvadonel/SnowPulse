@@ -146,7 +146,7 @@ export default function HistogramChart({
       if (idx >= 0 && idx < binLabels.length) {
         const parts = binLabels[idx].split(" - ").map(Number);
         if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-          useFilterStore.getState().setNumericRange(metricName, parts[0], parts[1]);
+          useFilterStore.getState().setNumericRange(metricName, [parts[0], parts[1]]);
         }
       }
     };

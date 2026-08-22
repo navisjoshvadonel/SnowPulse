@@ -680,7 +680,7 @@ export default function HomePage() {
   const handleSelectDataset = async (datasetId: number, name: string) => {
     setSelectedDatasetId(datasetId);
     setSelectedDatasetName(name);
-    setSelectedRegion(null);
+    filterStore.clearFilters();
     setLoadingDashboard(true);
 
     try {

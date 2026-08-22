@@ -55,14 +55,9 @@ class DataQualityScorer:
                 "anomalies": [{"row": 0, "column": "all", "error": "Zero records found"}]
             }
 
-        # 1. Select schema: Use strict sales schema if columns match, else use dynamic schema
-        required_sales_cols = {"Date", "Revenue"}
-        if required_sales_cols.issubset(df.columns):
-            schema = sales_transaction_schema
-            schema_type = "strict_sales"
-        else:
-            schema = get_dynamic_schema(df)
-            schema_type = "dynamic_inferred"
+        # 1. Dynamically infer schema based on dataset structure and datatypes
+        schema = get_dynamic_schema(df)
+        schema_type = "dynamic_inferred"
 
         anomalies: list[dict[str, Any]] = []
         is_valid = True

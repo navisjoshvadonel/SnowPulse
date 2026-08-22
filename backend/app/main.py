@@ -872,6 +872,7 @@ def execute_dynamic_query(
 
 
 @app.post("/api/datasets/{dataset_id}/dashboard-aggregate")
+@app.post("/api/datasets/{dataset_id}/aggregate")
 @limiter.limit("120/minute")
 def execute_dashboard_aggregate(
     request: Request,
@@ -882,7 +883,7 @@ def execute_dashboard_aggregate(
 ):
     """
     Execute server-side aggregation for the active filter state.
-    Calculates summary KPIs and categorical group-bys without returning raw rows.
+    Calculates summary KPIs, geo intelligence, correlations, trends, and group-bys without returning raw rows.
     """
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
@@ -893,6 +894,7 @@ def execute_dashboard_aggregate(
         raise HTTPException(status_code=400, detail=result.get("error"))
 
     return result
+
 
 
 @app.get("/api/analytics/summary/{dataset_id}")

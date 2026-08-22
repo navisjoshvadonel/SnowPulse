@@ -231,5 +231,14 @@ export const apiService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(filterState),
     });
+  },
+
+  async getDatasetAggregate(datasetId: number, filterState: any) {
+    return fetchAPI(`/api/datasets/${datasetId}/aggregate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(filterState),
+    });
   }
 };
+

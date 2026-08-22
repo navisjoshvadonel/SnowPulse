@@ -140,8 +140,11 @@ export default function AutoBarChart({
     chart.setOption(option);
 
     const handleChartClick = (params: any) => {
-      if (params.name && categoryColumn) {
-        useFilterStore.getState().toggleCategoryValue(categoryColumn, params.name);
+      if (params.name) {
+        useFilterStore.getState().setSelectedCategory(params.name);
+        if (categoryColumn) {
+          useFilterStore.getState().toggleCategoryValue(categoryColumn, params.name);
+        }
       }
     };
 

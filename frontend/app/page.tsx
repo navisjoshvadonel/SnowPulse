@@ -48,6 +48,9 @@ import AutoBarChart from "@/components/visuals/AutoBarChart";
 import HistogramChart from "@/components/visuals/HistogramChart";
 import UnifiedBIDashboard from "@/components/unified-dashboard/UnifiedBIDashboard";
 import DashboardGrid from "@/components/dashboard/DashboardGrid";
+import { useFilterStore } from "@/store/filterStore";
+import FilterChipBar from "@/components/dashboard/FilterChipBar";
+
 
 
 // ─────────────────────────────────────────────────────
@@ -424,7 +427,71 @@ export default function HomePage() {
   const [datasets, setDatasets] = useState<{ id: number; name: string; description: string }[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
   const [selectedDatasetName, setSelectedDatasetName] = useState("No dataset selected");
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const filterStore = useFilterStore();
+
+  // Synchronize filterStore with real server-side Polars aggregation
+  useEffect(() => {
+    async function syncFiltersWithBackend() {
+      if (!selectedDatasetId) return;
+      const {
+        selectedRegion,
+        selectedCategory,
+        dateRange,
+        brushedRange,
+        selectedFilters,
+        activeCategoryValues,
+        activeNumericRanges,
+      } = filterStore;
+
+      const hasActiveFilters =
+        selectedRegion !== null ||
+        selectedCategory !== null ||
+        dateRange !== null ||
+        brushedRange !== null ||
+        selectedFilters.length > 0 ||
+        Object.keys(activeCategoryValues).length > 0 ||
+        Object.keys(activeNumericRanges).length > 0;
+
+      if (!hasActiveFilters) return;
+
+      try {
+        const payload = {
+          selectedRegion,
+          selectedCategory,
+          date_range: dateRange,
+          brushedRange,
+          filters: selectedFilters.map((f) => ({ column: f.column, op: f.op, value: f.value })),
+          active_category_values: activeCategoryValues,
+          active_numeric_ranges: activeNumericRanges,
+        };
+
+        const res = await apiService.getDatasetAggregate(selectedDatasetId, payload);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            if (data.kpis) setKpis(data.kpis);
+            if (data.geoData) setGeoData(data.geoData);
+            if (data.correlations) setCorrelations(data.correlations);
+            if (data.trends) setTrends(data.trends);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to query aggregate filter state:", err);
+      }
+    }
+
+    syncFiltersWithBackend();
+  }, [
+    selectedDatasetId,
+    filterStore.selectedRegion,
+    filterStore.selectedCategory,
+    filterStore.dateRange,
+    filterStore.brushedRange,
+    filterStore.selectedFilters,
+    filterStore.activeCategoryValues,
+    filterStore.activeNumericRanges,
+  ]);
+
 
 
   const [dynamicSchemas, setDynamicSchemas] = useState<Record<number, any>>({});
@@ -985,25 +1052,9 @@ export default function HomePage() {
     }
   };
 
-  // Region filter multiplier
+  // Real backend aggregated KPIs
   const getFilteredKpis = () => {
-    if (!kpis) return null;
-    if (!selectedRegion) return kpis;
-    const mult =
-      selectedRegion === "North America"
-        ? 0.35
-        : selectedRegion === "Europe"
-        ? 0.25
-        : selectedRegion === "APAC"
-        ? 0.4
-        : 0.15;
-    return {
-      ...kpis,
-      total_value: Math.round(kpis.total_value * mult),
-      total_records: Math.round(kpis.total_records * mult),
-      growth_rate: kpis.growth_rate * (mult + 0.8),
-      metric_name: `${kpis.metric_name} (${selectedRegion})`,
-    };
+    return kpis;
   };
 
   const sidebarWidth = sidebarCollapsed ? 64 : 220;
@@ -1395,6 +1446,8 @@ export default function HomePage() {
               )}
             </div>
           ) : (
+            <div className="space-y-4">
+              <FilterChipBar />
               <DashboardGrid
                 activeSection={activeSection}
                 datasetId={selectedDatasetId}
@@ -1412,6 +1465,7 @@ export default function HomePage() {
                 loadingPrediction={loadingPrediction}
                 onDatasetHealed={handleDatasetHealed}
               />
+            </div>
           )}
         </div>
       </div>

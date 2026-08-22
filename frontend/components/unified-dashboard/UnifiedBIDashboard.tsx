@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useFilterStore } from "@/store/useFilterStore";
+import { useFilterStore } from "@/store/filterStore";
+import FilterChipBar from "@/components/dashboard/FilterChipBar";
 import FilterSlicerBar from "./FilterSlicerBar";
 import UnifiedKpiStrip from "./UnifiedKpiStrip";
 import CategoricalBreakdownPanel from "./CategoricalBreakdownPanel";
@@ -22,7 +23,15 @@ export default function UnifiedBIDashboard({ datasetId }: UnifiedBIDashboardProp
   const [loading, setLoading] = useState<boolean>(true);
   const [filteredRowCount, setFilteredRowCount] = useState<number | undefined>(undefined);
 
-  const { filters } = useFilterStore();
+  const {
+    selectedRegion,
+    selectedCategory,
+    dateRange,
+    brushedRange,
+    selectedFilters,
+    activeCategoryValues,
+    activeNumericRanges,
+  } = useFilterStore();
 
   // Fetch Dataset Profile & Schema
   useEffect(() => {
@@ -44,40 +53,65 @@ export default function UnifiedBIDashboard({ datasetId }: UnifiedBIDashboardProp
     loadSchema();
   }, [datasetId]);
 
-  // Execute Dynamic Backend Query whenever filters change
+  // Execute Dynamic Backend Server-Side Aggregation whenever store filters change
   useEffect(() => {
     async function updateFilteredData() {
-      if (!datasetId || !schemaData || filters.length === 0) {
+      if (!datasetId || !schemaData) return;
+
+      const hasActiveFilters =
+        selectedRegion !== null ||
+        selectedCategory !== null ||
+        dateRange !== null ||
+        brushedRange !== null ||
+        selectedFilters.length > 0 ||
+        Object.keys(activeCategoryValues).length > 0 ||
+        Object.keys(activeNumericRanges).length > 0;
+
+      if (!hasActiveFilters) {
         setFilteredRowCount(undefined);
         return;
       }
 
       try {
         const payload = {
-          filters: filters.map((f) => ({
+          selectedRegion,
+          selectedCategory,
+          date_range: dateRange,
+          brushedRange,
+          filters: selectedFilters.map((f) => ({
             column: f.column,
             op: f.op,
             value: f.value,
           })),
-          limit: 1,
+          active_category_values: activeCategoryValues,
+          active_numeric_ranges: activeNumericRanges,
         };
 
-        const res = await apiService.queryDataset(datasetId, payload);
+        const res = await apiService.getDatasetAggregate(datasetId, payload);
 
         if (res.ok) {
           const result = await res.json();
-          if (result.success) {
-            setFilteredRowCount(result.total_rows);
+          if (result.success && result.total_records !== undefined) {
+            setFilteredRowCount(result.total_records);
           }
         }
       } catch (err) {
-        console.error("Failed to query filtered dataset:", err);
+        console.error("Failed to aggregate filtered dataset:", err);
       }
     }
 
     updateFilteredData();
-  }, [filters, datasetId, schemaData]);
-
+  }, [
+    datasetId,
+    schemaData,
+    selectedRegion,
+    selectedCategory,
+    dateRange,
+    brushedRange,
+    selectedFilters,
+    activeCategoryValues,
+    activeNumericRanges,
+  ]);
 
   if (loading) {
     return (
@@ -106,6 +140,9 @@ export default function UnifiedBIDashboard({ datasetId }: UnifiedBIDashboardProp
 
   return (
     <div className="w-full space-y-6">
+      {/* 0. Filter Chip Bar (Visibility & One-Click Removal of active filters) */}
+      <FilterChipBar />
+
       {/* 1. Dynamic Filter & Slicer Bar */}
       <FilterSlicerBar
         columns={columns}

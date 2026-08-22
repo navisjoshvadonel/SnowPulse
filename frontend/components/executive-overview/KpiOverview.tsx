@@ -145,8 +145,8 @@ export default function KpiOverview({ kpis, aiHeadline, loading }: KpiOverviewPr
     {
       title: "Data Quality Score",
       value: `${kpis.quality_score.toFixed(1)}%`,
-      trend: `+${(100 - kpis.quality_score).toFixed(1)}%`,
-      trendLabel: "fill rate",
+      trend: kpis.quality_score >= 99 ? "100%" : `+${(100 - kpis.quality_score).toFixed(1)}%`,
+      trendLabel: kpis.quality_score >= 99 ? "Clean (Healed)" : "fill rate",
       trendUp: true,
       spark: accuracySparkline,
       sparkColor: "#10b981",

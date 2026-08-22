@@ -27,10 +27,11 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export type SnowSection =
   | "dashboard"
+  | "ai-copilot"
+  | "prediction"
   | "dataset-overview"
   | "data-quality"
-  | "correlation-matrix"
-  | "ai-copilot";
+  | "correlation-matrix";
 
 export interface UsageQuota {
   gemini_calls: number;
@@ -65,7 +66,7 @@ function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className
         </linearGradient>
       </defs>
       <line x1="12" y1="2" x2="12" y2="22" stroke="url(#sf-grad)" strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="2" y1="12" x2="22" y2="12" stroke="url(#sf-grad)" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="2" y1="2" x2="22" y2="12" stroke="url(#sf-grad)" strokeWidth="1.8" strokeLinecap="round" />
       <line x1="5.5" y1="5.5" x2="18.5" y2="18.5" stroke="url(#sf-grad)" strokeWidth="1.8" strokeLinecap="round" />
       <line x1="5.5" y1="18.5" x2="18.5" y2="5.5" stroke="url(#sf-grad)" strokeWidth="1.8" strokeLinecap="round" />
       <polygon
@@ -85,6 +86,7 @@ function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className
 const navItems: { id: SnowSection; label: string; icon: React.ElementType }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "ai-copilot", label: "AI Copilot & Generative UI", icon: Sparkles },
+  { id: "prediction", label: "AI AutoML & Forecast", icon: Activity },
   { id: "dataset-overview", label: "Dataset Overview", icon: Database },
   { id: "data-quality", label: "Data Quality Report", icon: ShieldCheck },
   { id: "correlation-matrix", label: "Correlation Matrix", icon: Grid },

@@ -141,6 +141,9 @@ export default function DataQualityReportPanel({ datasetId, schema, loading, onD
     };
     setActionLogs((prev) => [newLog, ...prev]);
     setToastMessage(detailMsg);
+    if (onDatasetHealed) {
+      onDatasetHealed();
+    }
     setTimeout(() => setToastMessage(null), 4000);
   };
 

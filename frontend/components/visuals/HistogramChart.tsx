@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import * as echarts from "echarts";
+import { useFilterStore } from "@/store/useFilterStore";
 
 interface HistogramChartProps {
   values?: number[];
@@ -138,6 +139,19 @@ export default function HistogramChart({
     };
 
     chart.setOption(option);
+
+    const handleChartClick = (params: any) => {
+      const idx = params.dataIndex;
+      const { binLabels } = computeBins();
+      if (idx >= 0 && idx < binLabels.length) {
+        const parts = binLabels[idx].split(" - ").map(Number);
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          useFilterStore.getState().setNumericRange(metricName, parts[0], parts[1]);
+        }
+      }
+    };
+
+    chart.on("click", handleChartClick);
 
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);

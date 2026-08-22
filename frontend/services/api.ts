@@ -1,7 +1,8 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // Standard helper to handle API calls with credentials (refresh token cookie support)
-async function fetchAPI(endpoint: string, options: RequestInit = {}) {
+export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
+
   const url = `${API_BASE}${endpoint}`;
   
   // Try retrieving local access token if exists
@@ -107,7 +108,16 @@ export const apiService = {
     return fetchAPI(`/api/datasets/${datasetId}/signals`);
   },
 
+  async queryDataset(datasetId: number, payload: any) {
+    return fetchAPI(`/api/datasets/${datasetId}/query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
+
   async uploadDataset(file: File) {
+
     const formData = new FormData();
     formData.append("file", file);
     
@@ -211,6 +221,15 @@ export const apiService = {
         report_type: reportType,
         dataset_id: datasetId,
       }),
+    });
+  },
+
+  // Server-side Polars aggregation endpoint given active filter state
+  async getDashboardAggregate(datasetId: number, filterState: any) {
+    return fetchAPI(`/api/datasets/${datasetId}/dashboard-aggregate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(filterState),
     });
   }
 };

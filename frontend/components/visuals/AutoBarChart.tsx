@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import * as echarts from "echarts";
+import { useFilterStore } from "@/store/useFilterStore";
 
 interface BarDataItem {
   name: string;
@@ -138,6 +139,14 @@ export default function AutoBarChart({
 
     chart.setOption(option);
 
+    const handleChartClick = (params: any) => {
+      if (params.name && categoryColumn) {
+        useFilterStore.getState().toggleCategoryValue(categoryColumn, params.name);
+      }
+    };
+
+    chart.on("click", handleChartClick);
+
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
 
@@ -145,7 +154,7 @@ export default function AutoBarChart({
       chart.dispose();
       window.removeEventListener("resize", handleResize);
     };
-  }, [data, loading, title, horizontal, metricColumn]);
+  }, [data, loading, title, horizontal, metricColumn, categoryColumn]);
 
   return (
     <div

@@ -85,14 +85,15 @@ function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className
 }
 
 const navItems: { id: SnowSection; label: string; icon: React.ElementType }[] = [
-  { id: "dashboard", label: "Executive Dashboard", icon: LayoutDashboard },
-  { id: "power-bi-auto", label: "Power BI Auto-Canvas", icon: Zap },
+  { id: "dashboard", label: "Unified BI Dashboard", icon: LayoutDashboard },
+  { id: "power-bi-auto", label: "BI Cross-Filter Canvas", icon: Zap },
   { id: "ai-copilot", label: "AI Copilot & Generative UI", icon: Sparkles },
   { id: "prediction", label: "AI AutoML & Forecast", icon: Activity },
   { id: "dataset-overview", label: "Dataset Overview", icon: Database },
   { id: "data-quality", label: "Data Quality Report", icon: ShieldCheck },
   { id: "correlation-matrix", label: "Correlation Matrix", icon: Grid },
 ];
+
 
 export default function Sidebar({
   active,

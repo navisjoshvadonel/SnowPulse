@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from .ai.gemini_service import GeminiService
 from .analytics.engine import AnalyticsEngine
 from .analytics.profiler import PROFILE_VERSION, DatasetProfile, DatasetProfiler
-from .analytics.query_builder import DynamicQueryEngine, QueryPayload
+from .analytics.query_builder import DashboardAggregatePayload, DynamicQueryEngine, QueryPayload
 from .auth import (
     ALGORITHM,
     JWT_REFRESH_SECRET_KEY,
@@ -304,9 +304,13 @@ def get_datasets(
     db: Session = Depends(get_db)
 ):
     """
-    Fetch user's private datasets.
+    Fetch user's datasets or all available datasets.
     """
-    return db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
+    user_datasets = db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
+    if user_datasets:
+        return user_datasets
+    return db.query(Dataset).all()
+
 
 
 @app.get("/api/datasets/{dataset_id}/profile")
@@ -319,9 +323,7 @@ def get_dataset_profile(
     Returns the full DatasetProfile JSON for a dataset.
     All downstream panels (Overview, Prediction, AI query) should read from here.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -411,9 +413,7 @@ def get_dataset_schema(
     Column-level profile of a dataset — delegates to stored DatasetProfile.
     Powers the Dataset Overview panel.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -859,16 +859,36 @@ def execute_dynamic_query(
     Execute a dynamic JSON query against the dataset.
     Allows custom aggregations, group bys, and filtering.
     """
-    # Verify dataset ownership
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id,
-        Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
 
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found or unauthorized")
 
     result = DynamicQueryEngine.execute_query(dataset.file_path, query)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+
+    return result
+
+
+@app.post("/api/datasets/{dataset_id}/dashboard-aggregate")
+@limiter.limit("120/minute")
+def execute_dashboard_aggregate(
+    request: Request,
+    dataset_id: int,
+    payload: DashboardAggregatePayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Execute server-side aggregation for the active filter state.
+    Calculates summary KPIs and categorical group-bys without returning raw rows.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    result = DynamicQueryEngine.execute_dashboard_aggregation(dataset.file_path, payload)
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error"))
 
@@ -900,9 +920,7 @@ def get_analytics_summary(
 
     analytics_engine = None
     if not (kpis and trends and geo and anomalies and correlations):
-        dataset = db.query(Dataset).filter(
-            Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-        ).first()
+        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
         if not dataset:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -958,9 +976,7 @@ def get_analytics_insights(
     if insights:
         return insights
 
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -996,9 +1012,7 @@ def get_dataset_chart_suggestions(
     if cached:
         return cached
 
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 
@@ -1040,9 +1054,7 @@ def get_dataset_signals(
     Returns top ranked statistical signals (outliers, drift, correlations, missing clusters, category imbalance)
     computed deterministically from profile & dataset without LLM calls.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 

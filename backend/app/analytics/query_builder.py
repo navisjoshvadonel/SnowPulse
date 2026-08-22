@@ -11,7 +11,7 @@ logger = logging.getLogger("snowpulse.analytics.query_builder")
 
 class QueryFilter(BaseModel):
     column: str
-    op: str  # e.g., '==', '!=', '>', '<', '>=', '<=', 'in'
+    op: str  # e.g., '==', '!=', '>', '<', '>=', '<=', 'in', 'between'
     value: Any
 
 class QueryMetric(BaseModel):
@@ -31,6 +31,13 @@ class QueryPayload(BaseModel):
     sort_by: str | None = None
     sort_desc: bool = True
     limit: int = 100
+
+class DashboardAggregatePayload(BaseModel):
+    filters: list[QueryFilter] = []
+    active_category_values: dict[str, list[str]] = {}
+    active_numeric_ranges: dict[str, list[float]] = {}
+    date_range: dict[str, str] | None = None
+    active_brush: dict[str, Any] | None = None
 
 class DynamicQueryEngine:
     @staticmethod
@@ -80,6 +87,8 @@ class DynamicQueryEngine:
                     df = df.filter(pl.col(f.column) <= f.value)
                 elif f.op == 'in' and isinstance(f.value, list):
                     df = df.filter(pl.col(f.column).is_in(f.value))
+                elif f.op == 'between' and isinstance(f.value, (list, tuple)) and len(f.value) == 2:
+                    df = df.filter((pl.col(f.column) >= f.value[0]) & (pl.col(f.column) <= f.value[1]))
 
             # Grouping and Aggregation
             if query.metrics:
@@ -128,3 +137,90 @@ class DynamicQueryEngine:
                 "success": False,
                 "error": str(e)
             }
+
+    @staticmethod
+    def execute_dashboard_aggregation(file_path: str, payload: DashboardAggregatePayload) -> dict[str, Any]:
+        """
+        Executes server-side filtering and aggregation for the unified dashboard.
+        Returns pre-aggregated stats, group-bys, and distributions without returning raw rows.
+        """
+        try:
+            df = _load_df(file_path)
+
+            # 1. Apply explicit filters
+            for f in payload.filters:
+                if f.column in df.columns:
+                    if f.op == '==' or f.op == 'eq':
+                        df = df.filter(pl.col(f.column) == f.value)
+                    elif f.op == '!=':
+                        df = df.filter(pl.col(f.column) != f.value)
+                    elif f.op == '>':
+                        df = df.filter(pl.col(f.column) > f.value)
+                    elif f.op == '<':
+                        df = df.filter(pl.col(f.column) < f.value)
+                    elif f.op == 'in' and isinstance(f.value, list):
+                        df = df.filter(pl.col(f.column).is_in(f.value))
+                    elif f.op == 'between' and isinstance(f.value, (list, tuple)) and len(f.value) == 2:
+                        df = df.filter((pl.col(f.column) >= f.value[0]) & (pl.col(f.column) <= f.value[1]))
+
+            # 2. Apply active_category_values filter map
+            for col, values in payload.active_category_values.items():
+                if col in df.columns and values:
+                    df = df.filter(pl.col(col).is_in(values))
+
+            # 3. Apply active_numeric_ranges filter map
+            for col, r in payload.active_numeric_ranges.items():
+                if col in df.columns and isinstance(r, (list, tuple)) and len(r) == 2:
+                    df = df.filter((pl.col(col) >= r[0]) & (pl.col(col) <= r[1]))
+
+            # 4. Apply date_range filter
+            if payload.date_range and 'start' in payload.date_range and 'end' in payload.date_range:
+                date_cols = [c for c in df.columns if 'date' in c.lower() or 'time' in c.lower()]
+                if date_cols:
+                    d_col = date_cols[0]
+                    df = df.filter((pl.col(d_col) >= payload.date_range['start']) & (pl.col(d_col) <= payload.date_range['end']))
+
+            filtered_rows = len(df)
+
+            # Separate numeric and categorical columns
+            numeric_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8)]
+            cat_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Utf8, pl.Categorical, pl.Boolean)]
+
+            kpis = {}
+            for col in numeric_cols:
+                if len(df) > 0:
+                    mean_val = df[col].mean()
+                    sum_val = df[col].sum()
+                    min_val = df[col].min()
+                    max_val = df[col].max()
+                    kpis[col] = {
+                        "mean": float(mean_val) if mean_val is not None else 0.0,
+                        "sum": float(sum_val) if sum_val is not None else 0.0,
+                        "min": float(min_val) if min_val is not None else 0.0,
+                        "max": float(max_val) if max_val is not None else 0.0,
+                    }
+                else:
+                    kpis[col] = {"mean": 0.0, "sum": 0.0, "min": 0.0, "max": 0.0}
+
+            categorical_breakdowns = {}
+            for col in cat_cols[:4]:
+                if len(df) > 0:
+                    counts = df.group_by(col).len().sort("len", descending=True).head(10)
+                    categorical_breakdowns[col] = counts.to_dicts()
+
+            return {
+                "success": True,
+                "total_records": filtered_rows,
+                "kpis": kpis,
+                "categorical_breakdowns": categorical_breakdowns,
+            }
+        except Exception as e:
+            logger.error(f"Dashboard aggregation failure: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "total_records": 0,
+                "kpis": {},
+                "categorical_breakdowns": {}
+            }
+

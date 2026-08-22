@@ -12,10 +12,10 @@ interface GeoItem {
 
 interface GeographicMapProps {
   geoData: GeoItem[] | null;
-  aiGeoNote: string | null;
+  aiGeoNote?: string | null;
   loading: boolean;
-  selectedRegion: string | null;
-  onSelectRegion: (region: string | null) => void;
+  selectedRegion?: string | null;
+  onSelectRegion?: (region: string | null) => void;
   categoryName?: string | null;
   metricName?: string | null;
 }
@@ -75,10 +75,10 @@ const regionToCountriesMap: Record<string, string[]> = {
 
 export default function GeographicMap({
   geoData,
-  aiGeoNote,
+  aiGeoNote = null,
   loading,
-  selectedRegion,
-  onSelectRegion,
+  selectedRegion = null,
+  onSelectRegion = () => {},
   categoryName,
   metricName,
 }: GeographicMapProps) {

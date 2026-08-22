@@ -46,6 +46,9 @@ import AutoPowerBIDashboard from "@/components/visuals/AutoPowerBIDashboard";
 import AutoPieChart from "@/components/visuals/AutoPieChart";
 import AutoBarChart from "@/components/visuals/AutoBarChart";
 import HistogramChart from "@/components/visuals/HistogramChart";
+import UnifiedBIDashboard from "@/components/unified-dashboard/UnifiedBIDashboard";
+import DashboardGrid from "@/components/dashboard/DashboardGrid";
+
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -1392,188 +1395,23 @@ export default function HomePage() {
               )}
             </div>
           ) : (
-            <>
-              {/* ── DASHBOARD SECTION ── */}
-              {activeSection === "dashboard" && (
-                <div className="space-y-4">
-                  {/* Enterprise Action Bar: Data Quality, Connectors & PDF Export */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                    <div className="flex items-center gap-3">
-                      <DataQualityBadge healthScore={kpis.quality_score} />
-                      <span className="text-xs text-white/40 font-mono hidden sm:inline flex items-center gap-1.5">
-                        Active Schema: <strong className="text-white">{selectedDatasetName}</strong>
-                        <CalculationLineagePopover metricName={kpis.metric_name || "Primary Metric"} />
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ChartAnnotations />
-                      <button
-                        onClick={() => setConnectorsModalOpen(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-xs font-mono font-bold text-cyan-300 transition-all cursor-pointer shadow-lg"
-                      >
-                        <Database size={13} /> Direct Connectors
-                      </button>
-                      <button
-                        onClick={handleExportPdf}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-xs font-mono font-bold text-indigo-300 transition-all cursor-pointer shadow-lg"
-                      >
-                        <FileText size={13} /> Export Executive PDF
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Row 1: KPI Cards */}
-                  <KpiOverview
-                    kpis={getFilteredKpis()}
-                    aiHeadline={aiInsights?.headline || null}
-                    loading={false}
-                  />
-
-                  {/* Row 2: Performance Analytics + Segment Donut */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    <div className="lg:col-span-8">
-                      <TrendVisuals
-                        trends={trends}
-                        aiTrendNote={aiInsights?.trends || null}
-                        loading={false}
-                      />
-                    </div>
-                    <div className="lg:col-span-4">
-                      <DonutChart
-                        title={
-                          datasetSchema?.primary_category
-                            ? `Top ${formatColumnTitle(datasetSchema.primary_category, "Segment")} Shares`
-                            : "Top Segment Shares"
-                        }
-                        metricLabel={
-                          datasetSchema?.primary_metric
-                            ? `Total ${formatColumnTitle(datasetSchema.primary_metric, "Records")}`
-                            : "Total Records"
-                        }
-                        data={
-                          geoData
-                            ? geoData.slice(0, 5).map((g: any) => ({ name: g.region, value: g.value }))
-                            : []
-                        }
-                        loading={false}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 2.5: Auto Power BI Graphs (Ranked Bar Chart & Metric Histogram) */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    <div className="lg:col-span-6 h-[320px]">
-                      <AutoBarChart
-                        data={
-                          geoData
-                            ? geoData.slice(0, 7).map((g: any) => ({ name: g.region, value: g.value }))
-                            : []
-                        }
-                        title={`Ranked ${formatColumnTitle(datasetSchema?.primary_category, "Category")} Volume`}
-                        categoryColumn={formatColumnTitle(datasetSchema?.primary_category, "Category")}
-                        metricColumn={formatColumnTitle(datasetSchema?.primary_metric, "Metric")}
-                        loading={false}
-                      />
-                    </div>
-                    <div className="lg:col-span-6 h-[320px]">
-                      <HistogramChart
-                        values={trends?.values || []}
-                        metricName={formatColumnTitle(datasetSchema?.primary_metric, "Metric")}
-                        binsCount={8}
-                        loading={false}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 3: Recent Activity + AI Insights */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    {/* Anomaly Distribution Chart */}
-                    <div className="lg:col-span-8">
-                      <AnomalyBarChart anomalies={anomalies} loading={false} />
-                    </div>
-
-                    {/* Dataset Profile Chart */}
-                    <div className="lg:col-span-4">
-                      <DatasetProfileChart schema={datasetSchema} loading={loadingSchema} />
-                    </div>
-                  </div>
-
-                  {/* Row 4: Geographic Map */}
-                  <div className="w-full">
-                    <GeographicMap
-                      geoData={geoData}
-                      aiGeoNote={aiInsights?.geo || null}
-                      loading={false}
-                      selectedRegion={selectedRegion}
-                      onSelectRegion={setSelectedRegion}
-                      categoryName={datasetSchema?.primary_category || "Category"}
-                      metricName={datasetSchema?.primary_metric || kpis?.metric_name}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* ── POWER BI AUTO-CANVAS SECTION ── */}
-              {activeSection === "power-bi-auto" && (
-                <AutoPowerBIDashboard
-                  datasetSchema={datasetSchema}
-                  geoData={geoData}
-                  trends={trends}
-                  loading={loadingDashboard}
-                />
-              )}
-
-              {/* ── DATASET OVERVIEW SECTION ── */}
-              {activeSection === "dataset-overview" && (
-                <DatasetOverviewPanel schema={datasetSchema} loading={loadingSchema} />
-              )}
-
-              {/* ── DATA QUALITY REPORT SECTION ── */}
-              {activeSection === "data-quality" && (
-                <DataQualityReportPanel 
-                  datasetId={selectedDatasetId ?? undefined} 
-                  schema={datasetSchema} 
-                  loading={loadingSchema}
-                  onDatasetHealed={handleDatasetHealed} 
-                />
-              )}
-
-              {/* ── CORRELATION MATRIX SECTION ── */}
-              {activeSection === "correlation-matrix" && (
-                <CorrelationMatrixPanel
-                  correlations={correlations}
-                  schema={datasetSchema}
-                  geoData={geoData}
-                  kpis={kpis}
-                  loading={loadingDashboard || loadingSchema}
-                />
-              )}
-
-              {/* ── AI AUTOML & FORECAST SECTION ── */}
-              {activeSection === "prediction" && (
-                <PredictionPanel
-                  datasetId={selectedDatasetId ?? undefined}
-                  forecast={forecast}
-                  trainingHistory={trainingHistory}
-                  loading={loadingPrediction}
-                  profile={datasetSchema}
-                />
-              )}
-
-              {/* ── AI COPILOT & GENERATIVE UI ── */}
-              {activeSection === "ai-copilot" && (
-                <div className="flex-1 w-full flex flex-col max-h-[85vh]">
-                  <InsightsCenter
-                    datasetId={selectedDatasetId}
-                    kpis={kpis}
-                    trends={trends}
-                    anomalies={anomalies}
-                    recommendations={aiInsights?.recommendations || null}
-                    loading={false}
-                  />
-                </div>
-              )}
-            </>
+              <DashboardGrid
+                activeSection={activeSection}
+                datasetId={selectedDatasetId}
+                datasetSchema={datasetSchema}
+                loadingSchema={loadingSchema}
+                loadingDashboard={loadingDashboard}
+                kpis={kpis}
+                trends={trends}
+                geoData={geoData}
+                anomalies={anomalies}
+                correlations={correlations}
+                aiInsights={aiInsights}
+                forecast={forecast}
+                trainingHistory={trainingHistory}
+                loadingPrediction={loadingPrediction}
+                onDatasetHealed={handleDatasetHealed}
+              />
           )}
         </div>
       </div>

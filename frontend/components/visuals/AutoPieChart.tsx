@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import * as echarts from "echarts";
+import { useFilterStore } from "@/store/useFilterStore";
 
 interface PieDataItem {
   name: string;
@@ -112,6 +113,21 @@ export default function AutoPieChart({
 
     chart.setOption(option);
 
+    const handleChartClick = (params: any) => {
+      if (params.name && categoryColumn) {
+        useFilterStore.getState().toggleCategoryValue(categoryColumn, params.name);
+      }
+    };
+
+    const handleLegendSelect = (params: any) => {
+      if (params.name && categoryColumn) {
+        useFilterStore.getState().toggleCategoryValue(categoryColumn, params.name);
+      }
+    };
+
+    chart.on("click", handleChartClick);
+    chart.on("legendselectchanged", handleLegendSelect);
+
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
 
@@ -119,7 +135,7 @@ export default function AutoPieChart({
       chart.dispose();
       window.removeEventListener("resize", handleResize);
     };
-  }, [data, loading, title]);
+  }, [data, loading, title, categoryColumn]);
 
   return (
     <div

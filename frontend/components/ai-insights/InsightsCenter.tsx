@@ -28,7 +28,7 @@ interface ForecastOption {
 }
 
 interface InsightsCenterProps {
-  datasetId: number;
+  datasetId: number | null;
   kpis?: any;
   trends?: any;
   anomalies: Anomaly[] | null;
@@ -198,6 +198,7 @@ export default function InsightsCenter({
   };
 
   const handleGeneratePDFReport = async () => {
+    if (!datasetId) return;
     if (pdfUrl) {
       window.open(pdfUrl, "_blank");
       return;

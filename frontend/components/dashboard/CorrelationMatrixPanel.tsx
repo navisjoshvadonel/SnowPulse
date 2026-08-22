@@ -6,7 +6,7 @@ import { Grid, Sparkles, TrendingUp, TrendingDown, Layers, HelpCircle, ArrowUpRi
 interface CorrelationMatrixPanelProps {
   correlations: {
     columns: string[];
-    matrix: number[][];
+    matrix: (number | null)[][];
   } | null;
   schema: any;
   geoData: Array<{ region: string; value: number; count: number }> | null;
@@ -21,7 +21,7 @@ export default function CorrelationMatrixPanel({
   kpis,
   loading,
 }: CorrelationMatrixPanelProps) {
-  const [hoveredCell, setHoveredCell] = useState<{ row: string; col: string; val: number } | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<{ row: string; col: string; val: number | null } | null>(null);
 
   if (loading) {
     return (
@@ -46,7 +46,7 @@ export default function CorrelationMatrixPanel({
       ]);
 
   // Ensure matrix matches cols length
-  let matrix: number[][] = correlations?.matrix || [];
+  let matrix: (number | null)[][] = correlations?.matrix || [];
   if (matrix.length !== cols.length || matrix.some((r) => r.length !== cols.length)) {
     matrix = cols.map((_: string, i: number) =>
       cols.map((_: string, j: number) => {
@@ -71,12 +71,14 @@ export default function CorrelationMatrixPanel({
 
   for (let i = 0; i < cols.length; i++) {
     for (let j = i + 1; j < cols.length; j++) {
-      const val = matrix[i][j];
-      if (val > maxPos.val) {
-        maxPos = { row: cols[i], col: cols[j], val };
-      }
-      if (val < maxNeg.val) {
-        maxNeg = { row: cols[i], col: cols[j], val };
+      const val = matrix[i]?.[j];
+      if (val !== null && val !== undefined) {
+        if (val > maxPos.val) {
+          maxPos = { row: cols[i], col: cols[j], val };
+        }
+        if (val < maxNeg.val) {
+          maxNeg = { row: cols[i], col: cols[j], val };
+        }
       }
     }
   }
@@ -85,8 +87,9 @@ export default function CorrelationMatrixPanel({
   const primaryCategory = schema?.primary_category || "Segment";
 
   // Get color scale for correlation value
-  const getCellColor = (val: number, isSelf: boolean) => {
+  const getCellColor = (val: number | null, isSelf: boolean) => {
     if (isSelf) return "bg-indigo-500/20 border-indigo-500/30 text-indigo-200 font-bold";
+    if (val === null || val === undefined) return "bg-white/[0.02] border-white/[0.04] text-white/30 italic";
     if (val >= 0.7) return "bg-emerald-500/30 border-emerald-500/40 text-emerald-200 font-bold";
     if (val >= 0.3) return "bg-emerald-500/15 border-emerald-500/20 text-emerald-300 font-semibold";
     if (val >= -0.1 && val <= 0.1) return "bg-white/[0.03] border-white/[0.06] text-white/50";
@@ -95,7 +98,8 @@ export default function CorrelationMatrixPanel({
     return "bg-cyan-500/10 border-cyan-500/20 text-cyan-200";
   };
 
-  const getRelationshipLabel = (val: number) => {
+  const getRelationshipLabel = (val: number | null) => {
+    if (val === null || val === undefined) return "Undefined (Zero Variance)";
     if (val === 1) return "Perfect Direct";
     if (val >= 0.7) return "Strong Positive";
     if (val >= 0.3) return "Moderate Positive";
@@ -198,7 +202,7 @@ export default function CorrelationMatrixPanel({
                         {rowCol}
                       </td>
                       {cols.map((colCol: string, j: number) => {
-                        const val = matrix[i]?.[j] ?? 0;
+                        const val = matrix[i]?.[j] ?? null;
                         const isSelf = i === j;
                         const colorClass = getCellColor(val, isSelf);
 
@@ -209,7 +213,15 @@ export default function CorrelationMatrixPanel({
                             onMouseLeave={() => setHoveredCell(null)}
                             className={`p-3 rounded-lg border transition-all cursor-pointer ${colorClass} hover:scale-105 hover:shadow-lg`}
                           >
-                            {val > 0 && !isSelf ? `+${val.toFixed(2)}` : val.toFixed(2)}
+                            {val === null ? (
+                              <span className="text-white/30 font-mono" title="Undefined correlation (zero variance column)">—</span>
+                            ) : isSelf ? (
+                              val.toFixed(2)
+                            ) : val > 0 ? (
+                              `+${val.toFixed(2)}`
+                            ) : (
+                              val.toFixed(2)
+                            )}
                           </td>
                         );
                       })}
@@ -228,7 +240,7 @@ export default function CorrelationMatrixPanel({
                 <span className="text-white/80">
                   <strong className="text-white">{hoveredCell.row}</strong> vs <strong className="text-white">{hoveredCell.col}</strong>:{" "}
                   <span className="text-cyan-300 font-mono font-semibold">
-                    {hoveredCell.val > 0 ? `+${hoveredCell.val.toFixed(2)}` : hoveredCell.val.toFixed(2)} ({getRelationshipLabel(hoveredCell.val)})
+                    {hoveredCell.val === null ? "— (Undefined)" : hoveredCell.val > 0 ? `+${hoveredCell.val.toFixed(2)}` : hoveredCell.val.toFixed(2)} ({getRelationshipLabel(hoveredCell.val)})
                   </span>
                 </span>
               </div>

@@ -1,3 +1,4 @@
+import warnings
 import polars as pl
 from app.analytics.profiler import DatasetProfiler
 
@@ -46,3 +47,24 @@ def test_profiler_iris_dataset():
     assert col_map["petal_length"].inferred_role == "metric"
     assert col_map["petal_width"].inferred_role == "metric"
     assert col_map["species"].inferred_role == "target"
+
+
+def test_profiler_zero_variance_correlation():
+    df = pl.DataFrame({
+        "constant_col": [5.0, 5.0, 5.0, 5.0, 5.0],
+        "normal_col": [1.0, 2.0, 3.0, 4.0, 5.0],
+    })
+
+    with warnings.catch_warnings(record=True) as w_list:
+        warnings.simplefilter("always")
+        profile = DatasetProfiler.profile_full(df)
+        runtime_warnings = [w for w in w_list if issubclass(w.category, RuntimeWarning)]
+        assert len(runtime_warnings) == 0
+
+    assert profile.correlation_matrix is not None
+    assert profile.correlation_matrix.columns == ["constant_col", "normal_col"]
+    assert profile.correlation_matrix.matrix[0][0] is None
+    assert profile.correlation_matrix.matrix[0][1] is None
+    assert profile.correlation_matrix.matrix[1][0] is None
+    assert profile.correlation_matrix.matrix[1][1] == 1.0
+

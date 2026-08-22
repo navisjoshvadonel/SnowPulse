@@ -42,6 +42,10 @@ import CalculationLineagePopover from "@/components/trust/CalculationLineagePopo
 import PredictionPanel from "@/components/dashboard/PredictionPanel";
 import PdfExportModal from "@/components/modals/PdfExportModal";
 import ChartAnnotations from "@/components/collaboration/ChartAnnotations";
+import AutoPowerBIDashboard from "@/components/visuals/AutoPowerBIDashboard";
+import AutoPieChart from "@/components/visuals/AutoPieChart";
+import AutoBarChart from "@/components/visuals/AutoBarChart";
+import HistogramChart from "@/components/visuals/HistogramChart";
 
 // ─────────────────────────────────────────────────────
 //  MOCK DATA GENERATORS (offline-first, no backend)
@@ -1456,6 +1460,31 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                  {/* Row 2.5: Auto Power BI Graphs (Ranked Bar Chart & Metric Histogram) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    <div className="lg:col-span-6 h-[320px]">
+                      <AutoBarChart
+                        data={
+                          geoData
+                            ? geoData.slice(0, 7).map((g: any) => ({ name: g.region, value: g.value }))
+                            : []
+                        }
+                        title={`Ranked ${formatColumnTitle(datasetSchema?.primary_category, "Category")} Volume`}
+                        categoryColumn={formatColumnTitle(datasetSchema?.primary_category, "Category")}
+                        metricColumn={formatColumnTitle(datasetSchema?.primary_metric, "Metric")}
+                        loading={false}
+                      />
+                    </div>
+                    <div className="lg:col-span-6 h-[320px]">
+                      <HistogramChart
+                        values={trends?.values || []}
+                        metricName={formatColumnTitle(datasetSchema?.primary_metric, "Metric")}
+                        binsCount={8}
+                        loading={false}
+                      />
+                    </div>
+                  </div>
+
                   {/* Row 3: Recent Activity + AI Insights */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     {/* Anomaly Distribution Chart */}
@@ -1482,6 +1511,16 @@ export default function HomePage() {
                     />
                   </div>
                 </div>
+              )}
+
+              {/* ── POWER BI AUTO-CANVAS SECTION ── */}
+              {activeSection === "power-bi-auto" && (
+                <AutoPowerBIDashboard
+                  datasetSchema={datasetSchema}
+                  geoData={geoData}
+                  trends={trends}
+                  loading={loadingDashboard}
+                />
               )}
 
               {/* ── DATASET OVERVIEW SECTION ── */}

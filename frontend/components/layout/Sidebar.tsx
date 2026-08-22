@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export type SnowSection =
   | "dashboard"
+  | "power-bi-auto"
   | "ai-copilot"
   | "prediction"
   | "dataset-overview"
@@ -84,7 +85,8 @@ function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className
 }
 
 const navItems: { id: SnowSection; label: string; icon: React.ElementType }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "dashboard", label: "Executive Dashboard", icon: LayoutDashboard },
+  { id: "power-bi-auto", label: "Power BI Auto-Canvas", icon: Zap },
   { id: "ai-copilot", label: "AI Copilot & Generative UI", icon: Sparkles },
   { id: "prediction", label: "AI AutoML & Forecast", icon: Activity },
   { id: "dataset-overview", label: "Dataset Overview", icon: Database },

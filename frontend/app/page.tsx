@@ -98,6 +98,13 @@ function generateMockTrends() {
   return { dates, values, moving_average, metric: "revenue", forecast_dates, forecast_values };
 }
 
+function formatColumnTitle(name?: string, defaultTitle: string = "Segment"): string {
+  if (!name || name === "category" || name === "target metric" || name === "primary_category") return defaultTitle;
+  return name
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
 function generateMockGeo(schema?: any) {
   if (schema?.category_shares && schema.category_shares.length > 0) {
     return schema.category_shares;
@@ -105,82 +112,112 @@ function generateMockGeo(schema?: any) {
   const catColObj = schema?.columns?.find((c: any) => c.name === schema?.primary_category) || schema?.columns?.find((c: any) => c.role === 'categorical' || c.role === 'category' || c.role === 'geo');
   const catCol = schema?.primary_category || catColObj?.name;
 
-  if (catColObj?.unique_values && catColObj.unique_values.length > 0) {
+  if (catColObj?.unique_values && Array.isArray(catColObj.unique_values) && catColObj.unique_values.length > 0) {
     const totalBase = 4500000;
     return catColObj.unique_values.slice(0, 8).map((label: string, idx: number) => ({
-      region: label,
+      region: String(label),
       value: Math.round((totalBase / (idx + 1)) * (0.85 + Math.random() * 0.3)),
     }));
   }
 
-  if (catCol?.toLowerCase().includes("species")) {
+  if (catCol) {
+    const lower = catCol.toLowerCase();
+    if (lower.includes("species")) {
+      return [
+        { region: "setosa", value: 50 },
+        { region: "versicolor", value: 50 },
+        { region: "virginica", value: 50 },
+      ];
+    }
+    if (lower.includes("diagnos") || lower.includes("cancer") || lower.includes("target")) {
+      return [
+        { region: "Benign", value: 357 },
+        { region: "Malignant", value: 212 },
+      ];
+    }
+    if (lower.includes("region") || lower.includes("country")) {
+      return [
+        { region: "North America", value: 5_250_000 },
+        { region: "Europe", value: 3_875_000 },
+        { region: "APAC", value: 2_250_000 },
+        { region: "LATAM", value: 1_500_000 },
+        { region: "MEA", value: 625_000 },
+      ];
+    }
+    if (lower.includes("segment") || lower.includes("plan")) {
+      return [
+        { region: "Enterprise", value: 1_840_000 },
+        { region: "Pro", value: 1_250_000 },
+        { region: "Growth", value: 720_000 },
+        { region: "Starter", value: 472_000 },
+      ];
+    }
+
+    const cleanTitle = formatColumnTitle(catCol, "Segment");
     return [
-      { region: "setosa", value: 50 },
-      { region: "versicolor", value: 50 },
-      { region: "virginica", value: 50 },
+      { region: `${cleanTitle} Alpha`, value: 450 },
+      { region: `${cleanTitle} Beta`, value: 320 },
+      { region: `${cleanTitle} Gamma`, value: 240 },
+      { region: `${cleanTitle} Delta`, value: 180 },
+      { region: `${cleanTitle} Epsilon`, value: 100 },
     ];
   }
-  if (catCol?.toLowerCase().includes("diagnos") || catCol?.toLowerCase().includes("cancer") || catCol?.toLowerCase().includes("target")) {
-    return [
-      { region: "Benign", value: 357 },
-      { region: "Malignant", value: 212 },
-    ];
-  }
-  if (catCol?.toLowerCase().includes("region") || catCol?.toLowerCase().includes("country")) {
-    return [
-      { region: "North America", value: 5_250_000 },
-      { region: "Europe", value: 3_875_000 },
-      { region: "APAC", value: 2_250_000 },
-      { region: "LATAM", value: 1_500_000 },
-      { region: "MEA", value: 625_000 },
-    ];
-  }
+
   return [
-    { region: "Category A", value: 45 },
-    { region: "Category B", value: 32 },
-    { region: "Category C", value: 24 },
-    { region: "Category D", value: 18 },
-    { region: "Category E", value: 10 },
+    { region: "Segment Alpha", value: 450 },
+    { region: "Segment Beta", value: 320 },
+    { region: "Segment Gamma", value: 240 },
+    { region: "Segment Delta", value: 180 },
+    { region: "Segment Epsilon", value: 100 },
   ];
 }
 
-function generateMockAnomalies() {
+function generateMockAnomalies(schema?: any) {
+  const metricRaw = schema?.primary_metric || schema?.columns?.find((c: any) => c.role === 'numeric' || c.role === 'metric')?.name || "Revenue";
+  const catRaw = schema?.primary_category || schema?.columns?.find((c: any) => c.role === 'categorical' || c.role === 'category' || c.role === 'geo')?.name || "Segment";
+  const metricName = formatColumnTitle(metricRaw, "Metric");
+  const catName = formatColumnTitle(catRaw, "Category");
+
   return [
     {
       date: "2025-06-15",
       value: 142_350,
       z_score: 3.8,
       severity: "High",
-      region: "APAC",
-      category: "Hardware",
+      region: "Global",
+      category: catName,
       deviation_pct: 124.5,
-      root_cause: "Likely driven by Marketing_Spend, which spiked to 54200.0 (avg: 21000.0).",
+      root_cause: `Likely driven by sudden spike in ${metricName}, expanding +124.5% above rolling baseline.`,
     },
     {
       date: "2025-07-02",
       value: 28_700,
       z_score: -2.9,
       severity: "Medium",
-      region: "MEA",
-      category: "Software",
+      region: "Secondary",
+      category: catName,
       deviation_pct: -45.2,
-      root_cause: "Likely driven by Support_Tickets, which dropped to 12.0 (avg: 45.0).",
+      root_cause: `Likely driven by statistical variance in ${metricName}, dropping -45.2% below forecast.`,
     }
   ];
 }
 
 function generateMockInsights(schema?: any, geoDataItems?: any[]) {
-  const metric = schema?.primary_metric || "target metric";
-  const catName = schema?.primary_category || "category";
-  const topCat = geoDataItems && geoDataItems.length > 0 ? geoDataItems[0].region : "Primary segment";
+  const metricRaw = schema?.primary_metric || schema?.columns?.find((c: any) => c.role === 'numeric' || c.role === 'metric')?.name || "Revenue";
+  const catRaw = schema?.primary_category || schema?.columns?.find((c: any) => c.role === 'categorical' || c.role === 'category' || c.role === 'geo')?.name || "Segment";
+  
+  const metric = formatColumnTitle(metricRaw, "Revenue");
+  const catName = formatColumnTitle(catRaw, "Segment");
+  const topCat = geoDataItems && geoDataItems.length > 0 ? geoDataItems[0].region : `${catName} Leading Group`;
+
   return {
-    headline: `Analysis complete for ${schema?.name || "active dataset"}. Variance trends evaluated for '${metric}' grouped by '${catName}' (leading segment: ${topCat}).`,
+    headline: `Analysis complete for ${schema?.name || "active dataset"}. Variance trends evaluated for '${metric}' grouped by '${catName}' (leading group: ${topCat}).`,
     trends: `Growth trajectory for '${metric}' is stable with baseline momentum across historical windows.`,
-    geo: `'${topCat}' leads segment shares. Primary distribution dynamically mapped across '${catName}' categories.`,
+    geo: `'${topCat}' leads ${catName} distribution. Primary metrics dynamically aggregated across '${catName}' groups.`,
     recommendations: [
-      `Monitor '${metric}' bounds for statistical drift across incoming batches.`,
-      `Optimize model hyperparameters focused on high-cardinality values in '${catName}'.`,
-      `Schedule automated background scan for dataset outliers.`,
+      `Monitor '${metric}' variance bounds for statistical drift across incoming batches.`,
+      `Optimize model hyper-parameters focused on high-performing groups in '${catName}'.`,
+      `Schedule automated background health scan for dataset outliers.`,
     ],
   };
 }
@@ -554,7 +591,7 @@ export default function HomePage() {
         : generateMockGeo(schema);
 
       setGeoData(calculatedGeo);
-      setAnomalies(generateMockAnomalies());
+      setAnomalies(generateMockAnomalies(schema));
       setAiInsights(generateMockInsights(schema, calculatedGeo));
     } else {
       const defaultGeo = generateMockGeo();
@@ -1401,12 +1438,12 @@ export default function HomePage() {
                       <DonutChart
                         title={
                           datasetSchema?.primary_category
-                            ? `Top ${datasetSchema.primary_category} shares`
-                            : "Top segment shares"
+                            ? `Top ${formatColumnTitle(datasetSchema.primary_category, "Segment")} Shares`
+                            : "Top Segment Shares"
                         }
                         metricLabel={
                           datasetSchema?.primary_metric
-                            ? `Total ${datasetSchema.primary_metric}`
+                            ? `Total ${formatColumnTitle(datasetSchema.primary_metric, "Records")}`
                             : "Total Records"
                         }
                         data={

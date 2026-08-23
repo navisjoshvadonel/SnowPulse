@@ -150,9 +150,21 @@ export default function DistributionPanel({
     );
   }
 
+  if (numCols.length === 0) {
+    return (
+      <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col items-center justify-center min-h-[320px] text-center p-6">
+        <BarChart3 size={32} className="text-slate-600 mb-2" />
+        <h4 className="text-sm font-semibold text-slate-300">Cross-Sectional Categorical Dataset</h4>
+        <p className="text-xs text-slate-500 max-w-sm mt-1">
+          No numeric metrics were detected in this dataset. Categorical attribute breakdown panels above illustrate frequency distributions across class variables.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
             <BarChart3 size={18} />

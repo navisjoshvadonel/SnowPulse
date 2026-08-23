@@ -16,11 +16,12 @@ import { apiService } from "@/services/api";
 
 interface UnifiedBIDashboardProps {
   datasetId: number;
+  initialSchema?: any;
 }
 
-export default function UnifiedBIDashboard({ datasetId }: UnifiedBIDashboardProps) {
-  const [schemaData, setSchemaData] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+export default function UnifiedBIDashboard({ datasetId, initialSchema }: UnifiedBIDashboardProps) {
+  const [schemaData, setSchemaData] = useState<any>(initialSchema || null);
+  const [loading, setLoading] = useState<boolean>(!initialSchema && !schemaData);
   const [filteredRowCount, setFilteredRowCount] = useState<number | undefined>(undefined);
 
   const {
@@ -33,25 +34,37 @@ export default function UnifiedBIDashboard({ datasetId }: UnifiedBIDashboardProp
     activeNumericRanges,
   } = useFilterStore();
 
+  useEffect(() => {
+    if (initialSchema) {
+      setSchemaData(initialSchema);
+      setLoading(false);
+    }
+  }, [initialSchema]);
+
   // Fetch Dataset Profile & Schema
   useEffect(() => {
     async function loadSchema() {
       if (!datasetId) return;
-      setLoading(true);
+      if (!initialSchema && !schemaData) setLoading(true);
       try {
         const res = await apiService.getDatasetSchema(datasetId);
         if (res.ok) {
           const data = await res.json();
           setSchemaData(data);
+        } else if (!schemaData && !initialSchema) {
+          setSchemaData({ dataset_id: datasetId, name: "Active Dataset", columns: [] });
         }
       } catch (err) {
         console.error("Failed to load dataset schema:", err);
+        if (!schemaData && !initialSchema) {
+          setSchemaData({ dataset_id: datasetId, name: "Active Dataset", columns: [] });
+        }
       } finally {
         setLoading(false);
       }
     }
     loadSchema();
-  }, [datasetId]);
+  }, [datasetId, initialSchema]);
 
   // Execute Dynamic Backend Server-Side Aggregation whenever store filters change
   useEffect(() => {

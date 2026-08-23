@@ -48,9 +48,9 @@ export default function UnifiedKpiStrip({
               </span>
             )}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
             <Layers size={12} className="text-slate-400" /> Across {columnCount} dataset columns
-          </p>
+          </div>
         </div>
         <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl">
           <Database size={22} />
@@ -97,21 +97,27 @@ export default function UnifiedKpiStrip({
         </div>
       </div>
 
-      {/* KPI 4: Primary Metric Average / Range */}
+      {/* KPI 4: Primary Metric Average / Range OR Record Count fallback for categorical datasets */}
       <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 shadow-xl flex items-center justify-between relative overflow-hidden group hover:border-indigo-500/40 transition-all">
         <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
         <div>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 truncate max-w-[150px]">
-            Primary: {primaryMetricName.replace(/_/g, " ")}
+            {metricMean !== null ? `Primary: ${primaryMetricName.replace(/_/g, " ")}` : "Record Count"}
           </p>
           <div className="flex items-baseline gap-2">
             <h3 className="text-2xl font-bold text-indigo-300">
-              {metricMean !== null ? formatMetricValue(metricMean, primaryMetricName, semanticType, { notation: "compact" }) : "N/A"}
+              {metricMean !== null
+                ? formatMetricValue(metricMean, primaryMetricName, semanticType, { notation: "compact" })
+                : displayRows.toLocaleString()}
             </h3>
-            <span className="text-xs text-indigo-400 font-medium">Avg</span>
+            <span className="text-xs text-indigo-400 font-medium">
+              {metricMean !== null ? "Avg" : "Total"}
+            </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            Range: [{formatMetricValue(metricMin ?? 0, primaryMetricName, semanticType, { notation: "compact" })} - {formatMetricValue(metricMax ?? 0, primaryMetricName, semanticType, { notation: "compact" })}]
+            {metricMean !== null
+              ? `Range: [${formatMetricValue(metricMin ?? 0, primaryMetricName, semanticType, { notation: "compact" })} - ${formatMetricValue(metricMax ?? 0, primaryMetricName, semanticType, { notation: "compact" })}]`
+              : "Cross-Sectional Categorical Profile"}
           </p>
         </div>
         <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">

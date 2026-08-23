@@ -677,11 +677,16 @@ export default function HomePage() {
     }
   };
 
-  const handleSelectDataset = async (datasetId: number, name: string) => {
+  const handleSelectDataset = async (datasetId: number, name: string, overrideSchema?: any) => {
     setSelectedDatasetId(datasetId);
     setSelectedDatasetName(name);
     filterStore.clearFilters();
     setLoadingDashboard(true);
+
+    const schemaToUse = overrideSchema || dynamicSchemas[datasetId] || datasetSchema || null;
+    if (schemaToUse) {
+      setDatasetSchema(schemaToUse);
+    }
 
     try {
       const sumRes = await apiService.getAnalyticsSummary(datasetId);
@@ -693,22 +698,19 @@ export default function HomePage() {
         setAnomalies(summary.anomalies);
         setCorrelations(summary.correlations);
       } else {
-        const schema = dynamicSchemas[datasetId] || null;
-        loadMockDashboard(schema);
+        loadMockDashboard(schemaToUse);
       }
       const insRes = await apiService.getAnalyticsInsights(datasetId);
       if (insRes.ok) {
         const insights = await insRes.json();
         setAiInsights(insights);
       } else {
-        // If we already set dynamic insights in loadMockDashboard, don't overwrite them
-        if (!dynamicSchemas[datasetId]) {
+        if (!schemaToUse) {
           setAiInsights(generateMockInsights());
         }
       }
     } catch {
-      const schema = dynamicSchemas[datasetId] || null;
-      loadMockDashboard(schema);
+      loadMockDashboard(schemaToUse);
     } finally {
       setLoadingDashboard(false);
     }
@@ -722,6 +724,9 @@ export default function HomePage() {
         const list = await res.json();
         if (Array.isArray(list) && list.length > 0) {
           setDatasets(list);
+          if (!selectedDatasetId) {
+            handleSelectDataset(list[0].id, list[0].name);
+          }
         } else {
           setMockDatasets();
         }
@@ -739,6 +744,9 @@ export default function HomePage() {
     const mock = [{ id: 1, name: "Sample Analytics (Mock)", description: "Auto-generated sample dataset" }];
     setDatasets(mock);
     setLoadingDashboard(false);
+    if (!selectedDatasetId) {
+      handleSelectDataset(mock[0].id, mock[0].name);
+    }
   };
 
   const handleExportPdf = () => {
@@ -989,8 +997,9 @@ export default function HomePage() {
           };
 
           setDynamicSchemas(prev => ({ ...prev, [schema.dataset_id]: schema }));
+          setDatasetSchema(schema);
           setDatasets((prev) => [...prev, { id: schema.dataset_id, name: schema.name, description: `Uploaded: ${file.name}` }]);
-          handleSelectDataset(schema.dataset_id, schema.name);
+          handleSelectDataset(schema.dataset_id, schema.name, schema);
           setUploading(false);
 
           // Optional Web Worker to enhance description using local LLM with strict 1.5s timeout
@@ -1194,112 +1203,7 @@ export default function HomePage() {
     );
   }
 
-  // ─── RENDER: EMPTY STATE (NO DATASET) ───────────────────────────
-  if (selectedDatasetId === null) {
-    return (
-      <div className="min-h-screen flex flex-col p-6 max-w-5xl mx-auto justify-between" style={{ background: "#0d0f14" }}>
-        <header className="flex items-center justify-between py-4 border-b border-white/5">
-          <div className="flex items-center gap-2.5">
-            <SnowflakeLogo className="w-7 h-7 animate-spin-slow" />
-            <span className="font-bold text-white tracking-tight">SnowPulse AI</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-white/30 font-mono">{user.email}</span>
-            <button onClick={handleLogout} className="p-2 rounded-lg text-gray-300 hover:text-white transition-all cursor-pointer"
-              style={{ background: "rgba(255,255,255,0.05)" }}>
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </header>
 
-        <main className="flex-1 my-16 flex flex-col lg:flex-row gap-10 items-center justify-center">
-          <div className="max-w-[420px] space-y-5 text-center lg:text-left">
-            <div className="inline-flex p-3 rounded-2xl text-brand-primary"
-              style={{ background: "rgba(80,99,244,0.1)", border: "1px solid rgba(80,99,244,0.2)" }}>
-              <Layers className="w-6 h-6" />
-            </div>
-            <h2 className="text-3xl font-extrabold tracking-tight text-white leading-tight">Unlock AI Analytics</h2>
-            <p className="text-sm text-white/40 leading-relaxed">
-              Upload a business CSV or choose from shared datasets to populate your AI analytics cockpit.
-            </p>
-            <div className="flex items-center gap-4 text-xs font-mono text-white/25">
-              <span>✓ Offline-first</span>
-              <span>✓ Mock AI engine</span>
-              <span>✓ No backend needed</span>
-            </div>
-          </div>
-
-          <div className="w-full max-w-[460px] space-y-6">
-            {/* Upload */}
-            <div className="rounded-xl p-8 text-center border-dashed transition-all"
-              style={{ background: "rgba(18,21,30,0.65)", border: "1px dashed rgba(255,255,255,0.08)" }}>
-              <input type="file" accept=".csv" onChange={handleFileUpload} id="csv-upload" className="hidden" disabled={uploading} />
-              <label htmlFor="csv-upload" className="cursor-pointer flex flex-col items-center space-y-3.5">
-                <div className="p-3.5 rounded-full text-brand-primary" style={{ background: "rgba(80,99,244,0.1)" }}>
-                  {uploading ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
-                </div>
-                <div>
-                  <span className="text-sm font-semibold text-white block">Upload business CSV</span>
-                  <span className="text-xs text-white/30 mt-1 block">Drop your sales, customer, or metric CSV here</span>
-                </div>
-              </label>
-              {uploadError && (
-                <div className="text-xs text-red-400 mt-4 rounded-lg p-2.5"
-                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}>
-                  {uploadError}
-                </div>
-              )}
-            </div>
-
-            {/* Pre-loaded datasets */}
-            <div className="rounded-xl p-5 space-y-3.5"
-              style={{ background: "rgba(18,21,30,0.65)", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <p className="text-[10px] text-white/30 font-bold tracking-wider uppercase font-mono">
-                Pre-loaded / Shared Datasets
-              </p>
-              {loadingDatasets ? (
-                <div className="flex items-center justify-center py-4">
-                  <RefreshCw className="w-5 h-5 animate-spin text-brand-primary" />
-                </div>
-              ) : datasets.length === 0 ? (
-                <p className="text-xs text-white/30 font-mono">No datasets available. Ingest one above.</p>
-              ) : (
-                <div className="space-y-2">
-                  {datasets.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => handleSelectDataset(d.id, d.name)}
-                      className="w-full text-left p-3 rounded-xl transition-all flex items-center justify-between group interactive-element"
-                      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg text-brand-primary" style={{ background: "rgba(80,99,244,0.1)" }}>
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <span className="text-xs font-semibold text-white block">{d.name}</span>
-                          <span className="text-[10px] text-white/30 mt-0.5 block truncate max-w-[200px]">{d.description}</span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white transition-all" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
-
-        <footer className="py-4 border-t border-white/5 flex items-center justify-between text-xs text-white/20">
-          <span>SnowPulse AI v2.0.0 — Offline Mode</span>
-          <button onClick={handlePurgeAccount} className="flex items-center gap-1 hover:text-red-400 transition-all font-mono text-[10px]">
-            <Trash2 className="w-3.5 h-3.5" />
-            GDPR Purge Account
-          </button>
-        </footer>
-      </div>
-    );
-  }
 
   // ─── RENDER: MAIN DASHBOARD ──────────────────────────────────────
   const hasPredictableMetric = Boolean(

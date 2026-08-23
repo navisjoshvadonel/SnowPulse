@@ -49,7 +49,7 @@ export default function DashboardGrid({
   switch (activeSection) {
     case "dashboard":
     case "power-bi-auto":
-      return <UnifiedDashboardContainer datasetId={datasetId} />;
+      return <UnifiedDashboardContainer datasetId={datasetId} datasetSchema={datasetSchema} />;
 
     case "dataset-overview":
       return <DatasetOverviewContainer schema={datasetSchema} loading={loadingSchema} />;

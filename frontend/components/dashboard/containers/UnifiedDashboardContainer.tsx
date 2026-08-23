@@ -5,12 +5,13 @@ import UnifiedBIDashboard from "@/components/unified-dashboard/UnifiedBIDashboar
 
 interface UnifiedDashboardContainerProps {
   datasetId: number;
+  datasetSchema?: any;
 }
 
-export default function UnifiedDashboardContainer({ datasetId }: UnifiedDashboardContainerProps) {
+export default function UnifiedDashboardContainer({ datasetId, datasetSchema }: UnifiedDashboardContainerProps) {
   return (
     <div className="w-full space-y-6">
-      <UnifiedBIDashboard datasetId={datasetId} />
+      <UnifiedBIDashboard datasetId={datasetId} initialSchema={datasetSchema} />
     </div>
   );
 }

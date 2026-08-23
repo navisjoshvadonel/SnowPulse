@@ -5,6 +5,7 @@ import InsightsCenter from "@/components/ai-insights/InsightsCenter";
 
 interface AiCopilotContainerProps {
   datasetId: number | null;
+  datasetSchema?: any;
   kpis: any;
   trends: any;
   anomalies: any;
@@ -14,6 +15,7 @@ interface AiCopilotContainerProps {
 
 export default function AiCopilotContainer({
   datasetId,
+  datasetSchema,
   kpis,
   trends,
   anomalies,
@@ -24,6 +26,7 @@ export default function AiCopilotContainer({
     <div className="flex-1 w-full flex flex-col max-h-[85vh]">
       <InsightsCenter
         datasetId={datasetId}
+        datasetSchema={datasetSchema}
         kpis={kpis}
         trends={trends}
         anomalies={anomalies}

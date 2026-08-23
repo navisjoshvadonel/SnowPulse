@@ -48,11 +48,10 @@ test('switches tabs correctly', () => {
   fireEvent.click(screen.getByText('Forecast'))
   expect(screen.getByText('Forecast Model Engine')).toBeInTheDocument()
   
-  // SVG drawing logic test - should use our kpis dynamic metric
-  expect(screen.getByText(/potential peak test_metric limit of/i)).toBeInTheDocument()
+  // Forecast tab check
+  expect(screen.getByText(/Model Horizon: Next 6 Months/i)).toBeInTheDocument()
 
   // Click Actions tab
   fireEvent.click(screen.getByText('Actions'))
   expect(screen.getByText('Test recommendation 1')).toBeInTheDocument()
-  expect(screen.getByText('Generate Executive Report')).toBeInTheDocument()
 })

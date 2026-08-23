@@ -90,6 +90,7 @@ export default function DashboardGrid({
       return (
         <AiCopilotContainer
           datasetId={datasetId}
+          datasetSchema={datasetSchema}
           kpis={kpis}
           trends={trends}
           anomalies={anomalies}

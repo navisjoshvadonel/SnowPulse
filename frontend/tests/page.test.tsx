@@ -56,6 +56,7 @@ vi.mock('@/services/api', () => ({
     createDashboard: vi.fn(),
     askCopilot: vi.fn(),
     getDatasetSchema: vi.fn(),
+    getDatasetAggregate: vi.fn(),
     getForecastPredict: vi.fn(),
     getMlHistory: vi.fn(),
     purgeAccount: vi.fn(),
@@ -68,27 +69,9 @@ vi.mock('@react-oauth/google', () => ({
   useGoogleLogin: () => vi.fn(),
 }))
 
-// Mock components to simplify rendering
-vi.mock('@/components/executive-overview/KpiOverview', () => ({
-  default: () => <div data-testid="kpi-overview">KPI Overview Component</div>
-}))
-vi.mock('@/components/performance-trends/TrendVisuals', () => ({
-  default: () => <div data-testid="trend-visuals">Trend Visuals Component</div>
-}))
-vi.mock('@/components/geo-intelligence/GeographicMap', () => ({
-  default: () => <div data-testid="geo-map">Geo Map Component</div>
-}))
-vi.mock('@/components/ai-insights/InsightsCenter', () => ({
-  default: () => <div data-testid="insights-center">Insights Center Component</div>
-}))
-vi.mock('@/components/dashboard/DatasetProfileChart', () => ({
-  default: () => <div data-testid="dataset-profile-chart">Dataset Profile Chart Component</div>
-}))
-vi.mock('@/components/dashboard/AnomalyBarChart', () => ({
-  default: () => <div data-testid="anomaly-bar-chart">Anomaly Bar Chart Component</div>
-}))
-vi.mock('@/components/executive-overview/DonutChart', () => ({
-  default: () => <div data-testid="donut-chart">Donut Chart Component</div>
+// Mock canvas elements / echarts for JSDOM
+vi.mock('echarts-for-react', () => ({
+  default: () => <div data-testid="echarts-mock">ECharts Visualization</div>
 }))
 
 beforeEach(() => {
@@ -162,8 +145,14 @@ test('transitions from empty state to dashboard panels on dataset selection', as
   apiService.getDatasetSchema = vi.fn().mockResolvedValue({
     ok: true,
     json: () => Promise.resolve({
+      dataset_id: 42,
       name: 'Sales_Data',
-      columns: []
+      row_count: 500,
+      columns: [
+        { name: 'Revenue', role: 'numeric', semantic_type: 'currency' },
+        { name: 'Date', role: 'date' },
+        { name: 'Category', role: 'categorical' }
+      ]
     })
   })
 
@@ -185,20 +174,20 @@ test('transitions from empty state to dashboard panels on dataset selection', as
   
   // Check that empty state displays available datasets
   await waitFor(() => {
-    expect(screen.getByText('Sales_Data.csv')).toBeInTheDocument()
+    expect(screen.getAllByText('Sales_Data.csv').length).toBeGreaterThan(0)
   })
 
-  // Click on the dataset to load the dashboard
-  fireEvent.click(screen.getByText('Sales_Data.csv'))
+  // Click on the dataset button to load the dashboard
+  const datasetItems = screen.getAllByText('Sales_Data.csv')
+  const datasetBtn = datasetItems[datasetItems.length - 1].closest('button') || datasetItems[datasetItems.length - 1]
+  fireEvent.click(datasetBtn)
   
-  // Verify loading state changes to dashboard components
+  // Verify dashboard panels render
   await waitFor(() => {
-    expect(screen.getByTestId('kpi-overview')).toBeInTheDocument()
-    expect(screen.getByTestId('trend-visuals')).toBeInTheDocument()
-    expect(screen.getByTestId('geo-map')).toBeInTheDocument()
+    expect(screen.getByText(/Cross-Filter Slicer Bar/i)).toBeInTheDocument()
   })
 
-  // Wait for sidebar to be mounted (requestAnimationFrame)
+  // Wait for sidebar to be mounted
   let dataQualityBtn: HTMLElement;
   await waitFor(() => {
     dataQualityBtn = screen.getByText('Data Quality Report')

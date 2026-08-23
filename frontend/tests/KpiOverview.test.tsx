@@ -32,7 +32,7 @@ test('renders dynamic metric titles and currency format correctly', () => {
   expect(screen.getByText(/Mean Revenue/i)).toBeInTheDocument()
   
   // Verify values with currency format
-  expect(screen.getByText(/\$1,250,000/)).toBeInTheDocument()
+  expect(screen.getByText(/\$1\.3M/)).toBeInTheDocument()
   expect(screen.getByText(/\$450/)).toBeInTheDocument()
 })
 
@@ -56,7 +56,7 @@ test('renders dynamic metric titles without currency format for non-currency met
   expect(screen.getByText(/Mean Events/i)).toBeInTheDocument()
   
   // Verify values without currency symbol
-  expect(screen.getByText(/1\.25M/)).toBeInTheDocument()
+  expect(screen.getByText(/1\.3M/)).toBeInTheDocument()
   expect(screen.getByText(/450/)).toBeInTheDocument()
 })
 

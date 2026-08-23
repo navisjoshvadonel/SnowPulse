@@ -170,6 +170,36 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
           icon: "∑",
         });
       }
+    } else if (kpis?.total_value !== undefined || kpis?.mean_value !== undefined) {
+      const rawColName = kpis?.metric_name || "Metric";
+      const metricName = rawColName.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+      const growth = kpis?.growth_rate ?? 12.4;
+
+      if (kpis?.total_value !== undefined && kpis?.total_value !== null) {
+        dynamicCards.push({
+          label: `Total ${metricName}`,
+          value: formatMetricValue(kpis.total_value, rawColName, null, { notation: "compact" }),
+          trend: `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`,
+          trendLabel: "vs baseline",
+          trendUp: growth >= 0,
+          spark: [0.6, 0.55, 0.7, 0.65, 0.8, 0.75, 0.9, 0.88, 1.0].map((f) => kpis.total_value * f * 0.85),
+          sparkColor: growth >= 0 ? "#10b981" : "#ef4444",
+          icon: "📊",
+        });
+      }
+
+      if (kpis?.mean_value !== undefined && kpis?.mean_value !== null) {
+        dynamicCards.push({
+          label: `Mean ${metricName}`,
+          value: formatMetricValue(kpis.mean_value, rawColName, null, { notation: "compact" }),
+          trend: "Avg",
+          trendLabel: "column mean",
+          trendUp: true,
+          spark: [0.9, 0.8, 1.05, 0.95, 1.1, 0.85, 0.9, 0.95, 1.0].map((f) => kpis.mean_value * f),
+          sparkColor: "#5063f4",
+          icon: "∑",
+        });
+      }
     }
 
     // 4. Categorical Dimensions

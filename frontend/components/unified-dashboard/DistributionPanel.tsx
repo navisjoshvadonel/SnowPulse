@@ -181,9 +181,9 @@ export default function DistributionPanel({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-200">Numeric Distribution & Binned Frequency</h3>
-            <p className="text-xs text-slate-400 flex items-center gap-1">
+            <div className="text-xs text-slate-400 flex items-center gap-1">
               <MousePointerClick size={12} className="text-purple-400" /> Click bin bars to filter numeric range
-            </p>
+            </div>
           </div>
         </div>
 

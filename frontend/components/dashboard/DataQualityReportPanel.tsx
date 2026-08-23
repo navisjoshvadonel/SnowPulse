@@ -67,30 +67,10 @@ export default function DataQualityReportPanel({ datasetId, schema, loading, onD
   }
 
   // Derive stats from schema or fallback to realistic default stats
-  const totalRows = schema?.total_rows || schema?.row_count || 1250;
-  const totalCols = schema?.total_columns || schema?.column_count || 14;
-  const columns = schema?.columns || [
-    { name: "customer_id", role: "identifier", null_count: 0, null_percentage: 0 },
-    { name: "revenue", role: "metric", null_count: 0, null_percentage: 0, min: 100, max: 85000, mean: 12500, numeric_stats: { outlier_count: 4 } },
-    { name: "churn_rate", role: "metric", null_count: 2, null_percentage: 0.16, min: 0, max: 1.0, mean: 0.14 },
-    { name: "region", role: "geo", null_count: 5, null_percentage: 0.4, top_values: [{ value: "USA" }, { value: "United States" }, { value: "US" }, { value: "Europe" }] },
-    { name: "signup_date", role: "temporal", null_count: 0, null_percentage: 0 },
-  ];
-
-  const qualityReport = schema?.quality_report || {
-    health_score: 92.5,
-    duplicate_rows_count: 3,
-    duplicate_rows_pct: 0.24,
-    total_null_cells: columns.reduce((acc: number, c: any) => acc + (c.null_count || 0), 0),
-    total_null_pct: 0.35,
-    outlier_columns_count: columns.filter((c: any) => c.numeric_stats?.outlier_count > 0).length || 1,
-    data_quality_issues: [
-      "2 null values detected in 'churn_rate'",
-      "5 null values detected in 'region'",
-      "3 duplicate rows detected",
-      "Inconsistent category values in 'region' ('USA' vs 'United States')",
-    ],
-  };
+  // Derive stats from schema or fallback to empty structure
+  const totalRows = schema?.total_rows || schema?.row_count || 0;
+  const totalCols = schema?.total_columns || schema?.column_count || 0;
+  const columns = schema?.columns || [];
 
   // Find columns with nulls
   const nullColumns = columns.filter((c: any) => (c.null_count || c.null_percentage || 0) > 0);
@@ -98,38 +78,64 @@ export default function DataQualityReportPanel({ datasetId, schema, loading, onD
   // Find columns with outliers
   const outlierColumns = columns.filter((c: any) => (c.numeric_stats?.outlier_count || 0) > 0);
 
-  // Detect potential category inconsistencies
+  // Detect potential category inconsistencies dynamically from actual schema columns
   const categoryIssues: { column: string; valueA: string; valueB: string; count: number }[] = [];
-  columns.forEach((c: any) => {
-    if (c.top_values && Array.isArray(c.top_values)) {
-      const vals = c.top_values.map((v: any) => String(v.value || v));
-      // Check for common variant overlaps
-      const lowerVals = vals.map((v: string) => v.toLowerCase());
-      if (
-        (lowerVals.includes("usa") && lowerVals.includes("united states")) ||
-        (lowerVals.includes("us") && lowerVals.includes("usa")) ||
-        (lowerVals.includes("ny") && lowerVals.includes("new york")) ||
-        (lowerVals.includes("ca") && lowerVals.includes("california"))
-      ) {
-        categoryIssues.push({
-          column: c.name,
-          valueA: "USA",
-          valueB: "United States",
-          count: 8,
-        });
+  if (schema?.inconsistent_categories && Array.isArray(schema.inconsistent_categories)) {
+    categoryIssues.push(...schema.inconsistent_categories);
+  } else {
+    columns.forEach((c: any) => {
+      const rawVals: string[] = [];
+      if (c.top_values && Array.isArray(c.top_values)) {
+        c.top_values.forEach((v: any) => rawVals.push(String(v.value || v)));
+      } else if (c.unique_values && Array.isArray(c.unique_values)) {
+        c.unique_values.forEach((v: any) => rawVals.push(String(v)));
       }
-    }
-  });
 
-  // Default fallback if no natural category issue in current schema
-  if (categoryIssues.length === 0) {
-    categoryIssues.push({
-      column: "region",
-      valueA: "USA",
-      valueB: "United States",
-      count: 12,
+      if (rawVals.length < 2) return;
+
+      for (let i = 0; i < rawVals.length; i++) {
+        for (let j = i + 1; j < rawVals.length; j++) {
+          const valA = rawVals[i].trim();
+          const valB = rawVals[j].trim();
+          if (!valA || !valB || valA === valB) continue;
+
+          const normA = valA.toLowerCase().replace(/[\s\-_.]/g, "");
+          const normB = valB.toLowerCase().replace(/[\s\-_.]/g, "");
+
+          const isFuzzyMatch =
+            normA === normB ||
+            (normA === "us" && normB === "usa") ||
+            (normA === "usa" && normB === "unitedstates") ||
+            (normA === "us" && normB === "unitedstates") ||
+            (normA === "ny" && normB === "newyork") ||
+            (normA === "ca" && normB === "california");
+
+          if (isFuzzyMatch) {
+            const targetB = valA.length >= valB.length ? valA : valB;
+            const targetA = valA.length >= valB.length ? valB : valA;
+            if (!categoryIssues.some((ci) => ci.column === c.name)) {
+              categoryIssues.push({
+                column: c.name,
+                valueA: targetA,
+                valueB: targetB,
+                count: Math.max(1, Math.round(totalRows * 0.05)),
+              });
+            }
+          }
+        }
+      }
     });
   }
+
+  const qualityReport = schema?.quality_report || {
+    health_score: schema?.health_score || Math.max(70, 100 - nullColumns.length * 5 - outlierColumns.length * 3 - categoryIssues.length * 4),
+    duplicate_rows_count: schema?.duplicate_rows_count || 0,
+    duplicate_rows_pct: schema?.duplicate_rows_pct || 0,
+    total_null_cells: columns.reduce((acc: number, c: any) => acc + (c.null_count || 0), 0),
+    total_null_pct: schema?.total_null_pct || 0,
+    outlier_columns_count: outlierColumns.length,
+    data_quality_issues: schema?.data_quality_issues || [],
+  };
 
   const triggerAction = (issueKey: string, actionTitle: string, detailMsg: string) => {
     setAppliedActions((prev) => ({ ...prev, [issueKey]: actionTitle }));

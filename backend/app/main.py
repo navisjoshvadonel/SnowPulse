@@ -1401,6 +1401,13 @@ def unified_search(
         )
 
 
+def _get_dataset_for_user(db: Session, dataset_id: int, current_user: User) -> Dataset | None:
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
+    if not dataset:
+        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    return dataset
+
+
 # --- TIME-SERIES FORECASTING API ---
 
 @app.post("/api/forecast/train/{dataset_id}")
@@ -1414,9 +1421,7 @@ async def trigger_forecast_training(
     """
     Trigger time-series forecast model training for a dataset as a background task.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1442,9 +1447,7 @@ def get_forecast_predictions(
     """
     Retrieve future forecast projections and explanations using the best trained model.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1478,9 +1481,7 @@ def get_ml_target_candidates(
     Returns ranked auto-suggested target candidates using dataset profile interestingness scores.
     Excludes ID-like and high-missingness columns.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1506,9 +1507,7 @@ def trigger_ml_training(
     Triggers universal AutoML training for any dataset with complex feature extraction,
     auto task detection, model tournament selection, and explainability metrics.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1537,9 +1536,7 @@ def run_ml_inference(
     """
     Serve predictions using the latest trained model registered for a task type.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1569,9 +1566,7 @@ def get_ml_training_history(
     silhouette score, etc., whichever apply to task_type) for a dataset's
     ML models. Powers the score panel on Future Prediction.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

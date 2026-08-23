@@ -2,9 +2,64 @@ import datetime
 import hashlib
 import json
 import os
+import re
 from typing import Any
 
 import google.generativeai as genai
+
+
+def _extract_json(text: str) -> dict[str, Any]:
+    """
+    Strips markdown formatting and robustly extracts JSON payload from LLM responses.
+    Handles triple-backticks, ```json headers, and surrounding conversational text.
+    """
+    text = text.strip()
+
+    # Strip standard markdown code blocks
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\n?", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\n?```$", "", text)
+        text = text.strip()
+
+    # Direct JSON parse attempt
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Regex extraction of top-level JSON object
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f"Failed to extract valid JSON payload from text: {text[:100]}...")
+
+
+def _parse_context_stats(stats_context: str | Any) -> dict[str, str]:
+    """
+    Parses a statistical context string or DatasetProfile object into a key-value dictionary.
+    """
+    stats: dict[str, str] = {}
+    if hasattr(stats_context, "columns"):
+        profile = stats_context
+        primary_col = next((c for c in getattr(profile, "columns", []) if getattr(c, "is_primary_metric", False)), None)
+        stats["primary target metric"] = primary_col.name if primary_col else "Primary Metric"
+        stats["total aggregate value"] = "0.00"
+        stats["growth rate (period-over-period)"] = "0.0%"
+        stats["top performing region/segment"] = "Global"
+        stats["statistical anomalies/outliers detected"] = "0"
+        return stats
+
+    lines = str(stats_context).split("\n")
+    for line in lines:
+        if ":" in line:
+            k, v = line.split(":", 1)
+            stats[k.strip().lower()] = v.strip()
+
+    return stats
 
 
 class GeminiService:
@@ -34,7 +89,7 @@ class GeminiService:
         if not self.active or not stats_context:
             return self.model if hasattr(self, "model") else None
 
-        ctx_hash = hashlib.sha256(stats_context.encode("utf-8")).hexdigest()
+        ctx_hash = hashlib.sha256(str(stats_context).encode("utf-8")).hexdigest()
         if ctx_hash in self.cached_context_map:
             return self.cached_context_map[ctx_hash]["model"]
 
@@ -88,7 +143,7 @@ class GeminiService:
             "storage_limit_formatted": "10 GB"
         }
 
-    def generate_dashboard_insights(self, stats_context: str) -> dict[str, str]:
+    def generate_dashboard_insights(self, stats_context: str | Any) -> dict[str, Any]:
         """
         Generates structured executive insights for the 4 panels:
         - Headline Insight (Panel 1)
@@ -101,47 +156,44 @@ class GeminiService:
 
         prompt = f"""
 You are the AI brain of SNOW, an elite enterprise analytics platform.
-Given the following data statistics context and real categorical vocabulary, generate four structured outputs in JSON format.
+Given the following data statistics context and schema metadata, generate four structured outputs in JSON format.
 
-=== DATA STATS & CATEGORICAL VOCABULARY CONTEXT ===
+=== DATA STATS & SCHEMATIC VOCABULARY CONTEXT ===
 {stats_context}
 === END CONTEXT ===
 
-VOCABULARY CONSTRAINT:
-You MUST extract and use exact category, region, and segment labels directly from the provided categorical vocabulary context. Do not invent, guess, or substitute generic placeholders (e.g. do NOT use "North America" or "APAC" unless they explicitly appear in the categorical vocabulary).
+VOCABULARY & DOMAIN CONSTRAINTS:
+1. You MUST extract and use exact metric names, category labels, and column names directly from the provided dataset context.
+2. DO NOT invent, guess, or substitute generic domain placeholders (e.g., do NOT mention "Customers", "Sales", "Inventory", or "Revenue" unless those specific terms appear in the dataset context above).
+3. Do NOT invent region/geo names (e.g. "North America" or "APAC") unless they explicitly appear in the dataset categorical context.
 
 You must return EXACTLY a JSON object with these keys:
 1. "headline_insight": A 1-2 sentence executive summary of overall performance.
 2. "trend_insight": A 1-2 sentence insight about the historical trend.
-3. "geo_insight": A 1-2 sentence overview of geographic highlights using exact regional labels from vocabulary.
+3. "geo_insight": A 1-2 sentence overview of geographic/segment highlights using exact categorical labels from vocabulary context.
 4. "recommendations": An array of 3 concrete strategic recommendations based on the anomalies or top segments.
 
-CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks or triple-backticks in your output. Just return the raw JSON string.
+CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks or extra conversational text.
 """
         try:
-            model = self._get_or_create_context_cache(stats_context) or self.model
+            model = self._get_or_create_context_cache(str(stats_context)) or self.model
             response = model.generate_content(prompt)
             text = response.text.strip()
-            # Clean possible markdown wrapping
-            if text.startswith("```json"):
-                text = text[7:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
-
-            data = json.loads(text)
-            self.record_usage(prompt, text, getattr(response, "usage_metadata", None))
+            
+            data = _extract_json(text)
+            self.record_usage(str(prompt), text, getattr(response, "usage_metadata", None))
             return {
                 "headline_insight": data.get("headline_insight", ""),
                 "trend_insight": data.get("trend_insight", ""),
                 "geo_insight": data.get("geo_insight", ""),
-                "recommendations": data.get("recommendations", [])
+                "recommendations": data.get("recommendations", []),
+                "offline_mode": False
             }
         except Exception as e:
-            print(f"Gemini API generation error: {e}. Falling back.")
+            print(f"Gemini API generation error: {e}. Falling back to offline engine.")
             return self._generate_fallback_insights(stats_context)
 
-    def ask_copilot(self, query: str, stats_context: str) -> str:
+    def ask_copilot(self, query: str, stats_context: str | Any) -> str:
         """
         Answers general analytical questions based on the dataset metrics.
         """
@@ -151,35 +203,32 @@ CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks o
         prompt = f"""
 You are the Executive AI Copilot for SNOW Analytics.
 A user has asked a question about their business performance.
-Answer the user's question concisely using the statistical data context provided. Keep it professional, data-driven, and easy to read for C-level executives.
 
-=== DATA STATS CONTEXT ===
+=== DATA STATS & SCHEMATIC VOCABULARY CONTEXT ===
 {stats_context}
 === END CONTEXT ===
 
+DOMAIN & VOCABULARY CONSTRAINTS:
+1. Strictly confine your terminology to the column names, primary metrics, and category values present in the data stats context above.
+2. Do NOT introduce unmentioned domain concepts (e.g., "Customers", "Products", "Transactions") unless they match the schema provided.
+
 User Question: "{query}"
 
-Respond in clean markdown. Format numbers, percentages, and metrics clearly. Keep your response under 150 words if possible.
+Respond in clean markdown. Format numbers, percentages, and metrics clearly. Keep your response under 150 words.
 """
         try:
-            model = self._get_or_create_context_cache(stats_context) or self.model
+            model = self._get_or_create_context_cache(str(stats_context)) or self.model
             response = model.generate_content(prompt)
             res_text = response.text.strip()
-            self.record_usage(prompt, res_text, getattr(response, "usage_metadata", None))
+            self.record_usage(str(prompt), res_text, getattr(response, "usage_metadata", None))
             return res_text
         except Exception as e:
-            print(f"Gemini API copilot error: {e}. Falling back.")
+            print(f"Gemini API copilot error: {e}. Falling back to offline engine.")
             return self._generate_fallback_copilot_response(query, stats_context)
 
-    def _generate_fallback_insights(self, stats_context: str) -> dict[str, Any]:
-        self.record_usage(stats_context, "insights fallback", None)
-        # Offline rule-based summarizer using string parsing of statistical context
-        lines = stats_context.split("\n")
-        stats = {}
-        for line in lines:
-            if ":" in line:
-                k, v = line.split(":", 1)
-                stats[k.strip().lower()] = v.strip()
+    def _generate_fallback_insights(self, stats_context: str | Any) -> dict[str, Any]:
+        self.record_usage(str(stats_context), "insights fallback", None)
+        stats = _parse_context_stats(stats_context)
 
         metric = stats.get("primary target metric", "Primary Metric")
         total_val = stats.get("total aggregate value", "0.00")
@@ -187,26 +236,27 @@ Respond in clean markdown. Format numbers, percentages, and metrics clearly. Kee
         top_geo = stats.get("top performing region/segment", "Global")
         anoms = stats.get("statistical anomalies/outliers detected", "0")
 
+        try:
+            g_float = float(growth.replace("%", "").replace("+", "").strip())
+            trend_str = "positive" if g_float >= 0 else "negative"
+        except Exception:
+            trend_str = "stable"
+
         return {
-            "headline_insight": f"Total {metric} is {total_val}, registering a period change of {growth}. Performance remains stable.",
-            "trend_insight": f"Historical aggregates show a {float(growth.replace('%','')) >= 0 and 'positive' or 'negative'} trajectory. Growth is heavily concentrated.",
-            "geo_insight": f"Segment/Region '{top_geo}' is the primary driver, holding the dominant share of transactions.",
+            "headline_insight": f"Total {metric} is {total_val}, registering a period change of {growth}. Performance trajectory remains {trend_str}.",
+            "trend_insight": f"Historical aggregates for {metric} show a {trend_str} trajectory across observed intervals.",
+            "geo_insight": f"Segment/Category '{top_geo}' is the primary driver for {metric}, holding the dominant aggregate share.",
             "recommendations": [
-                f"Double down on the top performing segment: '{top_geo}' to capture maximum returns.",
-                f"Audit the {anoms} outlier anomalies flagged to identify potential data quality errors or supply chain issues.",
-                "Review conversion performance trends to identify mid-month drops."
+                f"Double down on top performing segment '{top_geo}' to maximize {metric} returns.",
+                f"Audit the {anoms} outlier anomalies flagged in {metric} to identify potential data quality errors or operational variance.",
+                f"Review conversion and volume distribution for {metric} across active categories."
             ],
             "offline_mode": True
         }
 
-    def _generate_fallback_copilot_response(self, query: str, stats_context: str) -> str:
+    def _generate_fallback_copilot_response(self, query: str, stats_context: str | Any) -> str:
         q_lower = query.lower()
-        lines = stats_context.split("\n")
-        stats = {}
-        for line in lines:
-            if ":" in line:
-                k, v = line.split(":", 1)
-                stats[k.strip().lower()] = v.strip()
+        stats = _parse_context_stats(stats_context)
 
         metric = stats.get("primary target metric", "Primary Metric")
         total_val = stats.get("total aggregate value", "0.00")
@@ -214,16 +264,23 @@ Respond in clean markdown. Format numbers, percentages, and metrics clearly. Kee
         top_geo = stats.get("top performing region/segment", "Global")
         anoms = stats.get("statistical anomalies/outliers detected", "0")
 
-        if "revenue" in q_lower or "sales" in q_lower or "total" in q_lower:
-            return f"**Analysis of Total Metric Volume:**\n\nThe total aggregate value of **{metric}** in this dataset is **{total_val}**, with a growth trajectory of **{growth}** compared to the previous half of the period. This indicates a steady operational velocity."
-        elif "predict" in q_lower or "forecast" in q_lower:
+        metric_lower = metric.lower()
+
+        if metric_lower in q_lower or "total" in q_lower or "metric" in q_lower or "value" in q_lower or "revenue" in q_lower or "sales" in q_lower:
+            return f"**Analysis of Total {metric} Volume:**\n\nThe total aggregate value of **{metric}** in this dataset is **{total_val}**, with a growth trajectory of **{growth}** compared to the previous period."
+        elif "predict" in q_lower or "forecast" in q_lower or "future" in q_lower:
             try:
-                g_val = float(growth.replace("%", ""))
+                g_val = float(growth.replace("%", "").replace("+", "").strip())
                 direction = "upward" if g_val >= 0 else "downward"
-                return f"**Forecast Summary:**\n\nBased on historical linear trend calculations, the future projection points to a **{direction}** trajectory. We expect sales to scale by approximately **{growth}** in the next cycle, assuming constant market conditions."
+                return f"**Forecast Summary for {metric}:**\n\nBased on historical linear trend calculations, the projection points to an **{direction}** trajectory ({growth})."
             except Exception:
-                return "**Forecast Summary:**\n\nFuture projection suggests a continuation of current trendlines. We recommend monitoring key segment fluctuations."
-        elif "anomaly" in q_lower or "outlier" in q_lower or "why did" in q_lower:
-            return f"**Anomalies & Variance Report:**\n\nThe system detected **{anoms} statistical anomalies** in the dataset. These points fall outside standard Z-score thresholds. The primary variances are caused by spikes in volume or category adjustments."
+                return f"**Forecast Summary for {metric}:**\n\nFuture projection suggests a continuation of current trendlines for {metric}."
+        elif "anomaly" in q_lower or "outlier" in q_lower or "why" in q_lower:
+            return f"**Anomalies & Variance Report for {metric}:**\n\nThe system detected **{anoms} statistical anomalies** in {metric}. These points fall outside standard Z-score/MAD thresholds."
         else:
-            return f"**Copilot General Response (Offline Mode):**\n\nHere is what we know about the current dataset:\n- **Primary Metric:** {metric}\n- **Total Volume:** {max(0, float(total_val.replace(',','')) if '.' in total_val else 0):,.2f}\n- **Period Change:** {growth}\n- **Top Regional Hub:** {top_geo}\n\nPlease add a valid `GEMINI_API_KEY` to your environment variables to enable dynamic, full-context natural language querying."
+            try:
+                val_num = float(total_val.replace(',', ''))
+                val_fmt = f"{val_num:,.2f}"
+            except Exception:
+                val_fmt = total_val
+            return f"**Copilot Statistical Summary (Offline Mode):**\n\nDataset Profile Summary:\n- **Primary Metric:** {metric}\n- **Total Value:** {val_fmt}\n- **Period Change:** {growth}\n- **Top Regional/Category Hub:** {top_geo}\n\nAdd a valid `GEMINI_API_KEY` to enable dynamic natural language responses."

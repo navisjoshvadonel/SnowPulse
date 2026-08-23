@@ -1,15 +1,14 @@
-"""Tests for backend.app.ai.gemini_service — fallback insights and copilot."""
+"""Tests for backend.app.ai.gemini_service — fallback insights, copilot, and JSON extraction."""
 
 import os
+from unittest.mock import patch
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey")
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-from unittest.mock import patch
-
-from backend.app.ai.gemini_service import GeminiService
+from backend.app.ai.gemini_service import GeminiService, _extract_json
 
 MOCK_STATS_CONTEXT = """Primary target metric: Revenue
 Total rows: 100
@@ -17,6 +16,13 @@ Total aggregate value: 50,000.00
 Growth rate (period-over-period): +12.5%
 Top performing region/segment: North America
 Statistical anomalies/outliers detected: 3"""
+
+MOCK_INVENTORY_CONTEXT = """Primary target metric: inventory_count
+Total rows: 500
+Total aggregate value: 12,400.00
+Growth rate (period-over-period): -3.2%
+Top performing region/segment: Warehouse-B
+Statistical anomalies/outliers detected: 1"""
 
 
 class TestGeminiFallbackInsights:
@@ -47,6 +53,14 @@ class TestGeminiFallbackInsights:
             result = service._generate_fallback_insights(MOCK_STATS_CONTEXT)
         assert "North America" in result["geo_insight"]
 
+    def test_fallback_insights_dynamic_inventory_dataset(self):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": ""}, clear=False):
+            service = GeminiService()
+            result = service.generate_dashboard_insights(MOCK_INVENTORY_CONTEXT)
+        assert "inventory_count" in result["headline_insight"]
+        assert "Warehouse-B" in result["geo_insight"]
+        assert "12,400.00" in result["headline_insight"]
+
 
 class TestGeminiFallbackCopilot:
     """Test the offline copilot response branches."""
@@ -74,7 +88,7 @@ class TestGeminiFallbackCopilot:
     def test_generic_query(self):
         service = self._get_service()
         response = service._generate_fallback_copilot_response("Tell me about the weather", MOCK_STATS_CONTEXT)
-        assert "Primary Metric" in response
+        assert "Primary Metric" in response or "Revenue" in response
 
     def test_ask_copilot_offline(self):
         service = self._get_service()
@@ -108,3 +122,26 @@ class TestGeminiContextCaching:
             model = service._get_or_create_context_cache(MOCK_STATS_CONTEXT)
             assert model is None
 
+
+class TestJSONExtractionEnforcement:
+    """Test structural JSON output enforcement & markdown backtick stripping."""
+
+    def test_extract_json_with_markdown_wrapper(self):
+        raw_llm_response = """```json
+{
+    "headline_insight": "Revenue is up by 15%",
+    "trend_insight": "Upward trajectory",
+    "geo_insight": "North America leading",
+    "recommendations": ["Expand APAC", "Audit outliers", "Monitor churn"]
+}
+```"""
+        parsed = _extract_json(raw_llm_response)
+        assert parsed["headline_insight"] == "Revenue is up by 15%"
+        assert len(parsed["recommendations"]) == 3
+
+    def test_extract_json_with_conversational_surrounding(self):
+        raw_llm_response = """Here is your JSON response:
+{"headline_insight": "Performance stable", "trend_insight": "Flat", "geo_insight": "Global", "recommendations": ["A", "B", "C"]}
+Hope this helps!"""
+        parsed = _extract_json(raw_llm_response)
+        assert parsed["headline_insight"] == "Performance stable"

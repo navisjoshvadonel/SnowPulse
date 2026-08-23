@@ -68,3 +68,62 @@ def test_profiler_zero_variance_correlation():
     assert profile.correlation_matrix.matrix[1][0] is None
     assert profile.correlation_matrix.matrix[1][1] == 1.0
 
+
+def test_profiler_zero_numeric_metrics_fallback():
+    # Survey dataset with zero continuous numeric metrics
+    df = pl.DataFrame({
+        "feedback_id": [f"FB-{i}" for i in range(10)],
+        "sentiment": ["Positive", "Negative", "Neutral", "Positive", "Positive", "Negative", "Neutral", "Positive", "Negative", "Neutral"],
+        "comments": ["Great service", "Too slow", "Average", "Loved it", "Will return", "Bad support", "Okay", "Superb", "Horrible", "Fine"],
+    })
+
+    profile = DatasetProfiler.profile_full(df)
+    primary_metric = next((c for c in profile.columns if c.is_primary_metric), None)
+    assert primary_metric is not None
+    assert primary_metric.name != "feedback_id"
+    assert primary_metric.numeric_stats is not None
+
+
+def test_profiler_multi_metric_cv_selection():
+    # Dataset with large-scale ID numbers vs high-CV revenue metric
+    df = pl.DataFrame({
+        "account_id": [1_000_000 + i for i in range(10)],  # std=3.0, mean=1000004.5, CV near 0
+        "revenue": [10.0, 500.0, 20.0, 1000.0, 50.0, 2500.0, 30.0, 800.0, 10.0, 1200.0],  # std high, mean~690, CV ~ 1.2
+    })
+
+    profile = DatasetProfiler.profile_full(df)
+    primary_metric = next((c for c in profile.columns if c.is_primary_metric), None)
+    assert primary_metric is not None
+    assert primary_metric.name == "revenue"
+
+
+def test_profiler_non_standard_timestamps():
+    df = pl.DataFrame({
+        "quarter": ["Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "Q1 2026", "Q2 2026", "Q3 2026", "Q4 2026", "Q1 2027", "Q2 2027"],
+        "custom_date": ["15/01/2026", "16/01/2026", "17/01/2026", "18/01/2026", "19/01/2026", "20/01/2026", "21/01/2026", "22/01/2026", "23/01/2026", "24/01/2026"],
+        "epoch_sec": [1767225600 + i * 86400 for i in range(10)],
+    })
+
+    schema = DatasetProfiler.profile(df)
+    col_map = {c.name: c for c in schema.columns}
+    assert col_map["quarter"].inferred_role == "temporal"
+    assert col_map["custom_date"].inferred_role == "temporal"
+    assert col_map["epoch_sec"].inferred_role == "temporal"
+
+
+def test_profiler_high_cardinality_identifiers():
+    df = pl.DataFrame({
+        "transaction_uuid": [f"UUID-{i:04d}" for i in range(20)],  # cardinality_ratio = 1.0 > 0.85
+        "category": ["A", "B"] * 10,
+        "amount": [10.0 * i for i in range(20)],
+    })
+
+    profile = DatasetProfiler.profile_full(df)
+    col_map = {c.name: c for c in profile.columns}
+    assert col_map["transaction_uuid"].inferred_role == "identifier"
+
+    # Ensure identifier is excluded from correlation matrix
+    if profile.correlation_matrix:
+        assert "transaction_uuid" not in profile.correlation_matrix.columns
+
+

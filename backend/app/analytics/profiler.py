@@ -33,6 +33,13 @@ _RE_URL      = re.compile(r"^https?://\S+$")
 _RE_PHONE    = re.compile(r"^\+?[\d\s\-().]{7,}$")
 _RE_CURRENCY = re.compile(r"^\$?[\d,]+(\.\d{1,4})?$")
 _RE_POSTAL   = re.compile(r"^\d{4,6}(-\d{4})?$")
+_RE_QUARTER  = re.compile(r"^\s*(Q[1-4]\s*[\-/_]?\s*\d{4}|\d{4}\s*[\-/_]?\s*Q[1-4])\s*$", re.IGNORECASE)
+_RE_DATE_STRINGS = [
+    re.compile(r"^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}$"),  # DD/MM/YYYY or MM/DD/YYYY
+    re.compile(r"^\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}$"),  # YYYY/MM/DD
+    re.compile(r"^\d{4}[/\-.]\d{1,2}$"),                # YYYY-MM
+    re.compile(r"^\d{1,2}[/\-.]\d{4}$"),                # MM-YYYY
+]
 
 # Column-name vocabulary hints (used only for geo/lat/lng disambiguation,
 # never to classify a column role from scratch)
@@ -238,6 +245,16 @@ class DatasetProfiler:
     def _classify_dtype(cls, series: pl.Series) -> DtypeCategory:
         dt = series.dtype
         if dt in cls._NUMERIC_DTYPES:
+            # Check for Unix Epoch Timestamps (seconds: 1e9..2.5e9, ms: 1e12..2.5e12)
+            clean = series.drop_nulls()
+            if len(clean) > 0:
+                try:
+                    min_v, max_v = float(clean.min()), float(clean.max())
+                    if (1_000_000_000 <= min_v <= max_v <= 2_500_000_000) or \
+                       (1_000_000_000_000 <= min_v <= max_v <= 2_500_000_000_000):
+                        return "datetime"
+                except Exception:
+                    pass
             # Distinguish booleans-as-int (cardinality <= 2) from real metrics
             if dt in (pl.Int8, pl.UInt8) and series.n_unique() <= 2:
                 return "boolean"
@@ -251,9 +268,21 @@ class DatasetProfiler:
             non_null = series.drop_nulls().head(50)
             if len(non_null) == 0:
                 return "categorical"
-            avg_len = sum(len(str(v)) for v in non_null.to_list()) / len(non_null)
+            sample_strs = [str(v).strip() for v in non_null.to_list()]
+            avg_len = sum(len(s) for s in sample_strs) / len(sample_strs)
             if avg_len > 60:
                 return "text"
+
+            # Check financial quarters (e.g. Q1 2025, 2025-Q1)
+            q_matches = sum(1 for s in sample_strs if _RE_QUARTER.match(s))
+            if q_matches >= max(1, int(len(sample_strs) * 0.5)):
+                return "datetime"
+
+            # Check non-standard date string pattern regexes
+            for date_re in _RE_DATE_STRINGS:
+                if sum(1 for s in sample_strs if date_re.match(s)) >= max(1, int(len(sample_strs) * 0.5)):
+                    return "datetime"
+
             # Try datetime parse
             try:
                 parsed = non_null.str.to_datetime(strict=False)
@@ -280,21 +309,15 @@ class DatasetProfiler:
         dtype_cat: DtypeCategory,
     ) -> ColumnRole:
         col_lower = name.lower()
-        is_near_unique = total_rows > 5 and (cardinality / max(total_rows, 1)) >= 0.95
+        card_ratio = cardinality / max(total_rows, 1)
+        is_high_cardinality = total_rows > 5 and card_ratio > 0.85
+        is_near_unique = total_rows > 5 and card_ratio >= 0.95
 
-        # 1. Identifier — structural: near-unique AND (name hints OR very high cardinality)
-        name_is_id = any(
-            col_lower == t or col_lower.endswith(f"_{t}") or col_lower.startswith(f"{t}_")
-            for t in _ID_NAME_HINTS
-        )
-        if is_near_unique and (name_is_id or cardinality > max(100, total_rows * 0.98)):
-            return "identifier"
-
-        # 2. Target — structural: name hint wins if present (explicit labelling)
+        # 1. Target — explicit target labelling wins
         if any(col_lower == t or col_lower.endswith(f"_{t}") for t in _TARGET_NAME_HINTS):
             return "target"
 
-        # 3. Datetime — dtype first, then string parse, then name hint
+        # 2. Datetime / Temporal — dtype_cat == "datetime" or temporal hints MUST take precedence
         if dtype_cat == "datetime":
             return "temporal"
         if series.dtype == pl.Utf8 and any(t in col_lower for t in _TEMPORAL_NAME_HINTS):
@@ -308,6 +331,17 @@ class DatasetProfiler:
                     pass
         if dtype_cat == "numeric" and ("year" in col_lower or "date" in col_lower):
             return "temporal"
+
+        # 3. Identifier — structural: high cardinality (>0.85) AND (non-numeric OR name hint OR int sequence)
+        name_is_id = any(
+            col_lower == t or col_lower.endswith(f"_{t}") or col_lower.startswith(f"{t}_") or f"_{t}_" in col_lower
+            for t in _ID_NAME_HINTS
+        )
+        if is_high_cardinality:
+            if dtype_cat != "numeric" or name_is_id or series.dtype in (pl.Int64, pl.Int32, pl.UInt64, pl.UInt32):
+                return "identifier"
+        if is_near_unique and (name_is_id or cardinality > max(100, total_rows * 0.98)):
+            return "identifier"
 
         # 4. Geo — name hint only as tiebreaker; structural check: categorical with geo vocab
         if any(t in col_lower for t in _GEO_NAME_HINTS):
@@ -409,23 +443,55 @@ class DatasetProfiler:
     def _assign_primary_flags(cls, profiles: list[ColumnProfile]) -> None:
         """
         Assigns is_primary_* to exactly one column per role category.
-        Selection criteria are structural (variance, cardinality) — not names.
+        Selection criteria are structural (CV, cardinality) — not names.
         Name hints are used only to break ties.
         """
-        metrics  = [p for p in profiles if p.inferred_role in ("metric", "target") and p.dtype_category == "numeric"]
-        dates    = [p for p in profiles if p.inferred_role == "temporal"]
-        cats     = [p for p in profiles if p.inferred_role in ("dimension", "target") and p.dtype_category == "categorical"]
-        geos     = [p for p in profiles if p.inferred_role == "geo"]
+        # Filter metrics excluding identifiers and columns with cardinality_ratio > 0.85
+        metrics = [
+            p for p in profiles
+            if p.inferred_role in ("metric", "target")
+            and p.dtype_category == "numeric"
+            and p.inferred_role != "identifier"
+            and p.cardinality_ratio <= 0.85
+        ]
+        dates = [p for p in profiles if p.inferred_role == "temporal"]
+        cats = [p for p in profiles if p.inferred_role in ("dimension", "target") and p.dtype_category == "categorical"]
+        geos = [p for p in profiles if p.inferred_role == "geo"]
 
-        # Primary metric: highest variance numeric (skew as proxy)
+        # Primary metric selection using Coefficient of Variation (CV = std / |mean|)
         if metrics:
             def _metric_score(p: ColumnProfile) -> float:
                 if p.numeric_stats:
                     std = p.numeric_stats.get("std") or 0.0
-                    return float(std)
+                    mean = p.numeric_stats.get("mean") or 0.0
+                    abs_mean = abs(mean)
+                    # Coefficient of Variation: std / |mean|
+                    cv = float(std / abs_mean) if abs_mean > 1e-6 else float(std)
+                    card_penalty = 1.0 - (p.cardinality_ratio * 0.5)
+                    target_boost = 1.5 if p.inferred_role == "target" else 1.0
+                    return cv * card_penalty * target_boost
                 return 0.0
+
             best = max(metrics, key=_metric_score)
             best.is_primary_metric = True
+        else:
+            # Fallback for Zero Numeric Metrics datasets (e.g. survey text, feedback forms)
+            candidates = [p for p in profiles if p.inferred_role != "identifier"]
+            if not candidates:
+                candidates = profiles
+
+            if candidates:
+                best_fallback = max(candidates, key=lambda p: (p.cardinality, -p.null_percentage))
+                best_fallback.is_primary_metric = True
+                if not best_fallback.numeric_stats:
+                    best_fallback.numeric_stats = {
+                        "min": 1.0,
+                        "max": float(best_fallback.cardinality),
+                        "mean": float(max(1.0, best_fallback.cardinality / 2.0)),
+                        "std": 1.0,
+                        "skew": 0.0,
+                        "outlier_count": 0.0,
+                    }
 
         # Primary date: first temporal column (already ordered by original column position)
         if dates:
@@ -500,7 +566,11 @@ class DatasetProfiler:
         df: pl.DataFrame,
         col_profiles: list[ColumnProfile],
     ) -> CorrelationMatrix | None:
-        numeric_cols = [p.name for p in col_profiles if p.dtype_category == "numeric"]
+        numeric_cols = [
+            p.name for p in col_profiles
+            if p.dtype_category == "numeric"
+            and p.inferred_role != "identifier"
+        ]
         if len(numeric_cols) < 2:
             return None
         try:
@@ -556,12 +626,12 @@ class DatasetProfiler:
         try:
             from sklearn.feature_selection import mutual_info_regression
 
-            # Candidate columns: numeric, not the target itself, not identifiers
+            # Candidate columns: numeric/categorical, not target, not high-cardinality identifier
             candidates = [
                 p for p in col_profiles
                 if p.dtype_category in ("numeric", "categorical")
                 and p.name != primary.name
-                and p.inferred_role not in ("identifier",)
+                and p.inferred_role != "identifier"
             ]
 
             # Cap to top-MI_COL_CAP by std (variance proxy)

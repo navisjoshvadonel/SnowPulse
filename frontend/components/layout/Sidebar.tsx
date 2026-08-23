@@ -86,7 +86,6 @@ function SnowflakeIcon({ size = 18, className = "" }: { size?: number; className
 
 const navItems: { id: SnowSection; label: string; icon: React.ElementType }[] = [
   { id: "dashboard", label: "Unified BI Dashboard", icon: LayoutDashboard },
-  { id: "power-bi-auto", label: "BI Cross-Filter Canvas", icon: Zap },
   { id: "ai-copilot", label: "AI Copilot & Generative UI", icon: Sparkles },
   { id: "prediction", label: "AI AutoML & Forecast", icon: Activity },
   { id: "dataset-overview", label: "Dataset Overview", icon: Database },

@@ -182,9 +182,9 @@ export default function CategoricalBreakdownPanel({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-200">Categorical Share & Volume</h3>
-            <p className="text-xs text-slate-400 flex items-center gap-1">
+            <div className="text-xs text-slate-400 flex items-center gap-1">
               <MousePointerClick size={12} className="text-cyan-400" /> Click chart segments to cross-filter canvas
-            </p>
+            </div>
           </div>
         </div>
 

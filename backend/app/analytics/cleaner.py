@@ -12,21 +12,12 @@ class DataCleaner:
         - Strips whitespace from column names and string cells
         - Handles mixed date formats & empty null strings
         """
-        encodings = ["utf-8", "latin-1", "cp1252"]
-        df = None
-        used_encoding = "utf-8"
+        from app.validation.resilient_parser import ResilientFileIngestor
 
-        for enc in encodings:
-            try:
-                decoded = raw_bytes.decode(enc)
-                df = pl.read_csv(io.StringIO(decoded), infer_schema_length=10000, ignore_errors=True)
-                used_encoding = enc
-                break
-            except Exception:
-                continue
-
-        if df is None:
-            # Fallback byte stream read
+        used_encoding = ResilientFileIngestor.detect_encoding(raw_bytes)
+        try:
+            df = ResilientFileIngestor.read_to_polars(raw_bytes, filename)
+        except Exception:
             df = pl.read_csv(io.BytesIO(raw_bytes), infer_schema_length=1000, ignore_errors=True)
 
         # 1. Clean column names

@@ -18,18 +18,12 @@ class DataQualityScorer:
     @staticmethod
     def read_file_to_pandas(file_bytes: bytes, filename: str) -> pd.DataFrame:
         """
-        Parses binary file contents into a Pandas DataFrame. Supports CSV and Excel.
+        Parses binary file contents into a Pandas DataFrame using ResilientFileIngestor.
+        Handles non-UTF8 encodings, delimiter sniffing, header sanitization, and currency/percentage values.
         """
-        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
         try:
-            if ext == 'xlsx' or ext == 'xls':
-                return pd.read_excel(io.BytesIO(file_bytes))
-            else:
-                # Default to CSV. Auto-detect separators or encoding if needed
-                try:
-                    return pd.read_csv(io.BytesIO(file_bytes))
-                except UnicodeDecodeError:
-                    return pd.read_csv(io.BytesIO(file_bytes), encoding="latin-1")
+            from ..resilient_parser import ResilientFileIngestor
+            return ResilientFileIngestor.read_to_pandas(file_bytes, filename)
         except Exception as e:
             logger.error(f"Error reading file {filename}: {e}")
             raise ValueError(f"Failed to parse file: {str(e)}")

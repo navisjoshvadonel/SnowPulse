@@ -59,6 +59,7 @@ vi.mock('@/services/api', () => ({
     getDatasetAggregate: vi.fn(),
     getForecastPredict: vi.fn(),
     getMlHistory: vi.fn(),
+    getDatasetSignals: vi.fn().mockResolvedValue({ anomalies: [], total_records: 100 }),
     purgeAccount: vi.fn(),
   }
 }))

@@ -21,14 +21,33 @@ export default function TimeSeriesPanel({
   const { setDateRange } = useFilterStore();
 
   const dateCol = columns.find(
-    (c) => c.dtype_category === "datetime" || c.inferred_role === "temporal" || c.is_primary_date
+    (c) =>
+      c.dtype_category === "datetime" ||
+      c.inferred_role === "temporal" ||
+      c.is_primary_date ||
+      c.role === "date" ||
+      c.name.toLowerCase().includes("date") ||
+      c.name.toLowerCase().includes("time") ||
+      c.name.toLowerCase().includes("year") ||
+      c.name.toLowerCase() === "dt"
   );
 
   const metricCols = columns.filter(
-    (c) => c.dtype_category === "numeric" || c.inferred_role === "metric"
+    (c) =>
+      c.dtype_category === "numeric" ||
+      c.inferred_role === "metric" ||
+      c.role === "numeric" ||
+      c.type === "number" ||
+      typeof c.min === "number" ||
+      c.numeric_stats !== undefined
   );
   const catCols = columns.filter(
-    (c) => c.dtype_category === "categorical" || c.inferred_role === "dimension"
+    (c) =>
+      c.dtype_category === "categorical" ||
+      c.inferred_role === "dimension" ||
+      c.role === "categorical" ||
+      c.role === "geo" ||
+      c.role === "identifier"
   );
 
   const [selectedMetric, setSelectedMetric] = useState<string>(metricCols[0]?.name || "");
@@ -216,6 +235,10 @@ export default function TimeSeriesPanel({
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
     };
   }, [dateCol, selectedMetric, catCols, activeMetricObj, setDateRange]);
 
@@ -230,7 +253,7 @@ export default function TimeSeriesPanel({
             <h3 className="text-sm font-semibold text-slate-200">
               {dateCol ? "Temporal Trend Analysis" : "Cross-Sectional Distribution View"}
             </h3>
-            <p className="text-xs text-slate-400 flex items-center gap-1">
+            <div className="text-xs text-slate-400 flex items-center gap-1">
               {dateCol ? (
                 <>
                   <Calendar size={12} className="text-cyan-400" /> Dimension: <span className="capitalize">{dateCol.name}</span> | Use zoom slider to filter date range
@@ -240,7 +263,7 @@ export default function TimeSeriesPanel({
                   <Layers size={12} className="text-cyan-400" /> <span className="text-cyan-300 font-medium">Non-temporal dataset</span> | Dynamically rendering binned distribution
                 </>
               )}
-            </p>
+            </div>
           </div>
         </div>
 

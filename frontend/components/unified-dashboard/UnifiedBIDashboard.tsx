@@ -147,9 +147,10 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
 
   const columns = schemaData.columns || [];
   const totalRows = schemaData.row_count || 0;
-  const primaryMetric = schemaData.primary_metric || "volume";
+  const numColObj = columns.find((c: any) => c.role === "numeric" || c.dtype_category === "numeric" || c.inferred_role === "metric");
+  const primaryMetric = schemaData.primary_metric && schemaData.primary_metric !== "volume" ? schemaData.primary_metric : numColObj?.name || "volume";
 
-  const primaryMetricColObj = columns.find((c: any) => c.name === primaryMetric);
+  const primaryMetricColObj = columns.find((c: any) => c.name === primaryMetric) || numColObj;
 
   return (
     <div className="w-full space-y-6">

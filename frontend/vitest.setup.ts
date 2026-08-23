@@ -1,4 +1,19 @@
 import '@testing-library/jest-dom'
+import { vi } from 'vitest'
+
+// Mock ECharts for JSDOM environment
+vi.mock('echarts', () => ({
+  init: () => ({
+    setOption: vi.fn(),
+    resize: vi.fn(),
+    dispose: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
+  }),
+  graphic: {
+    LinearGradient: vi.fn(),
+  },
+}))
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {

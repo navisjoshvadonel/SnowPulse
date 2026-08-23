@@ -18,7 +18,14 @@ export default function FilterSlicerBar({
   const { selectedFilters: filters, removeFilter, clearFilters, toggleCategoryValue } = useFilterStore();
 
   const categoricalCols = columns.filter(
-    (c) => c.dtype_category === "categorical" || c.inferred_role === "dimension" || c.inferred_role === "geo"
+    (c) =>
+      c.dtype_category === "categorical" ||
+      c.inferred_role === "dimension" ||
+      c.inferred_role === "geo" ||
+      c.role === "categorical" ||
+      c.role === "geo" ||
+      c.role === "identifier" ||
+      (c.unique_values && c.unique_values.length > 0)
   );
 
   const displayCount = filteredRows !== undefined ? filteredRows : totalRows;

@@ -21,7 +21,13 @@ export default function DistributionPanel({
   const { activeNumericRanges, setNumericRange } = useFilterStore();
 
   const numCols = columns.filter(
-    (c) => c.dtype_category === "numeric" || c.inferred_role === "metric"
+    (c) =>
+      c.dtype_category === "numeric" ||
+      c.inferred_role === "metric" ||
+      c.role === "numeric" ||
+      c.type === "number" ||
+      typeof c.min === "number" ||
+      c.numeric_stats !== undefined
   );
 
   const [selectedCol, setSelectedCol] = useState<string>(numCols[0]?.name || "");
@@ -139,6 +145,10 @@ export default function DistributionPanel({
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
     };
   }, [activeColObj, selectedCol, activeNumericRanges, setNumericRange]);
 

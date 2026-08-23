@@ -20,7 +20,14 @@ export default function CategoricalBreakdownPanel({
   const { activeCategoryValues, toggleCategoryValue } = useFilterStore();
 
   const catCols = columns.filter(
-    (c) => c.dtype_category === "categorical" || c.inferred_role === "dimension" || c.inferred_role === "geo"
+    (c) =>
+      c.dtype_category === "categorical" ||
+      c.inferred_role === "dimension" ||
+      c.inferred_role === "geo" ||
+      c.role === "categorical" ||
+      c.role === "geo" ||
+      c.role === "identifier" ||
+      (c.unique_values && c.unique_values.length > 0 && !c.numeric_stats)
   );
 
   const [selectedCol, setSelectedCol] = useState<string>(catCols[0]?.name || "");
@@ -150,6 +157,10 @@ export default function CategoricalBreakdownPanel({
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
     };
   }, [activeColObj, chartType, selectedCol, activeCategoryValues, toggleCategoryValue]);
 

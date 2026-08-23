@@ -17,7 +17,13 @@ export default function CorrelationPanel({
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
   const numCols = columns.filter(
-    (c) => c.dtype_category === "numeric" || c.inferred_role === "metric"
+    (c) =>
+      c.dtype_category === "numeric" ||
+      c.inferred_role === "metric" ||
+      c.role === "numeric" ||
+      c.type === "number" ||
+      typeof c.min === "number" ||
+      c.numeric_stats !== undefined
   );
 
   useEffect(() => {
@@ -107,6 +113,10 @@ export default function CorrelationPanel({
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
     };
   }, [numCols]);
 

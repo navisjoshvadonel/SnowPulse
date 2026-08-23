@@ -1,0 +1,3 @@
+## 2026-08-23 - [O(N^2) Anti-Pattern in Pandas/Polars to NumPy Operations]
+**Learning:** Calling `np.corrcoef` iteratively in a nested loop for wide DataFrames (e.g., pairs of 1D columns) leads to a severe O(N^2) bottleneck. For 100 columns, it took ~1.89 seconds, whereas a fully vectorized approach on the entire 2D matrix (i.e. `np.corrcoef(arr, rowvar=False)`) takes only ~0.03 seconds.
+**Action:** When performing statistical operations like correlation across multiple dataframe columns, extract the entire numeric matrix to a 2D NumPy array and use the framework's built-in 2D matrix operations instead of nested loops iterating over 1D arrays. Always vectorize operations at the framework level for broad calculations.

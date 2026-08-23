@@ -21,9 +21,19 @@ class ForecastingTrainer:
     Fits multiple time-series forecasting models (ARIMA, SARIMA, ETS) on a dataset,
     compares performance via backtesting, and saves the best model to MinIO.
     """
-    def __init__(self, db, dataset_id: int):
+    def __init__(self, db=None, dataset_id: int | None = None, df: pd.DataFrame | None = None, file_path: str | None = None):
         self.db = db
         self.dataset_id = dataset_id
+
+        if df is not None:
+            self.df = df
+            return
+        elif file_path is not None:
+            self.df = pd.read_csv(file_path)
+            return
+
+        if not db or dataset_id is None:
+            raise ValueError("Either db + dataset_id, df, or file_path must be provided to ForecastingTrainer.")
 
         # Load dataset from database metadata and MinIO
         ds = db.query(Dataset).filter(Dataset.id == dataset_id).first()
@@ -52,6 +62,8 @@ class ForecastingTrainer:
     def _prepare_time_series(self, target_col: str, date_col: str = None) -> pd.Series:
         """
         Resamples and formats the dataframe into a regularized time series.
+        Supports irregular temporal spacing (missing weekends, random event logs) by inferring
+        the optimal frequency ('D', 'W', or 'MS') and applying linear interpolation with forward/backward fill.
         """
         df = self.df.copy()
 
@@ -66,10 +78,29 @@ class ForecastingTrainer:
         # Group by date and sort
         series = df.groupby(date_col)[target_col].sum().sort_index()
 
-        # Infer frequency or resample to Daily ('D') or Monthly ('M') based on size
-        if len(series) > 10:
-            # Resample to Daily and fill missing dates with interpolation
-            series = series.resample('D').mean().interpolate(method='linear')
+        if len(series) > 5:
+            # Infer optimal frequency based on median gap between consecutive dates
+            time_diffs_days = (series.index.to_series().diff().dt.total_seconds() / 86400.0).dropna()
+            median_gap = float(time_diffs_days.median()) if len(time_diffs_days) > 0 else 1.0
+
+            if median_gap <= 3.5:
+                freq = 'D'
+            elif median_gap <= 10.0:
+                freq = 'W'
+            else:
+                freq = 'MS'
+
+            try:
+                series = (
+                    series.resample(freq)
+                    .mean()
+                    .interpolate(method='linear')
+                    .ffill()
+                    .bfill()
+                    .fillna(0.0)
+                )
+            except Exception as ex:
+                logger.warning("Resampling failed, keeping raw series: %s", ex)
 
         return series
 

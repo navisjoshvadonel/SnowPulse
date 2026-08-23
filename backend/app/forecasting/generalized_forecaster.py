@@ -1,6 +1,7 @@
 import math
 from typing import Any
 
+import pandas as pd
 import polars as pl
 from pydantic import BaseModel
 
@@ -39,19 +40,35 @@ class GeneralizedForecaster:
         if metric_col not in df.columns:
             raise ValueError(f"Metric column '{metric_col}' not found in DataFrame.")
 
-        # Prepare time series
+        # Prepare time series with irregular spacing handling
         clean_df = df.filter(pl.col(metric_col).is_not_null())
 
         if temporal_col and temporal_col in clean_df.columns:
-            ts_df = clean_df.select([temporal_col, metric_col])
+            try:
+                # Convert to pandas for robust resampling of irregular date/time series
+                pdf = clean_df.select([temporal_col, metric_col]).to_pandas()
+                pdf[temporal_col] = pd.to_datetime(pdf[temporal_col], errors="coerce")
+                pdf = pdf.dropna(subset=[temporal_col, metric_col]).sort_values(temporal_col)
+
+                if len(pdf) > 5:
+                    time_diffs_days = (pdf[temporal_col].diff().dt.total_seconds() / 86400.0).dropna()
+                    median_gap = float(time_diffs_days.median()) if len(time_diffs_days) > 0 else 1.0
+
+                    freq = 'D' if median_gap <= 3.5 else ('W' if median_gap <= 10.0 else 'MS')
+                    pdf = pdf.set_index(temporal_col).resample(freq)[metric_col].mean().interpolate().ffill().bfill().reset_index()
+
+                vals = [float(v) for v in pdf[metric_col].to_list()]
+                time_labels = [str(t)[:10] for t in pdf[temporal_col].to_list()]
+            except Exception:
+                ts_df = clean_df.select([temporal_col, metric_col])
+                vals = [float(v) for v in ts_df[metric_col].to_list() if v is not None]
+                time_labels = [str(t) for t in ts_df[temporal_col].to_list()]
         else:
             # Fallback: create index step
             ts_df = clean_df.with_columns(pl.Series("step_index", range(clean_df.height))).select(["step_index", metric_col])
             temporal_col = "step_index"
-
-        # Extract values
-        vals = [float(v) for v in ts_df[metric_col].to_list() if v is not None]
-        time_labels = [str(t) for t in ts_df[temporal_col].to_list()]
+            vals = [float(v) for v in ts_df[metric_col].to_list() if v is not None]
+            time_labels = [str(t) for t in ts_df[temporal_col].to_list()]
 
         if not vals:
             vals = [10.0, 12.0, 15.0, 14.0, 18.0]

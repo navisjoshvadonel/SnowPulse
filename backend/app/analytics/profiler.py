@@ -140,16 +140,21 @@ class DatasetProfiler:
     read from this — no column-name matching elsewhere.
     """
 
+    def __init__(self, df: pl.DataFrame | None = None):
+        self.df = df
+
     # ------------------------------------------------------------------
     # Public entry points
     # ------------------------------------------------------------------
 
     @classmethod
-    def profile_full(cls, df: pl.DataFrame) -> DatasetProfile:
+    def profile_full(cls, df: pl.DataFrame | None = None) -> DatasetProfile:
         """
         Full profile: column profiles + data quality + correlations + MI.
         This is the canonical method called on upload / reprofile.
         """
+        if df is None:
+            raise ValueError("No DataFrame provided to profile_full.")
         total_rows = df.height
         total_columns = len(df.columns)
         col_profiles = cls._build_column_profiles(df, total_rows)
@@ -173,17 +178,13 @@ class DatasetProfiler:
         )
 
     @classmethod
-    def profile(cls, df: pl.DataFrame) -> DatasetSchema:
+    def profile(cls, df: pl.DataFrame) -> DatasetProfile:
         """
-        Lightweight profile (no MI / correlations). Kept for compat.
+        Class profile entry point.
         """
-        full = cls.profile_full(df)
-        return DatasetSchema(
-            total_rows=full.total_rows,
-            total_columns=full.total_columns,
-            columns=full.columns,
-            quality_report=full.quality_report,
-        )
+        if df is None:
+            raise ValueError("No DataFrame provided to profile.")
+        return cls.profile_full(df)
 
     # ------------------------------------------------------------------
     # Column profile building
@@ -337,10 +338,10 @@ class DatasetProfiler:
             col_lower == t or col_lower.endswith(f"_{t}") or col_lower.startswith(f"{t}_") or f"_{t}_" in col_lower
             for t in _ID_NAME_HINTS
         )
-        if is_high_cardinality:
-            if dtype_cat != "numeric" or name_is_id or series.dtype in (pl.Int64, pl.Int32, pl.UInt64, pl.UInt32):
+        if is_high_cardinality and (total_rows > 20 or name_is_id or dtype_cat != "numeric"):
+            if dtype_cat != "numeric" or name_is_id:
                 return "identifier"
-        if is_near_unique and (name_is_id or cardinality > max(100, total_rows * 0.98)):
+        if is_near_unique and (name_is_id or (dtype_cat != "numeric" and cardinality > max(100, total_rows * 0.98))):
             return "identifier"
 
         # 4. Geo — name hint only as tiebreaker; structural check: categorical with geo vocab
@@ -446,13 +447,13 @@ class DatasetProfiler:
         Selection criteria are structural (CV, cardinality) — not names.
         Name hints are used only to break ties.
         """
-        # Filter metrics excluding identifiers and columns with cardinality_ratio > 0.85
+        # Filter metrics excluding identifiers and columns with cardinality_ratio > 0.85 (except for small datasets or floats)
         metrics = [
             p for p in profiles
             if p.inferred_role in ("metric", "target")
             and p.dtype_category == "numeric"
             and p.inferred_role != "identifier"
-            and p.cardinality_ratio <= 0.85
+            and (p.cardinality_ratio <= 0.85 or len(profiles) == 0 or (p.dtype and "Float" in p.dtype))
         ]
         dates = [p for p in profiles if p.inferred_role == "temporal"]
         cats = [p for p in profiles if p.inferred_role in ("dimension", "target") and p.dtype_category == "categorical"]
@@ -475,8 +476,10 @@ class DatasetProfiler:
             best = max(metrics, key=_metric_score)
             best.is_primary_metric = True
         else:
-            # Fallback for Zero Numeric Metrics datasets (e.g. survey text, feedback forms)
-            candidates = [p for p in profiles if p.inferred_role != "identifier"]
+            # Fallback for Zero Numeric Metrics datasets or edge cases
+            candidates = [p for p in profiles if p.dtype_category == "numeric" and p.inferred_role != "identifier"]
+            if not candidates:
+                candidates = [p for p in profiles if p.inferred_role != "identifier"]
             if not candidates:
                 candidates = profiles
 
@@ -571,6 +574,7 @@ class DatasetProfiler:
             if p.dtype_category == "numeric"
             and p.inferred_role != "identifier"
         ]
+
         if len(numeric_cols) < 2:
             return None
         try:

@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import polars as pl
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyClassifier, DummyRegressor
@@ -28,7 +29,12 @@ from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_sco
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import (
+    OneHotEncoder,
+    OrdinalEncoder,
+    RobustScaler,
+    StandardScaler,
+)
 
 from ..analytics.profiler import DatasetProfile, DatasetProfiler
 from ..models import Dataset
@@ -82,42 +88,71 @@ class MLTrainer:
     Column roles and types are derived exclusively from DatasetProfile.
     """
 
-    def __init__(self, db, dataset_id: int):
-        self.db = db
-        self.dataset_id = dataset_id
-
-        ds: Dataset | None = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-        if not ds:
-            raise ValueError(f"Dataset with ID {dataset_id} not found.")
-
-        if ds.file_path.startswith("minio://"):
-            parts = ds.file_path.replace("minio://", "").split("/", 1)
-            file_bytes = storage_service.get_file(parts[0], parts[1])
-            self.df = _read_pandas(file_bytes, parts[1])
+    def __init__(
+        self,
+        db_or_df: Any = None,
+        dataset_id_or_profile: int | DatasetProfile | None = None,
+        *,
+        db: Any = None,
+        dataset_id: int | None = None,
+    ):
+        if db_or_df is None and db is not None:
+            db_or_df = db
+        if dataset_id_or_profile is None and dataset_id is not None:
+            dataset_id_or_profile = dataset_id
+        if isinstance(db_or_df, pd.DataFrame):
+            self.df = db_or_df.copy()
+            self.db = None
+            self.dataset_id = None
+            if isinstance(dataset_id_or_profile, DatasetProfile):
+                self._profile = dataset_id_or_profile
+            else:
+                self._profile = DatasetProfiler.profile_full(pl.from_pandas(self.df))
+        elif isinstance(db_or_df, pl.DataFrame):
+            self.df = db_or_df.to_pandas()
+            self.db = None
+            self.dataset_id = None
+            if isinstance(dataset_id_or_profile, DatasetProfile):
+                self._profile = dataset_id_or_profile
+            else:
+                self._profile = DatasetProfiler.profile_full(db_or_df)
         else:
-            resolved = ds.file_path
-            if not os.path.exists(resolved):
-                backend_path = os.path.join("backend", ds.file_path)
-                if os.path.exists(backend_path):
-                    resolved = backend_path
-                else:
-                    raise FileNotFoundError(f"Dataset file not found at {ds.file_path}")
-            self.df = pd.read_csv(resolved)
+            self.db = db_or_df
+            self.dataset_id = dataset_id_or_profile
+            db = db_or_df
+            dataset_id = dataset_id_or_profile
 
-        if ds.profile_json:
-            self._profile = DatasetProfile.model_validate(ds.profile_json)
-        else:
-            logger.warning("ml.trainer.fallback_profile dataset_id=%d", dataset_id)
-            import io as _io
+            ds: Dataset | None = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+            if not ds:
+                raise ValueError(f"Dataset with ID {dataset_id} not found.")
 
-            import polars as pl
             if ds.file_path.startswith("minio://"):
                 parts = ds.file_path.replace("minio://", "").split("/", 1)
-                fb = storage_service.get_file(parts[0], parts[1])
-                pl_df = pl.read_csv(_io.BytesIO(fb))
+                file_bytes = storage_service.get_file(parts[0], parts[1])
+                self.df = _read_pandas(file_bytes, parts[1])
             else:
-                pl_df = pl.read_csv(resolved if not ds.file_path.startswith("minio://") else ds.file_path)
-            self._profile = DatasetProfiler.profile_full(pl_df)
+                resolved = ds.file_path
+                if not os.path.exists(resolved):
+                    backend_path = os.path.join("backend", ds.file_path)
+                    if os.path.exists(backend_path):
+                        resolved = backend_path
+                    else:
+                        raise FileNotFoundError(f"Dataset file not found at {ds.file_path}")
+                self.df = pd.read_csv(resolved)
+
+            if ds.profile_json:
+                self._profile = DatasetProfile.model_validate(ds.profile_json)
+            else:
+                logger.warning("ml.trainer.fallback_profile dataset_id=%s", dataset_id)
+                import io as _io
+
+                if ds.file_path.startswith("minio://"):
+                    parts = ds.file_path.replace("minio://", "").split("/", 1)
+                    fb = storage_service.get_file(parts[0], parts[1])
+                    pl_df = pl.read_csv(_io.BytesIO(fb))
+                else:
+                    pl_df = pl.read_csv(resolved if not ds.file_path.startswith("minio://") else ds.file_path)
+                self._profile = DatasetProfiler.profile_full(pl_df)
 
         self._profile_target: str | None = next(
             (c.name for c in self._profile.columns if c.is_primary_metric), None
@@ -279,7 +314,8 @@ class MLTrainer:
         - High-cardinality categorical (>20) -> most-frequent imputer + OrdinalEncoder
         - Datetime -> DatetimeExtractor
         """
-        num_cols = []
+        num_std_cols = []
+        num_skew_cols = []
         cat_low_cols = []
         cat_high_cols = []
         date_cols = []
@@ -298,26 +334,49 @@ class MLTrainer:
             if missing_pct > 0.5:
                 continue
 
+            # Zero-variance check: mask out constant columns (sigma == 0 or nunique <= 1)
+            series = self.df[col.name].dropna()
+            if len(series) == 0:
+                continue
+
+            if np.issubdtype(series.dtype, np.number):
+                col_std = float(series.std()) if len(series) > 1 and series.std() is not None else 0.0
+                if col_std <= 1e-12 or series.nunique() <= 1:
+                    logger.info("MLTrainer: Masked out zero-variance column '%s' (std=%.2e)", col.name, col_std)
+                    continue
+
             feature_cols.append(col.name)
 
             if col.inferred_role == "temporal" or col.dtype_category == "datetime":
                 date_cols.append(col.name)
             elif col.dtype_category in ("categorical", "boolean") or str(self.df[col.name].dtype) in ("object", "category", "bool"):
-                card = col.cardinality if hasattr(col, "cardinality") and col.cardinality else self.df[col.name].nunique()
+                card = col.cardinality if hasattr(col, "cardinality") and col.cardinality else series.nunique()
                 if card <= 20:
                     cat_low_cols.append(col.name)
                 else:
                     cat_high_cols.append(col.name)
             elif col.dtype_category == "numeric" or np.issubdtype(self.df[col.name].dtype, np.number):
-                num_cols.append(col.name)
+                # Calculate skewness to select standard vs robust scaler
+                skew_val = float(series.skew()) if hasattr(series, "skew") and len(series) > 2 else 0.0
+                if abs(skew_val) > 1.5:
+                    num_skew_cols.append(col.name)
+                else:
+                    num_std_cols.append(col.name)
 
         transformers = []
-        if num_cols:
+        if num_std_cols:
             num_pipe = Pipeline([
                 ("imputer", SimpleImputer(strategy="median")),
                 ("scaler", StandardScaler()),
             ])
-            transformers.append(("num", num_pipe, num_cols))
+            transformers.append(("num_std", num_pipe, num_std_cols))
+
+        if num_skew_cols:
+            robust_pipe = Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", RobustScaler()),
+            ])
+            transformers.append(("num_skew", robust_pipe, num_skew_cols))
 
         if cat_low_cols:
             cat_low_pipe = Pipeline([

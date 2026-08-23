@@ -22,21 +22,28 @@ from .semantic_layer import DimensionDef, MetricDef, SemanticModel, semantic_lay
 logger = logging.getLogger("snowpulse.analytics.engine")
 
 
-def _load_df(file_path: str) -> pl.DataFrame:
-    """Read a polars DataFrame from MinIO or local disk."""
-    if file_path.startswith("minio://"):
-        parts = file_path.replace("minio://", "").split("/", 1)
-        file_bytes = storage_service.get_file(parts[0], parts[1])
-        return pl.read_csv(io.BytesIO(file_bytes))
+def _load_df(file_path: str | pl.DataFrame) -> pl.DataFrame:
+    """Read a polars DataFrame from MinIO, local disk, or direct DataFrame object."""
+    if isinstance(file_path, pl.DataFrame):
+        return file_path
+    if hasattr(file_path, "to_numpy"): # pandas DataFrame
+        return pl.from_pandas(file_path)
 
-    resolved = file_path
-    if not os.path.exists(resolved):
-        backend_path = os.path.join("backend", file_path)
-        if os.path.exists(backend_path):
-            resolved = backend_path
-        else:
-            raise FileNotFoundError(f"Dataset file not found at {file_path}")
-    return pl.read_csv(resolved)
+    if isinstance(file_path, str):
+        if file_path.startswith("minio://"):
+            parts = file_path.replace("minio://", "").split("/", 1)
+            file_bytes = storage_service.get_file(parts[0], parts[1])
+            return pl.read_csv(io.BytesIO(file_bytes))
+
+        resolved = file_path
+        if not os.path.exists(resolved):
+            backend_path = os.path.join("backend", file_path)
+            if os.path.exists(backend_path):
+                resolved = backend_path
+            else:
+                raise FileNotFoundError(f"Dataset file not found at {file_path}")
+        return pl.read_csv(resolved)
+    raise TypeError(f"Unsupported file_path type: {type(file_path)}")
 
 
 class AnalyticsEngine:
@@ -46,8 +53,8 @@ class AnalyticsEngine:
     this class never performs its own column-name heuristics.
     """
 
-    def __init__(self, file_path: str, profile: DatasetProfile | None = None):
-        self.file_path = file_path
+    def __init__(self, file_path: str | pl.DataFrame, profile: DatasetProfile | None = None):
+        self.file_path = file_path if isinstance(file_path, str) else "dataframe"
         self.df = _load_df(file_path)
         self.headers = self.df.columns
         self.num_rows = self.df.height
@@ -65,9 +72,12 @@ class AnalyticsEngine:
             self._profile = DatasetProfiler.profile_full(self.df)
 
         # Extract canonical column references from profile flags
-        self.metric_col: str | None = next(
-            (c.name for c in self._profile.columns if c.is_primary_metric), None
-        )
+        metric_cand = next((c.name for c in self._profile.columns if c.is_primary_metric and c.dtype_category == "numeric"), None)
+        if not metric_cand:
+            metric_cand = next((c.name for c in self._profile.columns if c.is_primary_metric), None)
+        if not metric_cand:
+            metric_cand = next((c.name for c in self._profile.columns if c.dtype_category == "numeric"), None)
+        self.metric_col: str | None = metric_cand
         self.date_col: str | None = next(
             (c.name for c in self._profile.columns if c.is_primary_date), None
         )
@@ -98,7 +108,8 @@ class AnalyticsEngine:
         }
 
         # Automatically construct and register a Semantic Model
-        self.semantic_model_name = f"model_{os.path.basename(file_path).split('.')[0]}"
+        str_path = file_path if isinstance(file_path, str) else "dataframe"
+        self.semantic_model_name = f"model_{os.path.basename(str_path).split('.')[0]}"
         dimensions = []
         metrics = []
 
@@ -126,7 +137,7 @@ class AnalyticsEngine:
 
         sm = SemanticModel(
             name=self.semantic_model_name,
-            description=f"Auto-generated semantic model for {os.path.basename(file_path)}",
+            description=f"Auto-generated semantic model for {os.path.basename(str_path)}",
             dimensions=dimensions,
             metrics=metrics
         )
@@ -291,18 +302,27 @@ class AnalyticsEngine:
         preds = iso_forest.fit_predict(X)
         anomaly_scores = iso_forest.decision_function(X) # lower is more anomalous
 
+        # Robust Z-Score (Median Absolute Deviation) calculation for heavy-tailed skew resilience
+        med_val = float(np.median(vals))
+        mad = float(np.median(np.abs(vals - med_val)))
+        mad_denom = mad if mad > 1e-9 else 1.0
+        robust_z_scores = 0.6745 * (vals - med_val) / mad_denom
+
         mean_val = np.mean(vals)
         score_percentile_5 = np.percentile(anomaly_scores, 5)
 
-        # Precompute means of all other numeric columns for causal analysis
-        other_numeric_cols = [c for c in self.numeric_cols if c != self.metric_col and c in self.headers]
+        # Precompute means and stds of all other numeric columns for causal analysis
+        other_numeric_cols = [
+            c for c in self.numeric_cols
+            if c != self.metric_col and c in self.headers and (self.df[c].std() or 0) > 1e-12
+        ]
         col_means = {col: self.df[col].mean() for col in other_numeric_cols}
         col_stds = {col: self.df[col].std() for col in other_numeric_cols}
 
         anomalies: list[dict[str, Any]] = []
-        for i, (pred, score, val) in enumerate(zip(preds, anomaly_scores, vals, strict=False)):
-            if pred == -1: # Anomaly detected dynamically by ML
-                severity = "Critical" if score <= score_percentile_5 else "High"
+        for i, (pred, score, val, rz) in enumerate(zip(preds, anomaly_scores, vals, robust_z_scores, strict=False)):
+            if pred == -1 or abs(rz) >= 3.0: # Anomaly detected by Isolation Forest or MAD Robust Z-Score
+                severity = "Critical" if (score <= score_percentile_5 or abs(rz) >= 4.0) else "High"
 
                 row_dict = self.df.row(i, named=True)
                 date_str     = str(row_dict.get(self.date_col, f"Row {i + 1}"))
@@ -338,14 +358,14 @@ class AnalyticsEngine:
                     "category": category_str,
                     "region": region_str,
                     "value": float(val),
-                    "z_score": float(score),
+                    "z_score": float(round(rz, 2)),
                     "deviation_pct": float(((val - mean_val) / (mean_val or 1.0)) * 100),
                     "severity": severity,
                     "root_cause": root_cause
                 })
 
-        # Sort anomalies by severity (lowest score = most severe)
-        anomalies.sort(key=lambda x: x["z_score"])
+        # Sort anomalies by severity (highest absolute robust Z-score first)
+        anomalies.sort(key=lambda x: abs(x["z_score"]), reverse=True)
         return anomalies
 
     # ------------------------------------------------------------------
@@ -355,10 +375,21 @@ class AnalyticsEngine:
     def get_correlations(self) -> dict[str, Any]:
         if self._profile.correlation_matrix:
             cm = self._profile.correlation_matrix
+            valid_indices = [
+                i for i, col in enumerate(cm.columns)
+                if any(v is not None for j, v in enumerate(cm.matrix[i]) if i != j)
+            ]
+            if len(valid_indices) >= 2:
+                filtered_cols = [cm.columns[i] for i in valid_indices]
+                filtered_matrix = [
+                    [cm.matrix[i][j] for j in valid_indices]
+                    for i in valid_indices
+                ]
+                return {"columns": filtered_cols, "matrix": filtered_matrix}
             return {"columns": cm.columns, "matrix": cm.matrix}
 
-        # Fallback: compute on the fly
-        all_numeric = [c for c in self.numeric_cols if c in self.headers]
+        # Fallback: compute on the fly, masking out zero-variance columns
+        all_numeric = [c for c in self.numeric_cols if c in self.headers and (self.df[c].std() or 0) > 1e-12]
         if len(all_numeric) < 2:
             return {"columns": all_numeric, "matrix": [[1.0]]}
 
@@ -369,9 +400,14 @@ class AnalyticsEngine:
         matrix: list[list[float]] = []
         for col_a in all_numeric:
             row_corrs: list[float] = []
+            std_a = sub_df[col_a].std() or 0
             for col_b in all_numeric:
-                corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
-                row_corrs.append(0.0 if np.isnan(corr) else corr)
+                std_b = sub_df[col_b].std() or 0
+                if std_a <= 1e-12 or std_b <= 1e-12:
+                    row_corrs.append(0.0)
+                else:
+                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
+                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
             matrix.append(row_corrs)
 
         return {"columns": all_numeric, "matrix": matrix}

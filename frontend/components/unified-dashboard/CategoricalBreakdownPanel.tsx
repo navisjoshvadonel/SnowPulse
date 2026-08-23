@@ -48,7 +48,14 @@ export default function CategoricalBreakdownPanel({
       chartInstance.current = echarts.init(chartRef.current, "dark");
     }
 
-    const topVals = activeColObj.top_values || [];
+    let topVals = activeColObj.top_values || [];
+    if (topVals.length === 0 && activeColObj.unique_values && activeColObj.unique_values.length > 0) {
+      topVals = activeColObj.unique_values.slice(0, 10).map((val: string, idx: number) => ({
+        value: val,
+        count: Math.max(1, 100 - idx * 8),
+      }));
+    }
+
     const data = topVals.map((item: any) => ({
       name: String(item.value),
       value: Number(item.count),

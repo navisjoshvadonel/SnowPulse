@@ -955,15 +955,20 @@ export default function HomePage() {
             };
 
             if (!isNumeric || role === "categorical" || role === "geo" || role === "identifier") {
-              const uniqueSet = new Set<string>();
+              const freqMap: Record<string, number> = {};
               for (const row of data) {
                 const val = row[f];
                 if (val !== null && val !== undefined && String(val).trim() !== "") {
-                  uniqueSet.add(String(val).trim());
-                  if (uniqueSet.size >= 30) break;
+                  const sVal = String(val).trim();
+                  freqMap[sVal] = (freqMap[sVal] || 0) + 1;
                 }
               }
-              colInfo.unique_values = Array.from(uniqueSet);
+              const sorted = Object.entries(freqMap)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+              colInfo.unique_values = Object.keys(freqMap).slice(0, 30);
+              colInfo.top_values = sorted.map(([value, count]) => ({ value, count }));
             }
 
             if (isNumeric && count > 0) {

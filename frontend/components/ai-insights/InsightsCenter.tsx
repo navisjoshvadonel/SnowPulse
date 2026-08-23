@@ -38,6 +38,51 @@ interface InsightsCenterProps {
   loading: boolean;
 }
 
+function FormattedMessage({ text }: { text: string }) {
+  if (!text) return null;
+
+  const lines = text.split("\n");
+  
+  return (
+    <div className="space-y-1.5 font-sans">
+      {lines.map((line, lIdx) => {
+        if (!line.trim()) return <div key={lIdx} className="h-1" />;
+
+        const isBullet = line.trim().startsWith("• ") || line.trim().startsWith("- ");
+        const lineContent = isBullet ? line.trim().replace(/^[•\-]\s*/, "") : line;
+
+        const parts = lineContent.split(/(\*\*[^*]+\*\*)/g);
+
+        const renderedParts = parts.map((part, pIdx) => {
+          if (part.startsWith("**") && part.endsWith("**")) {
+            return (
+              <strong key={pIdx} className="font-semibold text-white">
+                {part.slice(2, -2)}
+              </strong>
+            );
+          }
+          return part;
+        });
+
+        if (isBullet) {
+          return (
+            <div key={lIdx} className="flex items-start gap-1.5 pl-1 text-gray-200">
+              <span className="text-purple-400 font-bold">•</span>
+              <span className="flex-1">{renderedParts}</span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={lIdx} className="leading-relaxed text-gray-200">
+            {renderedParts}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function generateClientSideInsight(
   query: string,
   kpis?: any,
@@ -46,9 +91,32 @@ function generateClientSideInsight(
   recommendations?: string[] | null,
   datasetSchema?: any
 ): { text: string; ui?: UISchema } {
-  const qLower = query.toLowerCase();
+  const q = query.trim();
+  const qLower = q.toLowerCase();
   const cols: any[] = datasetSchema?.columns || [];
   const primaryMetric = datasetSchema?.primary_metric || kpis?.metric_name || "Primary Metric";
+  const recordsStr = (datasetSchema?.row_count || kpis?.total_records || 1000).toLocaleString();
+  const quality = kpis?.quality_score ? kpis.quality_score.toFixed(1) : "98.5";
+  const numCols = cols.length || 5;
+
+  // 0. Greeting Intent (hello, hi, hey, greetings, who are you, help, etc.)
+  if (/^(hello|hi|hey|greetings|hola|who are you|what can you do|help|good morning|good evening)/i.test(qLower) || qLower === "hello" || qLower === "hi" || qLower === "hey") {
+    return {
+      text: `Hello! 👋 I am your SNOW Intelligence Copilot, powered by Datagem AI.\n\n` +
+        `I am actively analyzing your loaded dataset (**${datasetSchema?.name || "Sample Analytics"}**) containing **${recordsStr} profiled rows** across **${numCols} columns**.\n\n` +
+        `How can I assist your data exploration today? Here are a few things you can ask:\n` +
+        `• **"What are our top sectors?"** – View category distributions\n` +
+        `• **"Show dataset columns"** – Inspect schema attributes & missing ratios\n` +
+        `• **"Summarize anomalies"** – Detect metric outliers\n` +
+        `• **"Forecast ${primaryMetric}"** – Project future trend lines`,
+      ui: {
+        type: "metric",
+        title: "Active Dataset Telemetry",
+        labels: ["Profiled Rows", "Columns", "Quality Score"],
+        data: [datasetSchema?.row_count || 1000, numCols, quality]
+      }
+    };
+  }
 
   // 1. Sector / Category / Distribution / Region Query
   const isSectorQuery = qLower.includes("sector") || qLower.includes("category") || qLower.includes("region") || 
@@ -180,11 +248,7 @@ function generateClientSideInsight(
     };
   }
 
-  // 6. Default / Greetings / General Synthesis
-  const recordsStr = (datasetSchema?.row_count || kpis?.total_records || 1000).toLocaleString();
-  const quality = kpis?.quality_score ? kpis.quality_score.toFixed(1) : "98.5";
-  const numCols = cols.length || 5;
-
+  // 6. Default Synthesis (Fallback)
   return {
     text: `⚡ **SNOW Intelligence Copilot Engine**\n\n` +
       `I am actively analyzing your dataset (**${datasetSchema?.name || "Active Dataset"}**):\n` +
@@ -567,7 +631,7 @@ export default function InsightsCenter({
                         </details>
                       </div>
                     )}
-                    <p className="whitespace-pre-line font-sans">{msg.text}</p>
+                    <FormattedMessage text={msg.text} />
                     {msg.ui && (
                       <GenerativeChart schema={msg.ui} />
                     )}

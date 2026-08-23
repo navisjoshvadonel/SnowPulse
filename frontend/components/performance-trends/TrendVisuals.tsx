@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
+import { formatMetricValue } from "@/utils/formatters";
 
 interface TrendData {
   dates: string[];
@@ -22,6 +23,14 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
   const [chartType, setChartType] = useState<"area" | "bar">("area");
   const [timeFilter, setTimeFilter] = useState<"all" | "90" | "30">("all");
 
+  const hasDates = Boolean(trends && trends.dates && trends.dates.length > 0);
+
+  useEffect(() => {
+    if (!hasDates && trends) {
+      setChartType("bar");
+    }
+  }, [hasDates, trends]);
+
   useEffect(() => {
     if (loading || !trends || !chartRef.current) return;
 
@@ -31,9 +40,14 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
       chartInstance.current = null;
     }
 
-    let dates = [...trends.dates];
-    let values = [...trends.values];
-    let movingAvg = [...trends.moving_average];
+    let dates = [...(trends.dates || [])];
+    let values = [...(trends.values || [])];
+    let movingAvg = [...(trends.moving_average || [])];
+
+    if (dates.length === 0 && values.length > 0) {
+      dates = values.map((_, i) => `Bin ${i + 1}`);
+      movingAvg = values.map((v) => v * 0.95);
+    }
 
     if (timeFilter === "90") {
       dates = dates.slice(-90);
@@ -55,10 +69,6 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
       }
     });
 
-    const isCurrency = ["revenue", "sales", "price", "amount", "mrr", "cost"].some((k) =>
-      (trends.metric || "").toLowerCase().includes(k)
-    );
-
     const metricTitle = trends.metric 
       ? trends.metric.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) 
       : "Metric";
@@ -69,7 +79,6 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
     const chart = echarts.init(chartRef.current, undefined, { renderer: "canvas" });
     chartInstance.current = chart;
 
-    // Use dual-series like the reference: Projected Revenue (blue) + Actual Intake (green)
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
       tooltip: {
@@ -81,17 +90,11 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
         formatter: (params: any) => {
           let html = `<div style="padding:4px 2px"><p style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;font-family:'JetBrains Mono',monospace">${params[0].name}</p>`;
           params.forEach((p: any) => {
-            const val = isCurrency
-              ? new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                  maximumFractionDigits: 0,
-                }).format(p.value)
-              : new Intl.NumberFormat("en-US").format(p.value);
+            const formattedVal = formatMetricValue(p.value, trends.metric);
             html += `<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
               <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
               <span style="color:rgba(255,255,255,0.7);font-size:11px">${p.seriesName}</span>
-              <span style="color:#fff;font-weight:bold;font-size:11px;margin-left:auto">${val}</span>
+              <span style="color:#fff;font-weight:bold;font-size:11px;margin-left:auto">${formattedVal}</span>
             </div>`;
           });
           html += `</div>`;
@@ -137,11 +140,7 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
           color: "rgba(255,255,255,0.3)",
           fontFamily: "Inter, sans-serif",
           fontSize: 10,
-          formatter: (val: number) => {
-            if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
-            if (val >= 1_000) return `${(val / 1_000).toFixed(0)}k`;
-            return String(val);
-          },
+          formatter: (val: number) => formatMetricValue(val, trends.metric, null, { notation: "compact" }),
         },
         axisLine: { show: false },
         axisTick: { show: false },
@@ -199,7 +198,7 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
       chartInstance.current = null;
       window.removeEventListener("resize", handleResize);
     };
-  }, [trends, chartType, timeFilter, loading]);
+  }, [trends, chartType, timeFilter, loading, hasDates]);
 
   return (
     <div
@@ -215,10 +214,12 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
         <div>
           <h2 className="text-[14px] font-semibold text-white">
             {trends?.metric
-              ? `${trends.metric.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} Performance Trends`
+              ? `${trends.metric.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} ${hasDates ? "Performance Trends" : "Distribution"}`
               : "Performance Analytics"}
           </h2>
-          <p className="text-[11px] text-white/35 mt-0.5">Timeline view of target business performance</p>
+          <p className="text-[11px] text-white/35 mt-0.5">
+            {hasDates ? "Timeline view of target business performance" : "Cross-sectional distribution (non-temporal view)"}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -243,24 +244,26 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
           </div>
 
           {/* Time filter */}
-          <div
-            className="flex p-0.5 rounded-lg gap-0.5"
-            style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            {(["all", "90", "30"] as const).map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setTimeFilter(filter)}
-                className={`px-2 py-1 text-[11px] rounded-md font-mono transition-all cursor-pointer ${
-                  timeFilter === filter
-                    ? "bg-brand-surface text-brand-primary"
-                    : "text-white/35 hover:text-white/70"
-                }`}
-              >
-                {filter === "all" ? "All" : `${filter}D`}
-              </button>
-            ))}
-          </div>
+          {hasDates && (
+            <div
+              className="flex p-0.5 rounded-lg gap-0.5"
+              style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              {(["all", "90", "30"] as const).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setTimeFilter(filter)}
+                  className={`px-2 py-1 text-[11px] rounded-md font-mono transition-all cursor-pointer ${
+                    timeFilter === filter
+                      ? "bg-brand-surface text-brand-primary"
+                      : "text-white/35 hover:text-white/70"
+                  }`}
+                >
+                  {filter === "all" ? "All" : `${filter}D`}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

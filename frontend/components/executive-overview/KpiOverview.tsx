@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ArrowUpRight, ArrowDownRight, CheckCircle } from "lucide-react";
+import { formatMetricValue } from "@/utils/formatters";
 
 export interface KpiMetricItem {
   label: string;
@@ -83,13 +84,6 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
     );
   }
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(val);
-
   const formatCompact = (val: number) => {
     if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
     if (val >= 1_000) return `${(val / 1_000).toFixed(0)}k`;
@@ -104,12 +98,11 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
 
     const dynamicCards: KpiMetricItem[] = [];
 
-    // Extract columns and summary details from profile if provided
     const cols = profile?.columns || kpis?.columns || [];
     const totalRows = profile?.total_rows ?? kpis?.total_records ?? kpis?.row_count ?? null;
     const qualityScore = profile?.quality_report?.health_score ?? kpis?.quality_score ?? null;
 
-    // 1. Total Records (if row count exists)
+    // 1. Total Records
     if (totalRows !== null && totalRows !== undefined) {
       dynamicCards.push({
         label: "Total Records",
@@ -123,7 +116,7 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
       });
     }
 
-    // 2. Data Quality Score (if quality report/score exists)
+    // 2. Data Quality Score
     if (qualityScore !== null && qualityScore !== undefined) {
       const qVal = typeof qualityScore === "number" ? qualityScore : parseFloat(qualityScore);
       dynamicCards.push({
@@ -138,21 +131,15 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
       });
     }
 
-    // 3. Dynamic Numeric Metrics (render only if numeric metric columns exist)
+    // 3. Dynamic Numeric Metrics
     const numericCols = cols.filter(
       (c: any) => c.inferred_role === "metric" || c.dtype_category === "numeric" || c.role === "numeric" || c.role === "metric"
     );
 
     if (numericCols.length > 0) {
-      // Find primary metric or use first numeric column
       const primaryCol = numericCols.find((c: any) => c.is_primary_metric) || numericCols[0];
-      const metricName = (primaryCol.name || kpis?.metric_name || "Metric")
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (l: string) => l.toUpperCase());
-
-      const isCurrency = ["revenue", "sales", "price", "amount", "mrr", "cost"].some((k) =>
-        primaryCol.name.toLowerCase().includes(k)
-      );
+      const rawColName = primaryCol.name || kpis?.metric_name || "Metric";
+      const metricName = rawColName.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
 
       const totalVal = kpis?.total_value ?? (primaryCol.numeric_stats?.mean ? primaryCol.numeric_stats.mean * (totalRows || 100) : null);
       const meanVal = primaryCol.numeric_stats?.mean ?? kpis?.mean_value ?? null;
@@ -161,7 +148,7 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
       if (totalVal !== null && totalVal !== undefined) {
         dynamicCards.push({
           label: `Total ${metricName}`,
-          value: isCurrency ? formatCurrency(totalVal) : formatCompact(totalVal),
+          value: formatMetricValue(totalVal, rawColName, primaryCol.semantic_type, { notation: "compact" }),
           trend: `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`,
           trendLabel: "vs baseline",
           trendUp: growth >= 0,
@@ -174,7 +161,7 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
       if (meanVal !== null && meanVal !== undefined) {
         dynamicCards.push({
           label: `Mean ${metricName}`,
-          value: isCurrency ? formatCurrency(meanVal) : formatCompact(meanVal),
+          value: formatMetricValue(meanVal, rawColName, primaryCol.semantic_type, { notation: "compact" }),
           trend: "Avg",
           trendLabel: "column mean",
           trendUp: true,
@@ -185,7 +172,7 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
       }
     }
 
-    // 4. Categorical Dimensions (render only if categorical columns exist)
+    // 4. Categorical Dimensions
     const catCols = cols.filter(
       (c: any) => c.inferred_role === "dimension" || c.dtype_category === "categorical" || c.role === "categorical" || c.role === "category"
     );
@@ -207,16 +194,14 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
       }
     }
 
-    // 5. Fallback for offline mock legacy objects if dynamic parsing yielded empty list
     if (dynamicCards.length === 0 && kpis) {
-      const metricTitle = kpis.metric_name
-        ? kpis.metric_name.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())
-        : "Primary Metric";
+      const rawTitle = kpis.metric_name || "Primary Metric";
+      const metricTitle = rawTitle.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
       const isPositive = (kpis.growth_rate || 0) >= 0;
       return [
         {
           label: `Total ${metricTitle}`,
-          value: formatCompact(kpis.total_value || 0),
+          value: formatMetricValue(kpis.total_value || 0, rawTitle, null, { notation: "compact" }),
           trend: `${isPositive ? "+" : ""}${(kpis.growth_rate || 0).toFixed(1)}%`,
           trendLabel: "vs baseline",
           trendUp: isPositive,
@@ -246,7 +231,7 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
         },
         {
           label: `Mean ${metricTitle}`,
-          value: formatCompact(kpis.mean_value || 0),
+          value: formatMetricValue(kpis.mean_value || 0, rawTitle, null, { notation: "compact" }),
           trend: "Avg",
           trendLabel: "dataset mean",
           trendUp: true,
@@ -350,4 +335,3 @@ export default function KpiOverview({ kpis, metrics, profile, aiHeadline, loadin
     </div>
   );
 }
-

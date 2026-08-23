@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import * as echarts from "echarts";
-import { BarChart3, SlidersHorizontal, MousePointerClick } from "lucide-react";
+import { BarChart3, MousePointerClick } from "lucide-react";
 import { useFilterStore } from "@/store/useFilterStore";
+import { formatMetricValue } from "@/utils/formatters";
 
 interface DistributionPanelProps {
   columns: any[];
@@ -45,7 +46,6 @@ export default function DistributionPanel({
     const maxVal = stats.max ?? 100;
     const meanVal = stats.mean ?? (minVal + maxVal) / 2;
 
-    // Build 10-bin histogram approximation based on min, max, mean, and skew
     const numBins = 8;
     const binWidth = (maxVal - minVal) / numBins || 1;
     const bins: { label: string; min: number; max: number; count: number }[] = [];
@@ -54,14 +54,16 @@ export default function DistributionPanel({
       const bMin = minVal + i * binWidth;
       const bMax = bMin + binWidth;
       
-      // Calculate normal-ish synthetic distribution weighted by mean
       const mid = (bMin + bMax) / 2;
       const distFromMean = Math.abs(mid - meanVal);
       const weight = Math.exp(-Math.pow(distFromMean / (binWidth * 2), 2));
       const count = Math.max(5, Math.round(weight * 120 + Math.random() * 15));
 
+      const minFmt = formatMetricValue(bMin, selectedCol, activeColObj?.semantic_type, { notation: "compact" });
+      const maxFmt = formatMetricValue(bMax, selectedCol, activeColObj?.semantic_type, { notation: "compact" });
+
       bins.push({
-        label: `${bMin.toFixed(1)} - ${bMax.toFixed(1)}`,
+        label: `${minFmt} - ${maxFmt}`,
         min: bMin,
         max: bMax,
         count,
@@ -80,7 +82,7 @@ export default function DistributionPanel({
         textStyle: { color: "#f8fafc" },
         formatter: (params: any) => {
           const p = params[0];
-          return `Bin: <b>${p.name}</b><br/>Count: <b>${p.value}</b>`;
+          return `Bin Range: <b>${p.name}</b><br/>Frequency: <b>${p.value}</b> records`;
         },
       },
       grid: { left: "3%", right: "5%", bottom: "10%", top: "15%", containLabel: true },
@@ -121,7 +123,6 @@ export default function DistributionPanel({
 
     chartInstance.current.setOption(option, true);
 
-    // ECharts Click Event for Bin Range Selection
     const handleChartClick = (params: any) => {
       const binIdx = params.dataIndex;
       if (binIdx >= 0 && binIdx < bins.length) {
@@ -151,7 +152,6 @@ export default function DistributionPanel({
 
   return (
     <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-      {/* Panel Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
@@ -165,7 +165,6 @@ export default function DistributionPanel({
           </div>
         </div>
 
-        {/* Column Select */}
         <select
           value={selectedCol}
           onChange={(e) => setSelectedCol(e.target.value)}
@@ -179,7 +178,6 @@ export default function DistributionPanel({
         </select>
       </div>
 
-      {/* Chart Canvas Container */}
       <div ref={chartRef} className="w-full h-72 rounded-xl" />
     </div>
   );

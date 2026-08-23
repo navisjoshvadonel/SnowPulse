@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Database, ShieldCheck, AlertTriangle, TrendingUp, Layers } from "lucide-react";
+import { formatMetricValue } from "@/utils/formatters";
 
 interface UnifiedKpiStripProps {
   totalRows: number;
@@ -10,6 +11,7 @@ interface UnifiedKpiStripProps {
   primaryMetricName?: string;
   primaryMetricStats?: any;
   columnCount?: number;
+  semanticType?: string;
 }
 
 export default function UnifiedKpiStrip({
@@ -19,6 +21,7 @@ export default function UnifiedKpiStrip({
   primaryMetricName = "Volume",
   primaryMetricStats,
   columnCount = 0,
+  semanticType,
 }: UnifiedKpiStripProps) {
   const healthScore = qualityReport?.health_score ?? 98.5;
   const nullPct = qualityReport?.total_null_pct ?? 0.0;
@@ -103,12 +106,12 @@ export default function UnifiedKpiStrip({
           </p>
           <div className="flex items-baseline gap-2">
             <h3 className="text-2xl font-bold text-indigo-300">
-              {metricMean !== null ? metricMean.toLocaleString() : "N/A"}
+              {metricMean !== null ? formatMetricValue(metricMean, primaryMetricName, semanticType, { notation: "compact" }) : "N/A"}
             </h3>
             <span className="text-xs text-indigo-400 font-medium">Avg</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            Range: [{metricMin ?? 0} - {metricMax ?? 0}]
+            Range: [{formatMetricValue(metricMin ?? 0, primaryMetricName, semanticType, { notation: "compact" })} - {formatMetricValue(metricMax ?? 0, primaryMetricName, semanticType, { notation: "compact" })}]
           </p>
         </div>
         <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">

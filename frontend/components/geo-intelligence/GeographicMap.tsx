@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Globe, RefreshCw, Filter } from "lucide-react";
+import { Globe, RefreshCw, Filter, PieChart, BarChart2 } from "lucide-react";
 import * as echarts from "echarts";
+import { formatMetricValue } from "@/utils/formatters";
 
 interface GeoItem {
   region: string;
@@ -18,23 +19,6 @@ interface GeographicMapProps {
   onSelectRegion?: (region: string | null) => void;
   categoryName?: string | null;
   metricName?: string | null;
-}
-
-function formatCompactValue(val: number, metricName?: string | null): string {
-  const name = (metricName || "").toLowerCase();
-  const isCurrency = ["revenue", "sales", "price", "amount", "cost", "profit", "dollar", "usd", "spend"].some((k) => name.includes(k));
-  if (isCurrency) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-      notation: "compact",
-      compactDisplay: "short",
-    } as any).format(val);
-  }
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
-  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}k`;
-  return String(val);
 }
 
 // Maps dataset region labels → ECharts world map country names
@@ -87,25 +71,27 @@ export default function GeographicMap({
   const [mapLoaded, setMapLoaded] = useState(() => typeof window !== "undefined" && Boolean((echarts as any).getMap("world")));
   const [mapError, setMapError] = useState(false);
 
-  const hasGeoData = geoData && geoData.length > 0;
-  const isNoGeoData = geoData && geoData.length === 0;
+  const hasGeoData = Boolean(geoData && geoData.length > 0);
+  const isNoGeoData = Boolean(geoData && geoData.length === 0);
 
-  // Only render real geo data parsed from the dataset
-  const activeGeo = hasGeoData ? geoData : [];
+  // Mode: "map" | "category"
+  const [viewMode, setViewMode] = useState<"map" | "category">(() => (hasGeoData ? "map" : "category"));
 
+  useEffect(() => {
+    if (!hasGeoData) {
+      setViewMode("category");
+    }
+  }, [hasGeoData]);
+
+  const activeGeo = hasGeoData ? geoData! : [];
   const totalGeoValue = activeGeo.reduce((sum, item) => sum + item.value, 0) || 1;
   const maxVal = Math.max(...activeGeo.map((g) => g.value), 1);
 
   // Load and register the real world GeoJSON map
   useEffect(() => {
-    // Check if world map is already registered
-    if ((echarts as any).getMap("world")) {
-      return;
-    }
+    if ((echarts as any).getMap("world")) return;
 
-    fetch(
-      "https://raw.githubusercontent.com/apache/echarts/5.4.3/test/data/map/json/world.json"
-    )
+    fetch("https://raw.githubusercontent.com/apache/echarts/5.4.3/test/data/map/json/world.json")
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load world map");
         return r.json();
@@ -115,10 +101,7 @@ export default function GeographicMap({
         setMapLoaded(true);
       })
       .catch(() => {
-        // Fallback: try alternate CDN
-        return fetch(
-          "https://cdn.jsdelivr.net/npm/echarts@5.4.3/map/json/world.json"
-        )
+        return fetch("https://cdn.jsdelivr.net/npm/echarts@5.4.3/map/json/world.json")
           .then((r) => r.json())
           .then((geoJson) => {
             echarts.registerMap("world", geoJson);
@@ -128,138 +111,181 @@ export default function GeographicMap({
       });
   }, []);
 
-  // Render the ECharts choropleth once GeoJSON is loaded
+  // Render ECharts chart based on viewMode
   useEffect(() => {
-    if (!mapLoaded || loading || !chartRef.current) return;
+    if (loading || !chartRef.current) return;
+    if (viewMode === "map" && (!mapLoaded || mapError)) return;
 
     if (chartInstance.current) {
       chartInstance.current.dispose();
       chartInstance.current = null;
     }
 
-    // Build per-country data from region mapping
-    const chartData: { name: string; value: number; originalRegion: string }[] = [];
-    activeGeo.forEach((item) => {
-      const regName = item.region || "";
-      const val = item.value || 0;
-
-      const directKey = Object.keys(regionToCountriesMap).find(
-        (key) => key.toLowerCase() === regName.toLowerCase()
-      );
-
-      if (directKey) {
-        regionToCountriesMap[directKey].forEach((country) => {
-          chartData.push({ name: country, value: val, originalRegion: regName });
-        });
-      } else {
-        let matched = false;
-        for (const [key, countries] of Object.entries(regionToCountriesMap)) {
-          if (
-            regName.toLowerCase().includes(key.toLowerCase()) ||
-            key.toLowerCase().includes(regName.toLowerCase())
-          ) {
-            countries.forEach((country) => {
-              chartData.push({ name: country, value: val, originalRegion: regName });
-            });
-            matched = true;
-            break;
-          }
-        }
-        if (!matched) {
-          chartData.push({ name: regName, value: val, originalRegion: regName });
-        }
-      }
-    });
-
     const chart = echarts.init(chartRef.current, undefined, { renderer: "canvas" });
     chartInstance.current = chart;
 
-    const option: echarts.EChartsOption = {
-      backgroundColor: "transparent",
-      tooltip: {
-        trigger: "item",
-        backgroundColor: "#0e1018",
-        borderColor: "rgba(255,255,255,0.07)",
-        borderWidth: 1,
-        padding: [8, 12],
-        textStyle: { color: "#f3f4f6", fontFamily: "Inter, sans-serif", fontSize: 11 },
-        formatter: (params: any) => {
-          if (params.data) {
-            const formattedVal = new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
-              maximumFractionDigits: 0,
-            }).format(params.data.value);
-            return `<div style="line-height:1.6">
-              <strong style="color:#fff;font-size:12px">${params.name}</strong><br/>
-              <span style="color:rgba(255,255,255,0.45);font-size:10px">Region: ${params.data.originalRegion}</span><br/>
-              <span style="color:#818cf8;font-weight:700;font-size:13px">${formattedVal}</span>
-            </div>`;
+    if (viewMode === "map" && hasGeoData) {
+      // Choropleth Map View
+      const chartData: { name: string; value: number; originalRegion: string }[] = [];
+      activeGeo.forEach((item) => {
+        const regName = item.region || "";
+        const val = item.value || 0;
+
+        const directKey = Object.keys(regionToCountriesMap).find(
+          (key) => key.toLowerCase() === regName.toLowerCase()
+        );
+
+        if (directKey) {
+          regionToCountriesMap[directKey].forEach((country) => {
+            chartData.push({ name: country, value: val, originalRegion: regName });
+          });
+        } else {
+          let matched = false;
+          for (const [key, countries] of Object.entries(regionToCountriesMap)) {
+            if (
+              regName.toLowerCase().includes(key.toLowerCase()) ||
+              key.toLowerCase().includes(regName.toLowerCase())
+            ) {
+              countries.forEach((country) => {
+                chartData.push({ name: country, value: val, originalRegion: regName });
+              });
+              matched = true;
+              break;
+            }
           }
-          return `<div style="line-height:1.5"><strong style="color:#fff">${params.name}</strong><br/><span style="color:rgba(255,255,255,0.3);font-size:10px">No data</span></div>`;
-        },
-      },
-      visualMap: {
-        show: false,
-        min: 0,
-        max: maxVal,
-        inRange: {
-          color: [
-            "rgba(80,99,244,0.07)",
-            "rgba(80,99,244,0.3)",
-            "rgba(80,99,244,0.6)",
-            "rgba(99,102,241,0.85)",
-            "rgba(129,140,248,1)",
-          ],
-        },
-      },
-      series: [
-        {
-          name: "Geo Distribution",
-          type: "map",
-          map: "world",
-          roam: true, // enable pan/zoom
-          scaleLimit: { min: 0.8, max: 6 },
-          zoom: 1.2,
-          center: [15, 15],
-          selectedMode: "single",
-          itemStyle: {
-            areaColor: "rgba(255,255,255,0.025)",
-            borderColor: "rgba(255,255,255,0.07)",
-            borderWidth: 0.5,
-          },
-          emphasis: {
-            disabled: false,
-            itemStyle: {
-              areaColor: "rgba(80,99,244,0.4)",
-              borderColor: "rgba(129,140,248,0.9)",
-              borderWidth: 1,
-            },
-            label: { show: false },
-          },
-          select: {
-            itemStyle: {
-              areaColor: "rgba(80,99,244,0.65)",
-              borderColor: "rgba(129,140,248,1)",
-              borderWidth: 1.5,
-            },
-            label: { show: false },
-          },
-          data: chartData,
-        },
-      ],
-    };
+          if (!matched) {
+            chartData.push({ name: regName, value: val, originalRegion: regName });
+          }
+        }
+      });
 
-    chart.setOption(option);
+      const option: echarts.EChartsOption = {
+        backgroundColor: "transparent",
+        tooltip: {
+          trigger: "item",
+          backgroundColor: "#0e1018",
+          borderColor: "rgba(255,255,255,0.07)",
+          borderWidth: 1,
+          padding: [8, 12],
+          textStyle: { color: "#f3f4f6", fontFamily: "Inter, sans-serif", fontSize: 11 },
+          formatter: (params: any) => {
+            if (params.data) {
+              const formattedVal = formatMetricValue(params.data.value, metricName);
+              return `<div style="line-height:1.6">
+                <strong style="color:#fff;font-size:12px">${params.name}</strong><br/>
+                <span style="color:rgba(255,255,255,0.45);font-size:10px">Region: ${params.data.originalRegion}</span><br/>
+                <span style="color:#818cf8;font-weight:700;font-size:13px">${formattedVal}</span>
+              </div>`;
+            }
+            return `<div style="line-height:1.5"><strong style="color:#fff">${params.name}</strong><br/><span style="color:rgba(255,255,255,0.3);font-size:10px">No data</span></div>`;
+          },
+        },
+        visualMap: {
+          show: false,
+          min: 0,
+          max: maxVal,
+          inRange: {
+            color: [
+              "rgba(80,99,244,0.07)",
+              "rgba(80,99,244,0.3)",
+              "rgba(80,99,244,0.6)",
+              "rgba(99,102,241,0.85)",
+              "rgba(129,140,248,1)",
+            ],
+          },
+        },
+        series: [
+          {
+            name: "Geo Distribution",
+            type: "map",
+            map: "world",
+            roam: true,
+            scaleLimit: { min: 0.8, max: 6 },
+            zoom: 1.2,
+            center: [15, 15],
+            selectedMode: "single",
+            itemStyle: {
+              areaColor: "rgba(255,255,255,0.025)",
+              borderColor: "rgba(255,255,255,0.07)",
+              borderWidth: 0.5,
+            },
+            emphasis: {
+              disabled: false,
+              itemStyle: {
+                areaColor: "rgba(80,99,244,0.4)",
+                borderColor: "rgba(129,140,248,0.9)",
+                borderWidth: 1,
+              },
+              label: { show: false },
+            },
+            select: {
+              itemStyle: {
+                areaColor: "rgba(80,99,244,0.65)",
+                borderColor: "rgba(129,140,248,1)",
+                borderWidth: 1.5,
+              },
+              label: { show: false },
+            },
+            data: chartData,
+          },
+        ],
+      };
 
-    chart.on("click", (params: any) => {
-      if (params.data?.originalRegion) {
-        const origReg = params.data.originalRegion;
-        onSelectRegion(selectedRegion === origReg ? null : origReg);
-      } else {
-        onSelectRegion(null);
-      }
-    });
+      chart.setOption(option);
+      chart.on("click", (params: any) => {
+        if (params.data?.originalRegion) {
+          const origReg = params.data.originalRegion;
+          onSelectRegion(selectedRegion === origReg ? null : origReg);
+        } else {
+          onSelectRegion(null);
+        }
+      });
+    } else {
+      // Category Distribution View (Fallback for Non-Geo Datasets)
+      const data = activeGeo.length > 0
+        ? activeGeo.map((g) => ({ name: g.region, value: g.value }))
+        : [
+            { name: "Segment A", value: 450 },
+            { name: "Segment B", value: 320 },
+            { name: "Segment C", value: 210 },
+            { name: "Segment D", value: 140 },
+          ];
+
+      const option: echarts.EChartsOption = {
+        backgroundColor: "transparent",
+        tooltip: {
+          trigger: "item",
+          backgroundColor: "#0f172a",
+          borderColor: "#334155",
+          textStyle: { color: "#f8fafc" },
+          formatter: (params: any) => {
+            const formattedVal = formatMetricValue(params.value, metricName);
+            return `${categoryName || "Category"}: <b>${params.name}</b><br/>Share: <b>${formattedVal}</b> (${params.percent}%)`;
+          },
+        },
+        legend: {
+          orient: "vertical",
+          right: "5%",
+          top: "center",
+          textStyle: { color: "#94a3b8", fontSize: 11 },
+        },
+        series: [
+          {
+            name: categoryName || "Categories",
+            type: "pie",
+            radius: ["35%", "70%"],
+            center: ["38%", "50%"],
+            avoidLabelOverlap: false,
+            itemStyle: { borderRadius: 8, borderColor: "#0f172a", borderWidth: 2 },
+            label: { show: false },
+            emphasis: { label: { show: true, fontSize: 12, fontWeight: "bold" } },
+            data,
+          },
+        ],
+      };
+
+      chart.setOption(option);
+    }
 
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
@@ -269,9 +295,9 @@ export default function GeographicMap({
       chart.dispose();
       chartInstance.current = null;
     };
-  }, [mapLoaded, geoData, loading, selectedRegion]);
+  }, [mapLoaded, viewMode, geoData, loading, selectedRegion, hasGeoData, metricName, categoryName]);
 
-  const isLoading = loading || (!mapLoaded && !mapError);
+  const isLoading = loading || (viewMode === "map" && !mapLoaded && !mapError);
 
   return (
     <div className="glass-panel p-6 flex flex-col" style={{ height: 440 }}>
@@ -279,48 +305,69 @@ export default function GeographicMap({
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
           <h2 className="text-base font-semibold text-white flex items-center gap-2">
-            <Globe className="w-4 h-4 text-brand-primary" />
-            Geo Distribution
+            {viewMode === "map" ? <Globe className="w-4 h-4 text-brand-primary" /> : <PieChart className="w-4 h-4 text-indigo-400" />}
+            {viewMode === "map" ? "Geo Distribution" : `${categoryName || "Category"} Distribution`}
           </h2>
-          <p className="text-xs text-brand-muted">Operational density and regional shares</p>
+          <p className="text-xs text-brand-muted">
+            {viewMode === "map" ? "Operational density and regional shares" : "Non-geographic dataset breakdown view"}
+          </p>
         </div>
-        {selectedRegion && (
-          <button
-            onClick={() => onSelectRegion(null)}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] rounded-md font-medium bg-brand-primary/10 border border-brand-primary/20 text-brand-primary hover:bg-brand-primary/20 transition-all font-mono"
-          >
-            <Filter className="w-3 h-3" />
-            Clear: {selectedRegion}
-          </button>
-        )}
+        
+        <div className="flex items-center gap-2">
+          {/* Mode Toggle */}
+          {hasGeoData && (
+            <div className="flex p-0.5 rounded-lg bg-black/30 border border-white/5">
+              <button
+                onClick={() => setViewMode("map")}
+                className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${
+                  viewMode === "map" ? "bg-brand-surface text-white" : "text-white/40 hover:text-white"
+                }`}
+              >
+                Map
+              </button>
+              <button
+                onClick={() => setViewMode("category")}
+                className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${
+                  viewMode === "category" ? "bg-brand-surface text-white" : "text-white/40 hover:text-white"
+                }`}
+              >
+                Share
+              </button>
+            </div>
+          )}
+
+          {selectedRegion && (
+            <button
+              onClick={() => onSelectRegion(null)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] rounded-md font-medium bg-brand-primary/10 border border-brand-primary/20 text-brand-primary hover:bg-brand-primary/20 transition-all font-mono"
+            >
+              <Filter className="w-3 h-3" />
+              Clear: {selectedRegion}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main body */}
       <div className="flex flex-1 gap-4 min-h-0">
-        {/* World Map */}
+        {/* World Map or Category Share Canvas */}
         <div className="flex-1 relative rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.15)", border: "1px solid rgba(255,255,255,0.04)" }}>
           {isLoading ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
               <RefreshCw className="w-5 h-5 animate-spin text-brand-primary" />
-              <p className="text-[10px] text-white/30 font-mono">Loading world map…</p>
+              <p className="text-[10px] text-white/30 font-mono">Initializing visualization…</p>
             </div>
-          ) : mapError ? (
+          ) : viewMode === "map" && mapError ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
               <Globe className="w-6 h-6 text-white/20" />
               <p className="text-xs text-white/30">Map unavailable — check network</p>
-            </div>
-          ) : isNoGeoData ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center z-10 bg-black/40 backdrop-blur-sm">
-              <Globe className="w-8 h-8 text-white/20 mb-2" />
-              <p className="text-sm font-semibold text-white/60">No Geographic Data</p>
-              <p className="text-xs text-white/30">Dataset lacks columns with &apos;geo&apos; roles.</p>
             </div>
           ) : (
             <div ref={chartRef} className="w-full h-full" />
           )}
 
-          {/* Zoom hint */}
-          {!isLoading && !mapError && !isNoGeoData && (
+          {/* Zoom hint for map */}
+          {viewMode === "map" && !isLoading && !mapError && (
             <div className="absolute bottom-2 right-2 text-[9px] font-mono text-white/20 pointer-events-none select-none">
               Scroll to zoom · Drag to pan
             </div>
@@ -333,7 +380,7 @@ export default function GeographicMap({
             {categoryName ? `${categoryName} Ranking` : "Hub Ranking"}
           </p>
           <div className="space-y-2.5">
-            {isNoGeoData ? (
+            {activeGeo.length === 0 ? (
               <p className="text-xs text-white/20 italic mt-4 text-center">No segments available.</p>
             ) : (
               activeGeo.slice(0, 5).map((g, idx) => {
@@ -354,7 +401,7 @@ export default function GeographicMap({
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <span className="font-semibold text-gray-200 truncate max-w-[80px] text-[11px]">{g.region}</span>
                       <span className="font-mono text-white font-bold text-[10px]">
-                        {formatCompactValue(g.value, metricName)}
+                        {formatMetricValue(g.value, metricName, null, { notation: "compact" })}
                       </span>
                     </div>
                     <div className="w-full bg-white/5 h-[3px] rounded-full overflow-hidden">

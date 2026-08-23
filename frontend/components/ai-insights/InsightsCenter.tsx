@@ -474,19 +474,23 @@ export default function InsightsCenter({
   ];
 
   return (
-    <div className="glass-panel p-6 h-[460px] flex flex-col justify-between relative overflow-hidden">
+    <div className="datagem-card p-6 h-[460px] flex flex-col justify-between relative overflow-hidden group">
+      {/* Datagem Glowing Background Mesh */}
+      <div className="absolute top-0 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full filter blur-3xl pointer-events-none animate-datagem-glow" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full filter blur-3xl pointer-events-none" />
+
       {/* Header and Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/10 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 relative">
-            <BrainCircuit className="w-5 h-5 animate-pulse" />
+          <div className="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 relative shadow-lg shadow-purple-500/20 animate-datagem-float">
+            <BrainCircuit className="w-5 h-5" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-white flex items-center gap-2">
+            <h2 className="text-base font-semibold text-white flex items-center gap-2 font-sans">
               AI Insights Center
-              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300">
-                SNOW Neural v2.5
+              <span className="text-[10px] font-mono font-medium px-2.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 animate-pulse">
+                Datagem AI v2.5
               </span>
             </h2>
           </div>
@@ -587,23 +591,23 @@ export default function InsightsCenter({
                 <button
                   type="button"
                   onClick={() => handleQuickPrompt("top sectors")}
-                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-brand-primary/20 border border-white/10 text-white/80 hover:text-white text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1"
+                  className="px-3 py-1 rounded-full datagem-badge hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105"
                 >
-                  <Sparkles className="w-3 h-3 text-indigo-400" />
+                  <Sparkles className="w-3 h-3 text-purple-400" />
                   📊 Top Sectors
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPrompt("show columns")}
-                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-brand-primary/20 border border-white/10 text-white/80 hover:text-white text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1"
+                  className="px-3 py-1 rounded-full datagem-badge hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105"
                 >
-                  <BrainCircuit className="w-3 h-3 text-sky-400" />
+                  <BrainCircuit className="w-3 h-3 text-indigo-400" />
                   📋 Dataset Columns
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPrompt("anomalies")}
-                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-brand-primary/20 border border-white/10 text-white/80 hover:text-white text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1"
+                  className="px-3 py-1 rounded-full datagem-badge hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105"
                 >
                   <AlertTriangle className="w-3 h-3 text-amber-400" />
                   ⚠️ Outliers
@@ -611,7 +615,7 @@ export default function InsightsCenter({
                 <button
                   type="button"
                   onClick={() => handleQuickPrompt("forecast")}
-                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-brand-primary/20 border border-white/10 text-white/80 hover:text-white text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1"
+                  className="px-3 py-1 rounded-full datagem-badge hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105"
                 >
                   <TrendingUp className="w-3 h-3 text-emerald-400" />
                   📈 Forecast
@@ -625,12 +629,12 @@ export default function InsightsCenter({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   disabled={copilotLoading}
-                  className="flex-1 bg-black/30 border border-white/10 text-xs text-white rounded-lg px-3.5 py-2.5 outline-none focus:border-brand-primary/60 font-sans transition-all"
+                  className="flex-1 bg-black/40 border border-purple-500/20 text-xs text-white rounded-xl px-4 py-2.5 outline-none focus:border-purple-400/60 font-sans transition-all shadow-inner"
                 />
                 <button
                   type="submit"
                   disabled={copilotLoading}
-                  className="p-2.5 rounded-lg bg-brand-primary text-white hover:bg-brand-primary/80 transition-all cursor-pointer shadow-lg shadow-brand-primary/25 disabled:opacity-50"
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-500 hover:to-indigo-500 transition-all cursor-pointer shadow-lg shadow-purple-500/25 disabled:opacity-50 hover:scale-105"
                 >
                   <Send className="w-4 h-4" />
                 </button>

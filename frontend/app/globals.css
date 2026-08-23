@@ -194,3 +194,80 @@ input:-webkit-autofill:focus {
 .tab-inactive:hover {
   color: rgba(255,255,255,0.75);
 }
+
+/* ============================
+   DATAGEM INSPIRED ANIMATIONS & STYLES
+   ============================ */
+@keyframes datagemFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.7deg);
+  }
+}
+
+@keyframes datagemPulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    filter: drop-shadow(0 0 12px rgba(177, 159, 251, 0.4));
+  }
+  50% {
+    opacity: 0.9;
+    filter: drop-shadow(0 0 24px rgba(177, 159, 251, 0.8));
+  }
+}
+
+@keyframes datagemDrawLine {
+  from {
+    stroke-dashoffset: 800;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-datagem-float {
+  animation: datagemFloat 5s ease-in-out infinite;
+}
+
+.animate-datagem-float-delayed {
+  animation: datagemFloat 6s ease-in-out 2s infinite;
+}
+
+.animate-datagem-glow {
+  animation: datagemPulseGlow 3.5s ease-in-out infinite;
+}
+
+/* Datagem Card Aesthetics */
+.datagem-card {
+  background: rgba(18, 21, 30, 0.82);
+  border: 1px solid rgba(177, 159, 251, 0.18);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.datagem-card:hover {
+  border-color: rgba(177, 159, 251, 0.45);
+  transform: translateY(-3px);
+  box-shadow: 0 24px 60px -12px rgba(177, 159, 251, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.datagem-header-band {
+  background: linear-gradient(90deg, rgba(177, 159, 251, 0.25) 0%, rgba(80, 99, 244, 0.25) 100%);
+  border-bottom: 1px solid rgba(177, 159, 251, 0.2);
+}
+
+.datagem-badge {
+  background: rgba(177, 159, 251, 0.12);
+  border: 1px solid rgba(177, 159, 251, 0.3);
+  color: #c4b5fd;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', monospace;
+}
+

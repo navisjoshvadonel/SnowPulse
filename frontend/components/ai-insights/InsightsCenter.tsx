@@ -108,13 +108,36 @@ export default function InsightsCenter({
       });
 
       if (!response.ok) {
-        throw new Error("HTTP error " + response.status);
+        console.warn(`[AI Engine] API returned status ${response.status}. Using client-side intelligence fallback.`);
+        const fallbackText = generateClientSideInsight(userQuery, kpis, trends, anomalies, recommendations);
+        setMessages((prev) => {
+          const updated = [...prev];
+          if (updated.length > 0 && updated[updated.length - 1].role === "assistant") {
+            updated[updated.length - 1] = {
+              role: "assistant",
+              text: fallbackText,
+            };
+          }
+          return updated;
+        });
+        return;
       }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       if (!reader) {
-        throw new Error("Response body is not readable");
+        const fallbackText = generateClientSideInsight(userQuery, kpis, trends, anomalies, recommendations);
+        setMessages((prev) => {
+          const updated = [...prev];
+          if (updated.length > 0 && updated[updated.length - 1].role === "assistant") {
+            updated[updated.length - 1] = {
+              role: "assistant",
+              text: fallbackText,
+            };
+          }
+          return updated;
+        });
+        return;
       }
 
       let assistantText = "";
@@ -234,7 +257,7 @@ Our linear regression & seasonal engine projects positive trajectory over the up
 }
 
     } catch (err) {
-      console.error(err);
+      console.warn("AI Engine handleSendMessage warning:", err);
       setMessages((prev) => {
         const updated = [...prev];
         if (updated.length > 0 && updated[updated.length - 1].role === "assistant" && !updated[updated.length - 1].text) {

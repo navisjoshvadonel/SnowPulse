@@ -363,16 +363,18 @@ class SignalDetector:
         try:
             # Build missingness boolean mask matrix
             null_masks = {name: df[name].is_null().to_numpy() for name in col_names}
+            counts = {name: int(np.sum(mask)) for name, mask in null_masks.items()}
 
             for i in range(len(col_names)):
-                for j in range(i + 1, len(col_names)):
-                    name_a, name_b = col_names[i], col_names[j]
-                    mask_a = null_masks[name_a]
-                    mask_b = null_masks[name_b]
+                name_a = col_names[i]
+                count_a = counts[name_a]
+                if count_a < 5:
+                    continue
+                mask_a = null_masks[name_a]
 
-                    count_a = int(np.sum(mask_a))
-                    if count_a < 5:
-                        continue
+                for j in range(i + 1, len(col_names)):
+                    name_b = col_names[j]
+                    mask_b = null_masks[name_b]
 
                     both_missing = int(np.sum(mask_a & mask_b))
                     co_occur_ratio = both_missing / count_a

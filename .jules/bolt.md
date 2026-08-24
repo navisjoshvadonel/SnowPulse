@@ -1,0 +1,3 @@
+## 2024-06-25 - [O(N^2) Redundant Mask Summation]
+**Learning:** Found a severe O(N^2) bottleneck in `backend/app/analytics/signals.py` where a numpy sum operation `np.sum(mask_a)` was redundantly computed inside a nested loop for every column pair. The dataset could be quite large and executing sums inside loops repeatedly causes significant lag.
+**Action:** When working with nested loops over dataset columns, carefully check if there are operations on the outer loop variable that can be hoisted. Specifically, look out for things like `df[name_a].is_null().sum()` or `np.sum(mask_a)` that only depend on the outer loop element `a`.

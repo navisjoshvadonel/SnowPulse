@@ -67,7 +67,7 @@ class AnalyticsEngine:
                 "analytics.engine.fallback_profile file=%s — "
                 "no stored profile found; computing inline. "
                 "Consider running /api/datasets/{id}/reprofile to persist a profile.",
-                os.path.basename(file_path),
+                os.path.basename(self.file_path),
             )
             self._profile = DatasetProfiler.profile_full(self.df)
 

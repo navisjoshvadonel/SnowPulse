@@ -1143,6 +1143,7 @@ def run_generalized_forecast(
     metric_col = payload.get("metric_column")
     if not metric_col and dataset and dataset.profile_json:
         try:
+            import json
             prof = json.loads(dataset.profile_json) if isinstance(dataset.profile_json, str) else dataset.profile_json
             cols = prof.get("columns", [])
             primary_col = next((c.get("name") for c in cols if c.get("is_primary_metric")), None)

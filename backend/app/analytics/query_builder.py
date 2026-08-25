@@ -161,7 +161,7 @@ class DynamicQueryEngine:
             if region_val:
                 geo_cols = [c for c in df.columns if any(k in c.lower() for k in ['region', 'country', 'geo', 'location', 'zone', 'state'])]
                 if not geo_cols:
-                    geo_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Utf8, pl.Categorical)]
+                    geo_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Utf8, pl.Categorical)]
                 for g_col in geo_cols:
                     if g_col in df.columns:
                         unique_vals = df[g_col].unique().to_list()
@@ -172,7 +172,7 @@ class DynamicQueryEngine:
             # 2. Selected Category filter
             cat_val = payload.selectedCategory
             if cat_val:
-                cat_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Utf8, pl.Categorical)]
+                cat_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Utf8, pl.Categorical)]
                 for c_col in cat_cols:
                     if c_col in df.columns:
                         unique_vals = df[c_col].unique().to_list()
@@ -216,15 +216,15 @@ class DynamicQueryEngine:
 
             # 7. Apply brushedRange filter
             if payload.brushedRange and len(payload.brushedRange) == 2:
-                num_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32)]
+                num_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32)]
                 if num_cols:
                     df = df.filter((pl.col(num_cols[0]) >= payload.brushedRange[0]) & (pl.col(num_cols[0]) <= payload.brushedRange[1]))
 
             filtered_rows = len(df)
 
             # Column classification
-            numeric_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8)]
-            cat_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Utf8, pl.Categorical, pl.Boolean)]
+            numeric_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8)]
+            cat_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Utf8, pl.Categorical, pl.Boolean)]
             date_cols = [c for c in df.columns if 'date' in c.lower() or 'time' in c.lower()]
             geo_cols = [c for c in df.columns if any(k in c.lower() for k in ['region', 'country', 'geo', 'location', 'zone', 'state'])]
 

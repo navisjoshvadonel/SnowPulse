@@ -88,7 +88,7 @@ class DynamicQueryEngine:
                         df = df.filter(pl.col(f.column) < f.value)
                     elif f.op == 'in' and isinstance(f.value, list):
                         df = df.filter(pl.col(f.column).is_in(f.value))
-                    elif f.op == 'between' and isinstance(f.value, (list, tuple)) and len(f.value) == 2:
+                    elif f.op == 'between' and isinstance(f.value, list | tuple) and len(f.value) == 2:
                         df = df.filter((pl.col(f.column) >= f.value[0]) & (pl.col(f.column) <= f.value[1]))
 
             # Apply aggregations
@@ -193,7 +193,7 @@ class DynamicQueryEngine:
                         df = df.filter(pl.col(f.column) < f.value)
                     elif f.op == 'in' and isinstance(f.value, list):
                         df = df.filter(pl.col(f.column).is_in(f.value))
-                    elif f.op == 'between' and isinstance(f.value, (list, tuple)) and len(f.value) == 2:
+                    elif f.op == 'between' and isinstance(f.value, list | tuple) and len(f.value) == 2:
                         df = df.filter((pl.col(f.column) >= f.value[0]) & (pl.col(f.column) <= f.value[1]))
 
             # 4. Apply active_category_values filter map
@@ -203,7 +203,7 @@ class DynamicQueryEngine:
 
             # 5. Apply active_numeric_ranges filter map
             for col, r in payload.active_numeric_ranges.items():
-                if col in df.columns and isinstance(r, (list, tuple)) and len(r) == 2:
+                if col in df.columns and isinstance(r, list | tuple) and len(r) == 2:
                     df = df.filter((pl.col(col) >= r[0]) & (pl.col(col) <= r[1]))
 
             # 6. Apply date_range filter

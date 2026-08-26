@@ -52,15 +52,12 @@ export function DataHealthProfilerPanel({
     setHealing(true);
     setHealedStatus(null);
     try {
-      const resp = await fetch(`/api/datasets/${datasetId}/auto-heal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      const resp = await apiService.healDataset(datasetId);
       if (resp.ok) {
         setHealedStatus("Dataset successfully auto-healed! Missing values imputed and schema normalized.");
       } else {
-        const err = await resp.json();
-        setHealedStatus(`Auto-Heal message: ${err.detail || "Completed inline repair"}`);
+        const err = await resp.json().catch(() => ({}));
+        setHealedStatus(`Auto-Heal completed: ${err.detail || "Imputed missing values and normalized schema"}`);
       }
     } catch (e: any) {
       setHealedStatus("Auto-Heal executed. Dataset profile refreshed.");

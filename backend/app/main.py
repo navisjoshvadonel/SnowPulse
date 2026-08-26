@@ -587,6 +587,50 @@ def create_calculated_field_endpoint(
         raise HTTPException(status_code=400, detail=f"Could not calculate field: {e}")
 
 
+@app.get("/api/datasets/{dataset_id}/geo-spatial")
+def get_geo_spatial_endpoint(
+    dataset_id: int,
+    target_metric: str | None = None,
+    geo_column: str | None = None,
+    lat_column: str | None = None,
+    lng_column: str | None = None,
+    cluster_count: int = 8,
+    top_n: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    3D Spatial Geo-Heatmap & Arc-Flow analysis.
+    Returns heat_points, region_aggregates, density_clusters, arc_flows,
+    choropleth_data, distribution_stats, and AI narrative for geographic visualization.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        return eng.get_geo_spatial_analysis(
+            target_metric=target_metric,
+            geo_column=geo_column,
+            lat_column=lat_column,
+            lng_column=lng_column,
+            cluster_count=cluster_count,
+            top_n=top_n,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Geo-spatial analysis failed: {e}")
+
+
 @app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(
     dataset_id: int,

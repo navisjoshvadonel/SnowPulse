@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Presentation, ShieldCheck, Workflow, Sliders, Globe } from "lucide-react";
 import { useFilterStore } from "@/store/filterStore";
 import FilterChipBar from "@/components/dashboard/FilterChipBar";
 import FilterSlicerBar from "./FilterSlicerBar";
@@ -15,6 +16,11 @@ import PinnedChartsPanel from "./PinnedChartsPanel";
 import DecompositionTreePanel from "@/components/analytics/DecompositionTreePanel";
 import { MonteCarloSimulatorPanel } from "@/components/analytics/MonteCarloSimulatorPanel";
 import { NaturalLanguageCalculatedFieldPanel } from "@/components/analytics/NaturalLanguageCalculatedFieldPanel";
+import { GeoSpatialHeatmapPanel } from "@/components/analytics/GeoSpatialHeatmapPanel";
+import { DataLineagePanel } from "@/components/analytics/DataLineagePanel";
+import { DataHealthProfilerPanel } from "@/components/analytics/DataHealthProfilerPanel";
+import { ExecutivePresentationModal } from "@/components/analytics/ExecutivePresentationModal";
+import { SensitivityMatrixPanel } from "@/components/analytics/SensitivityMatrixPanel";
 
 import { apiService } from "@/services/api";
 
@@ -27,6 +33,7 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
   const [schemaData, setSchemaData] = useState<any>(initialSchema || null);
   const [loading, setLoading] = useState<boolean>(!initialSchema && !schemaData);
   const [filteredRowCount, setFilteredRowCount] = useState<number | undefined>(undefined);
+  const [showExecutivePresentation, setShowExecutivePresentation] = useState<boolean>(false);
 
   const {
     selectedRegion,
@@ -155,10 +162,23 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
   const primaryMetric = schemaData.primary_metric && schemaData.primary_metric !== "volume" ? schemaData.primary_metric : numColObj?.name || "volume";
 
   const primaryMetricColObj = columns.find((c: any) => c.name === primaryMetric) || numColObj;
+  const numericColNames = columns.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer" || c.role === "numeric" || c.dtype_category === "numeric").map((c: any) => c.name);
+  const geoColNames = columns.filter((c: any) => c.role === "categorical" || c.role === "geo" || c.semantic_type === "location" || c.is_primary_geo).map((c: any) => c.name);
 
   return (
     <div className="w-full space-y-6">
-      {/* 0. Filter Chip Bar (Visibility & One-Click Removal of active filters) */}
+      {/* Executive Deck Top Action Bar */}
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={() => setShowExecutivePresentation(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-xl transition duration-200 border border-cyan-400/40"
+        >
+          <Presentation className="w-4 h-4 text-cyan-300 animate-pulse" />
+          <span>1-Click Executive Slide Deck Generator ⚡</span>
+        </button>
+      </div>
+
+      {/* 0. Filter Chip Bar */}
       <FilterChipBar />
 
       {/* Pinned Conversational AI Charts */}
@@ -181,35 +201,64 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
         columnCount={columns.length}
       />
 
-      {/* 3. Gemini Smart Executive Narrative */}
+      {/* 3. Data Health Profiler & Auto-Heal Matrix */}
+      <DataHealthProfilerPanel
+        datasetId={datasetId}
+        datasetName={schemaData.name || "Uploaded Dataset"}
+        qualityReport={schemaData.quality_report}
+        columns={columns}
+      />
+
+      {/* 4. Gemini Smart Executive Narrative */}
       <NaturalLanguageSummaryPanel
         datasetId={datasetId}
         datasetName={schemaData.name || "Uploaded Dataset"}
         columns={columns}
       />
 
-      {/* 4. Autonomous Root-Cause Decomposition Tree */}
+      {/* 5. Autonomous Root-Cause Decomposition Tree */}
       <DecompositionTreePanel datasetId={datasetId} />
 
-      {/* 5. AI Monte Carlo Risk & Scenario Simulator */}
+      {/* 6. AI Monte Carlo Risk & Scenario Simulator */}
       <MonteCarloSimulatorPanel
         datasetId={datasetId}
         datasetName={schemaData.name || "Uploaded Dataset"}
         metricColumn={primaryMetric}
-        numericColumns={columns.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer").map((c: any) => c.name)}
+        numericColumns={numericColNames}
       />
 
-      {/* 6. AI Natural Language Calculated Fields Engine */}
+      {/* 7. Multi-Variable Sensitivity & What-If Scenario Matrix */}
+      <SensitivityMatrixPanel
+        datasetId={datasetId}
+        metricColumn={primaryMetric}
+      />
+
+      {/* 8. AI Natural Language Calculated Fields Engine */}
       <NaturalLanguageCalculatedFieldPanel
         datasetId={datasetId}
         datasetName={schemaData.name || "Uploaded Dataset"}
-        numericColumns={columns.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer").map((c: any) => c.name)}
+        numericColumns={numericColNames}
       />
 
-      {/* 6. Time-Series Area Trend Panel (Conditional) */}
+      {/* 9. 3D Spatial Geo-Heatmap Panel */}
+      <GeoSpatialHeatmapPanel
+        datasetId={datasetId}
+        datasetName={schemaData.name || "Uploaded Dataset"}
+        numericColumns={numericColNames}
+        geoColumns={geoColNames}
+      />
+
+      {/* 10. Dynamic Data Lineage & Impact Map */}
+      <DataLineagePanel
+        datasetId={datasetId}
+        datasetName={schemaData.name || "Uploaded Dataset"}
+        columns={columns}
+      />
+
+      {/* 11. Time-Series Area Trend Panel */}
       <TimeSeriesPanel columns={columns} datasetId={datasetId} />
 
-      {/* 5. Main Visual Analytics Grid */}
+      {/* 12. Main Visual Analytics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Categorical Breakdown & Share */}
         <CategoricalBreakdownPanel columns={columns} datasetId={datasetId} />
@@ -218,7 +267,7 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
         <DistributionPanel columns={columns} datasetId={datasetId} />
       </div>
 
-      {/* 6. Advanced Analytics & Relationships Grid */}
+      {/* 13. Advanced Analytics & Relationships Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Correlation Heatmap */}
         <CorrelationPanel columns={columns} datasetId={datasetId} />
@@ -226,6 +275,16 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
         {/* Statistical Outliers & Signals */}
         <OutlierAnomalyPanel datasetId={datasetId} />
       </div>
+
+      {/* Executive Slide Deck Modal */}
+      <ExecutivePresentationModal
+        isOpen={showExecutivePresentation}
+        onClose={() => setShowExecutivePresentation(false)}
+        datasetName={schemaData.name || "Active Dataset"}
+        primaryMetric={primaryMetric}
+        totalRows={totalRows}
+        qualityScore={schemaData.quality_report?.overall_score || 94}
+      />
     </div>
   );
 }

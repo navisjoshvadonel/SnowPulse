@@ -11,9 +11,15 @@ vi.mock('@/services/api', () => ({
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => {
-  const icons = ['Send', 'AlertTriangle', 'TrendingUp', 'Sparkles', 'MessageSquare', 'CheckSquare', 'BrainCircuit', 'RefreshCw', 'FileText']
-  const mockExports: any = {}
-  icons.forEach(i => mockExports[i] = (props: any) => React.createElement('div', { 'data-testid': `icon-${i.toLowerCase()}`, ...props }))
+  const icons = [
+    'Send', 'AlertTriangle', 'TrendingUp', 'Sparkles', 'MessageSquare',
+    'CheckSquare', 'BrainCircuit', 'RefreshCw', 'FileText', 'Mic', 'MicOff',
+    'Volume2', 'VolumeX', 'Bot', 'User', 'Copy', 'Check', 'Globe', 'Layers', 'Compass'
+  ]
+  const mockExports: any = { __esModule: true }
+  icons.forEach(i => {
+    mockExports[i] = (props: any) => <div data-testid={`icon-${i.toLowerCase()}`} {...props} />
+  })
   return mockExports
 })
 

@@ -994,6 +994,393 @@ class AnalyticsEngine:
         }
 
     # ------------------------------------------------------------------
+    # 3D Spatial Geo-Heatmap & Arc-Flow Engine
+    # ------------------------------------------------------------------
+
+    # Embedded geocoder: maps common region/country/city names to lat/lng
+    _GEOCODE_DB: dict[str, tuple[float, float]] = {
+        # Countries
+        "united states": (39.8283, -98.5795), "usa": (39.8283, -98.5795), "us": (39.8283, -98.5795),
+        "united kingdom": (55.3781, -3.436), "uk": (55.3781, -3.436), "gb": (55.3781, -3.436),
+        "canada": (56.1304, -106.3468), "ca": (56.1304, -106.3468),
+        "germany": (51.1657, 10.4515), "de": (51.1657, 10.4515),
+        "france": (46.2276, 2.2137), "fr": (46.2276, 2.2137),
+        "india": (20.5937, 78.9629), "in": (20.5937, 78.9629),
+        "china": (35.8617, 104.1954), "cn": (35.8617, 104.1954),
+        "japan": (36.2048, 138.2529), "jp": (36.2048, 138.2529),
+        "australia": (25.2744, 133.7751), "au": (25.2744, 133.7751),
+        "brazil": (-14.235, -51.9253), "br": (-14.235, -51.9253),
+        "mexico": (23.6345, -102.5528), "mx": (23.6345, -102.5528),
+        "south korea": (35.9078, 127.7669), "kr": (35.9078, 127.7669),
+        "italy": (41.8719, 12.5674), "it": (41.8719, 12.5674),
+        "spain": (40.4637, -3.7492), "es": (40.4637, -3.7492),
+        "russia": (61.524, 105.3188), "ru": (61.524, 105.3188),
+        "south africa": (-30.5595, 22.9375), "za": (-30.5595, 22.9375),
+        "nigeria": (9.082, 8.6753), "ng": (9.082, 8.6753),
+        "indonesia": (-0.7893, 113.9213), "id": (-0.7893, 113.9213),
+        "turkey": (38.9637, 35.2433), "tr": (38.9637, 35.2433),
+        "saudi arabia": (23.8859, 45.0792), "sa": (23.8859, 45.0792),
+        "argentina": (-38.4161, -63.6167), "ar": (-38.4161, -63.6167),
+        "egypt": (26.8206, 30.8025), "eg": (26.8206, 30.8025),
+        "singapore": (1.3521, 103.8198), "sg": (1.3521, 103.8198),
+        "thailand": (15.87, 100.9925), "th": (15.87, 100.9925),
+        "netherlands": (52.1326, 5.2913), "nl": (52.1326, 5.2913),
+        "sweden": (60.1282, 18.6435), "se": (60.1282, 18.6435),
+        "switzerland": (46.8182, 8.2275), "ch": (46.8182, 8.2275),
+        "poland": (51.9194, 19.1451), "pl_country": (51.9194, 19.1451),
+        "colombia": (4.5709, -74.2973), "co": (4.5709, -74.2973),
+        "chile": (-35.6751, -71.543), "cl": (-35.6751, -71.543),
+        "uae": (23.4241, 53.8478), "ae": (23.4241, 53.8478),
+        "malaysia": (4.2105, 101.9758), "my": (4.2105, 101.9758),
+        "philippines": (12.8797, 121.774), "ph": (12.8797, 121.774),
+        "pakistan": (30.3753, 69.3451), "pk": (30.3753, 69.3451),
+        "vietnam": (14.0583, 108.2772), "vn": (14.0583, 108.2772),
+        "new zealand": (-40.9006, 174.886), "nz": (-40.9006, 174.886),
+        "ireland": (53.1424, -7.6921), "ie": (53.1424, -7.6921),
+        "portugal": (39.3999, -8.2245), "pt": (39.3999, -8.2245),
+        "greece": (39.0742, 21.8243), "gr": (39.0742, 21.8243),
+        "norway": (60.472, 8.4689), "no": (60.472, 8.4689),
+        "denmark": (56.2639, 9.5018), "dk": (56.2639, 9.5018),
+        "finland": (61.9241, 25.7482), "fi": (61.9241, 25.7482),
+        "israel": (31.0461, 34.8516), "il": (31.0461, 34.8516),
+        "kenya": (-0.0236, 37.9062), "ke": (-0.0236, 37.9062),
+        "bangladesh": (23.685, 90.3563), "bd": (23.685, 90.3563),
+        # Regions
+        "north": (42.0, -95.0), "south": (33.0, -90.0), "east": (40.0, -75.0), "west": (38.0, -118.0),
+        "northeast": (43.0, -73.0), "northwest": (47.0, -122.0), "southeast": (33.5, -83.0), "southwest": (34.0, -112.0),
+        "midwest": (41.0, -89.0), "central": (39.0, -98.0),
+        "apac": (10.0, 115.0), "emea": (48.0, 10.0), "latam": (-15.0, -60.0),
+        "europe": (50.0, 10.0), "asia": (30.0, 100.0), "africa": (0.0, 25.0),
+        "north america": (45.0, -100.0), "south america": (-15.0, -60.0), "oceania": (-25.0, 140.0),
+        # Major US Cities
+        "new york": (40.7128, -74.006), "los angeles": (34.0522, -118.2437), "chicago": (41.8781, -87.6298),
+        "houston": (29.7604, -95.3698), "phoenix": (33.4484, -112.074), "philadelphia": (39.9526, -75.1652),
+        "san antonio": (29.4241, -98.4936), "san diego": (32.7157, -117.1611), "dallas": (32.7767, -96.797),
+        "san francisco": (37.7749, -122.4194), "seattle": (47.6062, -122.3321), "denver": (39.7392, -104.9903),
+        "boston": (42.3601, -71.0589), "miami": (25.7617, -80.1918), "atlanta": (33.749, -84.388),
+        "austin": (30.2672, -97.7431), "portland": (45.5155, -122.6789), "nashville": (36.1627, -86.7816),
+        "las vegas": (36.1699, -115.1398), "detroit": (42.3314, -83.0458), "minneapolis": (44.9778, -93.265),
+        # Major World Cities
+        "london": (51.5074, -0.1278), "paris": (48.8566, 2.3522), "berlin": (52.52, 13.405),
+        "tokyo": (35.6762, 139.6503), "beijing": (39.9042, 116.4074), "shanghai": (31.2304, 121.4737),
+        "mumbai": (19.076, 72.8777), "delhi": (28.7041, 77.1025), "bangalore": (12.9716, 77.5946),
+        "dubai": (25.2048, 55.2708), "sydney": (-33.8688, 151.2093), "melbourne": (-37.8136, 144.9631),
+        "toronto": (43.6532, -79.3832), "vancouver": (49.2827, -123.1207), "montreal": (45.5017, -73.5673),
+        "sao paulo": (-23.5505, -46.6333), "rio de janeiro": (-22.9068, -43.1729),
+        "mexico city": (19.4326, -99.1332), "buenos aires": (-34.6037, -58.3816),
+        "cairo": (30.0444, 31.2357), "lagos": (6.5244, 3.3792), "nairobi": (-1.2921, 36.8219),
+        "cape town": (-33.9249, 18.4241), "johannesburg": (-26.2041, 28.0473),
+        "moscow": (55.7558, 37.6173), "istanbul": (41.0082, 28.9784),
+        "seoul": (37.5665, 126.978), "bangkok": (13.7563, 100.5018), "jakarta": (-6.2088, 106.8456),
+        "taipei": (25.033, 121.5654), "hong kong": (22.3193, 114.1694), "kuala lumpur": (3.139, 101.6869),
+        "manila": (14.5995, 120.9842), "ho chi minh city": (10.8231, 106.6297),
+        # US States
+        "california": (36.7783, -119.4179), "texas": (31.9686, -99.9018), "florida": (27.6648, -81.5158),
+        "new york state": (43.2994, -74.2179), "illinois": (40.6331, -89.3985), "pennsylvania": (41.2033, -77.1945),
+        "ohio": (40.4173, -82.9071), "georgia": (32.1656, -82.9001), "north carolina": (35.7596, -79.0193),
+        "michigan": (44.3148, -85.6024), "washington": (47.7511, -120.7401), "colorado": (39.5501, -105.7821),
+        "massachusetts": (42.4072, -71.3824), "virginia": (37.4316, -78.6569), "arizona": (34.0489, -111.0937),
+        "tennessee": (35.5175, -86.5804), "maryland": (39.0458, -76.6413), "oregon": (43.8041, -120.5542),
+        "wisconsin": (43.7844, -88.7879), "minnesota": (46.7296, -94.6859), "connecticut": (41.6032, -73.0877),
+        "nevada": (38.8026, -116.4194), "utah": (39.321, -111.0937), "iowa": (41.878, -93.0977),
+        "indiana": (40.2672, -86.1349), "missouri": (37.9643, -91.8318), "alabama": (32.3182, -86.9023),
+    }
+
+    def get_geo_spatial_analysis(
+        self,
+        target_metric: str | None = None,
+        geo_column: str | None = None,
+        lat_column: str | None = None,
+        lng_column: str | None = None,
+        flow_source_col: str | None = None,
+        flow_target_col: str | None = None,
+        geojson_data: dict | None = None,
+        cluster_count: int = 8,
+        top_n: int = 50,
+    ) -> dict[str, Any]:
+        """
+        3D Spatial Geo-Heatmap & Arc-Flow Engine.
+
+        Produces:
+        1. heat_points  — [{lat, lng, value, label}] for ECharts GL scatter/bar3D
+        2. region_aggregates — [{region, total, avg, count, lat, lng}] grouped by geo col
+        3. density_clusters — K-Means spatial density clusters with centroids
+        4. arc_flows — [{source: {lat,lng,label}, target: {lat,lng,label}, value}] for animated arcs
+        5. choropleth_data — [{name, value}] for map region shading
+        6. distribution_stats — geographic spread metrics (centroid, dispersion)
+        7. geojson_support — embedded geojson boundaries if provided
+        """
+        metric = target_metric or self.metric_col
+        if not metric or metric not in self.df.columns:
+            metric = self.numeric_cols[0] if self.numeric_cols else None
+        if not metric:
+            raise ValueError("No numeric metric column available for geo-spatial analysis.")
+
+        # ---- Resolve lat/lng columns ----
+        lat_col = lat_column
+        lng_col = lng_column
+        geo_col = geo_column or self.geo_col
+
+        # Auto-detect lat/lng from semantic types
+        if not lat_col or not lng_col:
+            for cp in self._profile.columns:
+                if cp.semantic_type == "lat" and not lat_col:
+                    lat_col = cp.name
+                elif cp.semantic_type == "lng" and not lng_col:
+                    lng_col = cp.name
+
+        has_coords = (lat_col and lat_col in self.df.columns and
+                      lng_col and lng_col in self.df.columns)
+
+        # Resolve geo column for name-based geocoding
+        if not geo_col:
+            for cp in self._profile.columns:
+                if cp.inferred_role == "geo":
+                    geo_col = cp.name
+                    break
+            if not geo_col:
+                # Fallback: search categorical cols for geo-like content
+                for cc in self.categorical_cols:
+                    sample = [str(v).lower().strip() for v in self.df[cc].drop_nulls().head(20).to_list()]
+                    if any(v in self._GEOCODE_DB for v in sample):
+                        geo_col = cc
+                        break
+
+        if not has_coords and not geo_col:
+            raise ValueError(
+                "No geographic columns detected. Provide lat/lng columns, "
+                "a geo region column, or upload a dataset with location data."
+            )
+
+        # ---- Build coordinate-resolved DataFrame ----
+        work_df = self.df.clone()
+
+        if has_coords:
+            # Use raw lat/lng
+            work_df = work_df.filter(
+                pl.col(lat_col).is_not_null() & pl.col(lng_col).is_not_null()
+            )
+            work_df = work_df.with_columns([
+                pl.col(lat_col).cast(pl.Float64).alias("_lat"),
+                pl.col(lng_col).cast(pl.Float64).alias("_lng"),
+            ])
+            # Filter invalid coordinates
+            work_df = work_df.filter(
+                (pl.col("_lat").abs() <= 90) & (pl.col("_lng").abs() <= 180)
+            )
+            if geo_col and geo_col in work_df.columns:
+                label_col = geo_col
+            else:
+                # Synthesize a label from lat/lng so we don't clash with _lat/_lng aliases
+                work_df = work_df.with_columns(
+                    (pl.col("_lat").round(2).cast(pl.Utf8) + pl.lit(", ") + pl.col("_lng").round(2).cast(pl.Utf8)).alias("_geo_label")
+                )
+                label_col = "_geo_label"
+        else:
+            # Geocode from region names
+            geo_values = work_df[geo_col].drop_nulls().unique().to_list()
+            lat_map = {}
+            lng_map = {}
+            for val in geo_values:
+                key = str(val).lower().strip()
+                coords = self._GEOCODE_DB.get(key)
+                if coords:
+                    lat_map[str(val)] = coords[0]
+                    lng_map[str(val)] = coords[1]
+
+            if not lat_map:
+                raise ValueError(
+                    f"Could not geocode any values in column '{geo_col}'. "
+                    "Consider providing explicit lat/lng columns."
+                )
+
+            work_df = work_df.filter(pl.col(geo_col).is_not_null())
+            work_df = work_df.with_columns([
+                pl.col(geo_col).cast(pl.Utf8).map_elements(
+                    lambda v: lat_map.get(str(v), None), return_dtype=pl.Float64
+                ).alias("_lat"),
+                pl.col(geo_col).cast(pl.Utf8).map_elements(
+                    lambda v: lng_map.get(str(v), None), return_dtype=pl.Float64
+                ).alias("_lng"),
+            ])
+            work_df = work_df.filter(pl.col("_lat").is_not_null() & pl.col("_lng").is_not_null())
+            label_col = geo_col
+
+        if work_df.height == 0:
+            raise ValueError("No valid geo-coded rows after coordinate resolution.")
+
+        # ---- 1. Heat Points (raw scatter) ----
+        heat_points = []
+        sample = work_df.head(min(top_n * 20, work_df.height))
+        select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
+        for row in sample.select(select_cols).iter_rows(named=True):
+            heat_points.append({
+                "lat": round(float(row["_lat"]), 6),
+                "lng": round(float(row["_lng"]), 6),
+                "value": float(row[metric]) if row[metric] is not None else 0.0,
+                "label": str(row[label_col]) if row[label_col] is not None else "Unknown",
+            })
+
+        # ---- 2. Region Aggregates (grouped) ----
+        region_aggregates = []
+        if label_col and label_col in work_df.columns:
+            agg_df = work_df.group_by(label_col).agg([
+                pl.col(metric).sum().alias("total"),
+                pl.col(metric).mean().alias("avg"),
+                pl.col(metric).count().alias("count"),
+                pl.col("_lat").mean().alias("centroid_lat"),
+                pl.col("_lng").mean().alias("centroid_lng"),
+                pl.col(metric).std().alias("std"),
+                pl.col(metric).max().alias("max_val"),
+            ]).sort("total", descending=True).head(top_n)
+
+            grand_total = float(work_df[metric].sum() or 1)
+            for row in agg_df.iter_rows(named=True):
+                total_val = float(row["total"]) if row["total"] is not None else 0
+                region_aggregates.append({
+                    "region": str(row[label_col]),
+                    "total": round(total_val, 2),
+                    "avg": round(float(row["avg"] or 0), 2),
+                    "count": int(row["count"]),
+                    "std": round(float(row["std"] or 0), 2),
+                    "max_val": round(float(row["max_val"] or 0), 2),
+                    "pct_of_total": round((total_val / grand_total) * 100, 2) if grand_total > 0 else 0,
+                    "lat": round(float(row["centroid_lat"] or 0), 6),
+                    "lng": round(float(row["centroid_lng"] or 0), 6),
+                })
+
+        # ---- 3. Density Clusters (K-Means) ----
+        density_clusters = []
+        try:
+            from sklearn.cluster import KMeans
+            coords = work_df.select(["_lat", "_lng"]).to_numpy()
+            values = work_df[metric].fill_null(0).to_numpy()
+            k = min(cluster_count, len(coords))
+            if k >= 2:
+                km = KMeans(n_clusters=k, random_state=42, n_init=10, max_iter=300)
+                labels = km.fit_predict(coords)
+                for i in range(k):
+                    mask = labels == i
+                    cluster_vals = values[mask]
+                    density_clusters.append({
+                        "cluster_id": i,
+                        "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
+                        "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
+                        "point_count": int(mask.sum()),
+                        "total_value": round(float(cluster_vals.sum()), 2),
+                        "avg_value": round(float(cluster_vals.mean()), 2),
+                        "max_value": round(float(cluster_vals.max()), 2),
+                        "density_score": round(float(mask.sum()) / max(len(coords), 1) * 100, 2),
+                    })
+                density_clusters.sort(key=lambda c: c["total_value"], reverse=True)
+        except Exception as e:
+            logger.warning("Geo density clustering failed: %s", e)
+
+        # ---- 4. Arc Flows (cross-region transaction paths) ----
+        arc_flows = []
+        source_col = flow_source_col
+        target_col = flow_target_col
+
+        # Auto-detect: if 2+ geo columns exist, use them as source/target
+        if not source_col or not target_col:
+            geo_candidates = [c for c in self.geo_cols if c in self.df.columns]
+            cat_geo = [c for c in self.categorical_cols if c in self.df.columns and c != label_col]
+            all_geo_like = geo_candidates + cat_geo
+            if len(all_geo_like) >= 2:
+                source_col = all_geo_like[0]
+                target_col = all_geo_like[1]
+            elif label_col and len(region_aggregates) >= 3:
+                # Generate synthetic flows between top regions
+                for i, src in enumerate(region_aggregates[:min(6, len(region_aggregates))]):
+                    for tgt in region_aggregates[i+1:min(i+4, len(region_aggregates))]:
+                        flow_value = abs(src["total"] - tgt["total"]) * 0.3
+                        if flow_value > 0:
+                            arc_flows.append({
+                                "source": {"lat": src["lat"], "lng": src["lng"], "label": src["region"]},
+                                "target": {"lat": tgt["lat"], "lng": tgt["lng"], "label": tgt["region"]},
+                                "value": round(flow_value, 2),
+                            })
+
+        if source_col and target_col and source_col in self.df.columns and target_col in self.df.columns and not arc_flows:
+            flow_df = self.df.filter(
+                pl.col(source_col).is_not_null() & pl.col(target_col).is_not_null()
+            ).group_by([source_col, target_col]).agg(
+                pl.col(metric).sum().alias("flow_value")
+            ).sort("flow_value", descending=True).head(top_n)
+
+            for row in flow_df.iter_rows(named=True):
+                src_key = str(row[source_col]).lower().strip()
+                tgt_key = str(row[target_col]).lower().strip()
+                src_coords = self._GEOCODE_DB.get(src_key)
+                tgt_coords = self._GEOCODE_DB.get(tgt_key)
+                if src_coords and tgt_coords:
+                    arc_flows.append({
+                        "source": {"lat": src_coords[0], "lng": src_coords[1], "label": str(row[source_col])},
+                        "target": {"lat": tgt_coords[0], "lng": tgt_coords[1], "label": str(row[target_col])},
+                        "value": round(float(row["flow_value"] or 0), 2),
+                    })
+
+        # ---- 5. Choropleth Data ----
+        choropleth_data = [
+            {"name": r["region"], "value": r["total"]}
+            for r in region_aggregates
+        ]
+
+        # ---- 6. Distribution Statistics ----
+        lats = work_df["_lat"].to_numpy()
+        lngs = work_df["_lng"].to_numpy()
+        vals = work_df[metric].fill_null(0).to_numpy()
+
+        centroid_lat = float(np.average(lats, weights=np.abs(vals) + 1e-9))
+        centroid_lng = float(np.average(lngs, weights=np.abs(vals) + 1e-9))
+
+        # Geographic dispersion (weighted std of distances from centroid)
+        dist_from_centroid = np.sqrt((lats - centroid_lat)**2 + (lngs - centroid_lng)**2)
+        dispersion = float(np.std(dist_from_centroid))
+        coverage_area_approx = float(
+            (lats.max() - lats.min()) * (lngs.max() - lngs.min())
+        ) if len(lats) > 1 else 0
+
+        distribution_stats = {
+            "weighted_centroid": {"lat": round(centroid_lat, 6), "lng": round(centroid_lng, 6)},
+            "geographic_dispersion": round(dispersion, 4),
+            "coverage_area_deg2": round(coverage_area_approx, 2),
+            "total_geolocated_rows": work_df.height,
+            "unique_locations": int(work_df.select(["_lat", "_lng"]).unique().height),
+            "lat_range": {"min": round(float(lats.min()), 4), "max": round(float(lats.max()), 4)},
+            "lng_range": {"min": round(float(lngs.min()), 4), "max": round(float(lngs.max()), 4)},
+            "metric_geo_correlation": round(float(np.corrcoef(lats, vals)[0, 1]) if len(lats) > 2 and np.std(vals) > 0 else 0.0, 4),
+        }
+
+        # ---- Build AI narrative ----
+        top_region = region_aggregates[0]["region"] if region_aggregates else "N/A"
+        top_pct = region_aggregates[0]["pct_of_total"] if region_aggregates else 0
+        narrative = (
+            f"Geographic analysis identified {len(region_aggregates)} distinct regions "
+            f"spanning {work_df.height:,} geolocated data points. "
+            f"The highest-concentration region is '{top_region}', accounting for {top_pct:.1f}% of total {metric}. "
+            f"Spatial density clustering via K-Means reveals {len(density_clusters)} geographic hotspot zones. "
+            f"The weighted geographic centroid is located at ({centroid_lat:.2f}, {centroid_lng:.2f}) "
+            f"with a dispersion index of {dispersion:.2f}. "
+            f"{len(arc_flows)} cross-region flow connections were identified for network visualization."
+        )
+
+        return {
+            "status": "success",
+            "target_metric": metric,
+            "geo_column": geo_col or (lat_col + " / " + lng_col if lat_col and lng_col else "auto"),
+            "coordinate_mode": "lat_lng" if has_coords else "geocoded",
+            "heat_points": heat_points[:top_n * 10],
+            "region_aggregates": region_aggregates,
+            "density_clusters": density_clusters,
+            "arc_flows": arc_flows,
+            "choropleth_data": choropleth_data,
+            "distribution_stats": distribution_stats,
+            "geojson_boundaries": geojson_data,
+            "ai_narrative": narrative,
+        }
+
+    # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
 

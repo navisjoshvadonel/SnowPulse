@@ -169,3 +169,47 @@ def test_engine_evaluate_calculated_field():
     assert res_tier["field_name"] in eng.df.columns
 
 
+def test_engine_geo_spatial_analysis_geocoded():
+    """Test geo-spatial analysis with region-name geocoding (no lat/lng columns)."""
+    regions = ["North", "South", "East", "West", "North", "South", "East", "West",
+               "North", "South", "East", "West", "North", "South", "East", "West"]
+    revenues = [100.0, 200.0, 150.0, 250.0, 120.0, 180.0, 130.0, 220.0,
+                110.0, 190.0, 140.0, 240.0, 105.0, 210.0, 135.0, 230.0]
+    dates = [f"2026-01-{i+1:02d}" for i in range(16)]
+    df = pl.DataFrame({"Date": dates, "Revenue": revenues, "Region": regions})
+
+    eng = AnalyticsEngine(df)
+    result = eng.get_geo_spatial_analysis()
+
+    assert result["status"] == "success"
+    assert result["coordinate_mode"] == "geocoded"
+    assert len(result["heat_points"]) > 0
+    assert len(result["region_aggregates"]) == 4  # North, South, East, West
+    assert result["region_aggregates"][0]["pct_of_total"] > 0
+    assert len(result["density_clusters"]) > 0
+    assert len(result["arc_flows"]) > 0
+    assert len(result["choropleth_data"]) == 4
+    assert "weighted_centroid" in result["distribution_stats"]
+    assert "ai_narrative" in result
+
+
+def test_engine_geo_spatial_analysis_latlng():
+    """Test geo-spatial analysis with explicit lat/lng columns."""
+    lats = [40.7128, 34.0522, 41.8781, 29.7604, 33.4484, 39.9526, 37.7749, 47.6062]
+    lngs = [-74.006, -118.2437, -87.6298, -95.3698, -112.074, -75.1652, -122.4194, -122.3321]
+    revenues = [500, 400, 350, 300, 250, 200, 450, 280]
+    cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia", "San Francisco", "Seattle"]
+    df = pl.DataFrame({"City": cities, "Latitude": lats, "Longitude": lngs, "Revenue": revenues})
+
+    eng = AnalyticsEngine(df)
+    result = eng.get_geo_spatial_analysis(lat_column="Latitude", lng_column="Longitude")
+
+    assert result["status"] == "success"
+    assert result["coordinate_mode"] == "lat_lng"
+    assert len(result["heat_points"]) == 8
+    assert result["distribution_stats"]["total_geolocated_rows"] == 8
+    assert result["distribution_stats"]["unique_locations"] == 8
+    # Centroid should be somewhere in continental US
+    centroid = result["distribution_stats"]["weighted_centroid"]
+    assert 25 < centroid["lat"] < 50
+    assert -130 < centroid["lng"] < -70

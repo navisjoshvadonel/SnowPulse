@@ -239,6 +239,29 @@ export const apiService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(filterState),
     });
+  },
+
+  // AI-Powered Natural Language Calculated Fields
+  async createCalculatedField(datasetId: number, prompt: string, fieldName?: string) {
+    return fetchAPI(`/api/datasets/${datasetId}/calculated-fields`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, field_name: fieldName }),
+    });
+  },
+
+  // 3D Spatial Geo-Heatmap & Arc Flow Engine
+  async getGeoSpatial(datasetId: number, params?: { target_metric?: string; geo_column?: string; lat_column?: string; lng_column?: string; cluster_count?: number; top_n?: number }) {
+    const qp = new URLSearchParams();
+    if (params?.target_metric) qp.append("target_metric", params.target_metric);
+    if (params?.geo_column) qp.append("geo_column", params.geo_column);
+    if (params?.lat_column) qp.append("lat_column", params.lat_column);
+    if (params?.lng_column) qp.append("lng_column", params.lng_column);
+    if (params?.cluster_count) qp.append("cluster_count", params.cluster_count.toString());
+    if (params?.top_n) qp.append("top_n", params.top_n.toString());
+    const queryStr = qp.toString() ? `?${qp.toString()}` : "";
+    return fetchAPI(`/api/datasets/${datasetId}/geo-spatial${queryStr}`);
   }
 };
+
 

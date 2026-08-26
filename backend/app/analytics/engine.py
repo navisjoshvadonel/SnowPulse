@@ -614,6 +614,169 @@ class AnalyticsEngine:
         }
 
     # ------------------------------------------------------------------
+    # AI Monte Carlo Risk & Scenario Simulator Engine
+    # ------------------------------------------------------------------
+
+    def get_monte_carlo_simulation(
+        self,
+        target_metric: str | None = None,
+        steps: int = 12,
+        iterations: int = 1000,
+        price_delta: float = 0.0,
+        cost_delta: float = 0.0,
+        churn_delta: float = 0.0,
+        volatility: float = 0.15,
+        target_threshold: float | None = None
+    ) -> dict[str, Any]:
+        """
+        Executes a 1,000-run (or N-run) stochastic Monte Carlo simulation using Geometric Brownian Motion
+        to project confidence bands (P10, P25, P50, P75, P90) and tail-risk metrics (95% VaR, CVaR).
+        """
+        import numpy as np
+
+        # Fallback to primary numeric column if target_metric is omitted
+        metric = target_metric
+        if not metric or metric not in self.df.columns:
+            num_cols = [c for c, dt in self.df.schema.items() if dt.is_numeric()]
+            if not num_cols:
+                return {"error": "No numeric metric found for Monte Carlo simulation"}
+            metric = num_cols[0]
+
+        series = self.df[metric].drop_nulls()
+        if len(series) == 0:
+            return {"error": f"Metric '{metric}' contains no valid numeric records"}
+
+        vals = series.to_numpy()
+        base_val = float(np.median(vals)) if len(vals) > 0 else 100.0
+        if base_val <= 0:
+            base_val = max(1.0, float(np.mean(np.abs(vals))))
+
+        # Historical growth rate & drift estimation
+        hist_std = float(np.std(vals) / (np.mean(vals) + 1e-9)) if len(vals) > 1 else 0.1
+        vol = max(0.01, min(1.0, float(volatility) if volatility > 0 else hist_std))
+
+        # Effective annual/monthly drift considering what-if parameters
+        # Price increases boost outcome (+), cost inflation reduces outcome (-), churn reduces outcome (-)
+        net_param_impact = price_delta - cost_delta - churn_delta
+        mu_base = 0.05  # 5% annual baseline drift
+        mu_eff = mu_base + net_param_impact
+
+        # Time steps (e.g. months)
+        steps = max(3, min(60, steps))
+        iterations = max(100, min(10000, iterations))
+        dt = 1.0 / 12.0  # Monthly steps
+
+        # Generate stochastic trajectories via Geometric Brownian Motion (GBM)
+        # S_{t+1} = S_t * exp((mu - 0.5 * sigma^2)*dt + sigma * sqrt(dt) * Z_t)
+        np.random.seed(42)  # Deterministic seed for reproducible analytical runs
+        shocks = np.random.normal(0, 1, size=(iterations, steps))
+        drift = (mu_eff - 0.5 * (vol ** 2)) * dt
+        diffusion = vol * np.sqrt(dt) * shocks
+
+        multipliers = np.exp(drift + diffusion)
+
+        paths = np.zeros((iterations, steps + 1))
+        paths[:, 0] = base_val
+
+        for t in range(1, steps + 1):
+            paths[:, t] = paths[:, t - 1] * multipliers[:, t - 1]
+
+        # Calculate percentiles across all iterations at each time step
+        p10 = np.percentile(paths, 10, axis=0)
+        p25 = np.percentile(paths, 25, axis=0)
+        p50 = np.percentile(paths, 50, axis=0)
+        p75 = np.percentile(paths, 75, axis=0)
+        p90 = np.percentile(paths, 90, axis=0)
+
+        step_labels = [f"M{t}" if t > 0 else "Base" for t in range(steps + 1)]
+
+        # Final step outcome statistics
+        final_vals = paths[:, -1]
+        final_p50 = float(p50[-1])
+        final_p10 = float(p10[-1])
+        final_p90 = float(p90[-1])
+
+        # Risk Metrics (Value-at-Risk VaR & Conditional VaR CVaR)
+        p5_val = float(np.percentile(final_vals, 5))
+        var_95 = max(0.0, base_val - p5_val)
+        worst_5_pct = final_vals[final_vals <= p5_val]
+        cvar_95 = max(var_95, base_val - float(np.mean(worst_5_pct))) if len(worst_5_pct) > 0 else var_95
+
+        loss_count = np.sum(final_vals < base_val)
+        prob_of_loss = round(float(loss_count / iterations * 100.0), 1)
+
+        threshold = target_threshold if target_threshold is not None else base_val * 1.15
+        target_count = np.sum(final_vals >= threshold)
+        prob_of_target = round(float(target_count / iterations * 100.0), 1)
+
+        # Final Outcome Frequency Histogram (15 Bins)
+        counts, bin_edges = np.histogram(final_vals, bins=12)
+        distribution_bins = []
+        for i in range(len(counts)):
+            b_min = float(bin_edges[i])
+            b_max = float(bin_edges[i + 1])
+            b_count = int(counts[i])
+            pct = round((b_count / iterations) * 100.0, 1)
+
+            tier = "Expected"
+            if b_max <= final_p10:
+                tier = "Worst Case (P10)"
+            elif b_min >= final_p90:
+                tier = "Optimistic (P90)"
+
+            distribution_bins.append({
+                "bin_min": round(b_min, 2),
+                "bin_max": round(b_max, 2),
+                "label": f"{b_min:,.0f} - {b_max:,.0f}",
+                "count": b_count,
+                "percentage": pct,
+                "tier": tier
+            })
+
+        # Synthesis Narrative
+        impact_dir = "favorable" if net_param_impact >= 0 else "adverse"
+        ai_narrative = (
+            f"Executed {iterations:,} stochastic Monte Carlo trajectories for '{metric}'. "
+            f"Under net {impact_dir} parameter shifts (Pricing: {price_delta*100:+.1f}%, Cost: {cost_delta*100:+.1f}%, Churn: {churn_delta*100:+.1f}%, Volatility: {vol*100:.1f}%), "
+            f"the P50 expected outcome is {final_p50:,.2f} (+{((final_p50/base_val)-1)*100:.1f}% vs baseline {base_val:,.2f}). "
+            f"Tail-risk analysis indicates a {prob_of_loss}% downside risk of loss, with a 95% Value-at-Risk (VaR) of {var_95:,.2f}."
+        )
+
+        return {
+            "target_metric": metric,
+            "base_value": round(base_val, 2),
+            "iterations": iterations,
+            "steps": steps,
+            "parameters": {
+                "price_delta": price_delta,
+                "cost_delta": cost_delta,
+                "churn_delta": churn_delta,
+                "volatility": vol,
+                "net_impact_pct": round(net_param_impact * 100, 1),
+            },
+            "step_labels": step_labels,
+            "percentiles": {
+                "p10": [round(x, 2) for x in p10.tolist()],
+                "p25": [round(x, 2) for x in p25.tolist()],
+                "p50": [round(x, 2) for x in p50.tolist()],
+                "p75": [round(x, 2) for x in p75.tolist()],
+                "p90": [round(x, 2) for x in p90.tolist()],
+            },
+            "risk_metrics": {
+                "final_p10": round(final_p10, 2),
+                "final_p50": round(final_p50, 2),
+                "final_p90": round(final_p90, 2),
+                "var_95": round(var_95, 2),
+                "cvar_95": round(cvar_95, 2),
+                "prob_of_loss": prob_of_loss,
+                "prob_of_target": prob_of_target,
+                "target_threshold": round(threshold, 2),
+            },
+            "distribution_bins": distribution_bins,
+            "ai_risk_narrative": ai_narrative,
+        }
+
+    # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
 

@@ -105,3 +105,29 @@ def test_engine_decomposition_tree(sample_csv):
     assert "delta_value" in first_child
     assert "direction" in first_child
     assert "summary_insight" in tree_data
+
+
+def test_engine_monte_carlo_simulation(sample_csv):
+    engine = AnalyticsEngine(sample_csv)
+    sim = engine.get_monte_carlo_simulation(
+        target_metric="Revenue",
+        steps=12,
+        iterations=1000,
+        price_delta=0.10,
+        cost_delta=0.02,
+        churn_delta=0.0,
+        volatility=0.15
+    )
+    assert sim["target_metric"] == "Revenue"
+    assert sim["iterations"] == 1000
+    assert sim["steps"] == 12
+    assert "percentiles" in sim
+    assert len(sim["percentiles"]["p10"]) == 13
+    assert len(sim["percentiles"]["p50"]) == 13
+    assert len(sim["percentiles"]["p90"]) == 13
+    assert sim["risk_metrics"]["final_p90"] >= sim["risk_metrics"]["final_p50"]
+    assert sim["risk_metrics"]["final_p50"] >= sim["risk_metrics"]["final_p10"]
+    assert "distribution_bins" in sim
+    assert len(sim["distribution_bins"]) > 0
+    assert "ai_risk_narrative" in sim
+

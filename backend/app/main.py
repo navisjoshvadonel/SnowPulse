@@ -507,6 +507,51 @@ def get_decomposition_tree_endpoint(
         raise HTTPException(status_code=500, detail=f"Could not compute decomposition tree: {e}")
 
 
+@app.get("/api/datasets/{dataset_id}/monte-carlo")
+def get_monte_carlo_endpoint(
+    dataset_id: int,
+    target_metric: str | None = None,
+    steps: int = 12,
+    iterations: int = 1000,
+    price_delta: float = 0.0,
+    cost_delta: float = 0.0,
+    churn_delta: float = 0.0,
+    volatility: float = 0.15,
+    target_threshold: float | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Executes 1,000 to 10,000 run Monte Carlo stochastic risk simulation using Geometric Brownian Motion.
+    Returns P10, P25, P50, P75, P90 confidence bands, VaR 95%, CVaR 95%, loss probability, and outcome distribution.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        return eng.get_monte_carlo_simulation(
+            target_metric=target_metric,
+            steps=steps,
+            iterations=iterations,
+            price_delta=price_delta,
+            cost_delta=cost_delta,
+            churn_delta=churn_delta,
+            volatility=volatility,
+            target_threshold=target_threshold,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not run Monte Carlo simulation: {e}")
+
+
 @app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(
     dataset_id: int,

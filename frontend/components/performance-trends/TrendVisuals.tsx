@@ -81,18 +81,27 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
 
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
+      animation: true,
+      animationDuration: 1200,
+      animationEasing: "cubicOut",
+      animationDurationUpdate: 800,
+      animationEasingUpdate: "quinticOut",
       tooltip: {
         trigger: "axis",
         backgroundColor: "#12151e",
-        borderColor: "rgba(255,255,255,0.08)",
+        borderColor: "rgba(80,99,244,0.3)",
         borderWidth: 1,
         textStyle: { color: "#f3f4f6", fontFamily: "Inter, sans-serif", fontSize: 12 },
+        axisPointer: {
+          type: "cross",
+          crossStyle: { color: "rgba(129,140,248,0.4)" },
+        },
         formatter: (params: any) => {
           let html = `<div style="padding:4px 2px"><p style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;font-family:'JetBrains Mono',monospace">${params[0].name}</p>`;
           params.forEach((p: any) => {
             const formattedVal = formatMetricValue(p.value, trends.metric);
             html += `<div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};box-shadow:0 0 6px ${p.color}"></span>
               <span style="color:rgba(255,255,255,0.7);font-size:11px">${p.seriesName}</span>
               <span style="color:#fff;font-weight:bold;font-size:11px;margin-left:auto">${formattedVal}</span>
             </div>`;
@@ -104,7 +113,7 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
       legend: {
         show: true,
         bottom: 0,
-        textStyle: { color: "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "Inter,sans-serif" },
+        textStyle: { color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Inter,sans-serif" },
         icon: "circle",
         itemWidth: 8,
         itemHeight: 8,
@@ -121,9 +130,9 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
         type: "category",
         data: formattedDates,
         boundaryGap: chartType === "bar",
-        axisLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } },
+        axisLine: { lineStyle: { color: "rgba(255,255,255,0.08)" } },
         axisLabel: {
-          color: "rgba(255,255,255,0.3)",
+          color: "rgba(255,255,255,0.4)",
           fontFamily: "Inter, sans-serif",
           fontSize: 10,
           margin: 10,
@@ -137,7 +146,7 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
           lineStyle: { color: "rgba(255,255,255,0.04)", type: "dashed" },
         },
         axisLabel: {
-          color: "rgba(255,255,255,0.3)",
+          color: "rgba(255,255,255,0.4)",
           fontFamily: "Inter, sans-serif",
           fontSize: 10,
           formatter: (val: number) => formatMetricValue(val, trends.metric, null, { notation: "compact" }),
@@ -153,17 +162,25 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
           data: movingAvg,
           smooth: 0.35,
           barMaxWidth: 20,
-          itemStyle: { color: "#5063f4" },
+          itemStyle: {
+            color: "#5063f4",
+            borderRadius: chartType === "bar" ? [4, 4, 0, 0] : 0,
+          },
           areaStyle:
             chartType === "area"
               ? {
                   color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                    { offset: 0, color: "rgba(80,99,244,0.35)" },
+                    { offset: 0, color: "rgba(80,99,244,0.45)" },
                     { offset: 1, color: "rgba(80,99,244,0.00)" },
                   ]),
                 }
               : undefined,
-          lineStyle: { width: 2, color: "#5063f4" },
+          lineStyle: {
+            width: 3,
+            color: "#5063f4",
+            shadowBlur: 10,
+            shadowColor: "rgba(80,99,244,0.5)",
+          },
           showSymbol: false,
         },
         {
@@ -172,17 +189,25 @@ export default function TrendVisuals({ trends, aiTrendNote, loading }: TrendVisu
           data: values,
           smooth: 0.35,
           barMaxWidth: 20,
-          itemStyle: { color: "#10b981" },
+          itemStyle: {
+            color: "#10b981",
+            borderRadius: chartType === "bar" ? [4, 4, 0, 0] : 0,
+          },
           areaStyle:
             chartType === "area"
               ? {
                   color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                    { offset: 0, color: "rgba(16,185,129,0.25)" },
+                    { offset: 0, color: "rgba(16,185,129,0.30)" },
                     { offset: 1, color: "rgba(16,185,129,0.00)" },
                   ]),
                 }
               : undefined,
-          lineStyle: { width: 2, color: "#10b981" },
+          lineStyle: {
+            width: 3,
+            color: "#10b981",
+            shadowBlur: 10,
+            shadowColor: "rgba(16,185,129,0.5)",
+          },
           showSymbol: false,
         },
       ],

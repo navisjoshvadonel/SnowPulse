@@ -77,9 +77,12 @@ export default function DistributionPanel({
     }
 
     const activeRange = activeNumericRanges[selectedCol];
+    const hasNumericFilter = Boolean(activeRange);
 
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
+      animationDuration: 350,
+      animationEasing: "cubicOut",
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -113,6 +116,7 @@ export default function DistributionPanel({
             return {
               value: b.count,
               itemStyle: {
+                opacity: !hasNumericFilter || isHighlighted ? 1.0 : 0.2,
                 color: isHighlighted
                   ? "#10b981"
                   : new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -120,6 +124,8 @@ export default function DistributionPanel({
                       { offset: 1, color: "#8b5cf6" },
                     ]),
                 borderRadius: [6, 6, 0, 0],
+                shadowBlur: isHighlighted ? 10 : 0,
+                shadowColor: isHighlighted ? "#10b981" : undefined,
               },
             };
           }),

@@ -36,6 +36,9 @@ export default function AutoPieChart({
   loading = false,
 }: AutoPieChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const activeCategoryValues = useFilterStore((state) => state.activeCategoryValues);
+  const selectedFilterVals = (categoryColumn && activeCategoryValues[categoryColumn]) || [];
+  const hasFilter = selectedFilterVals.length > 0;
 
   useEffect(() => {
     if (loading || !data || data.length === 0 || !chartRef.current) return;
@@ -46,6 +49,8 @@ export default function AutoPieChart({
 
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
+      animationDuration: 350,
+      animationEasing: "cubicOut",
       tooltip: {
         trigger: "item",
         backgroundColor: "#12151e",
@@ -105,7 +110,17 @@ export default function AutoPieChart({
               formatter: "{b}: {d}%",
             },
           },
-          data: data,
+          data: data.map((item) => {
+            const isSelected = selectedFilterVals.includes(item.name);
+            return {
+              ...item,
+              itemStyle: {
+                opacity: !hasFilter || isSelected ? 1.0 : 0.2,
+                shadowBlur: isSelected ? 12 : 0,
+                shadowColor: isSelected ? "rgba(99, 102, 241, 0.8)" : undefined,
+              },
+            };
+          }),
           color: PIE_COLORS,
         },
       ],
@@ -138,7 +153,7 @@ export default function AutoPieChart({
       chart.dispose();
       window.removeEventListener("resize", handleResize);
     };
-  }, [data, loading, title, categoryColumn]);
+  }, [data, loading, title, categoryColumn, selectedFilterVals, hasFilter]);
 
   return (
     <div

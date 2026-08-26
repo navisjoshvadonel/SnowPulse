@@ -62,12 +62,15 @@ export default function CategoricalBreakdownPanel({
     }));
 
     const selectedFilterVals = activeCategoryValues[selectedCol] || [];
+    const hasCategoryFilter = selectedFilterVals.length > 0;
 
     let option: echarts.EChartsOption = {};
 
     if (chartType === "pie") {
       option = {
         backgroundColor: "transparent",
+        animationDuration: 350,
+        animationEasing: "cubicOut",
         tooltip: {
           trigger: "item",
           backgroundColor: "#0f172a",
@@ -97,16 +100,26 @@ export default function CategoricalBreakdownPanel({
             emphasis: {
               label: { show: true, fontSize: 12, fontWeight: "bold" },
             },
-            data: data.map((d: { name: string; value: number }) => ({
-              ...d,
-              selected: selectedFilterVals.includes(d.name),
-            })),
+            data: data.map((d: { name: string; value: number }) => {
+              const isSelected = selectedFilterVals.includes(d.name);
+              return {
+                ...d,
+                selected: isSelected,
+                itemStyle: {
+                  opacity: !hasCategoryFilter || isSelected ? 1.0 : 0.2,
+                  shadowBlur: isSelected ? 12 : 0,
+                  shadowColor: isSelected ? "#06b6d4" : undefined,
+                },
+              };
+            }),
           },
         ],
       };
     } else {
       option = {
         backgroundColor: "transparent",
+        animationDuration: 350,
+        animationEasing: "cubicOut",
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "shadow" },
@@ -129,18 +142,24 @@ export default function CategoricalBreakdownPanel({
         series: [
           {
             type: "bar",
-            data: data.map((d: { name: string; value: number }) => ({
-              value: d.value,
-              itemStyle: {
-                color: selectedFilterVals.includes(d.name)
-                  ? "#06b6d4"
-                  : new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                      { offset: 0, color: "#3b82f6" },
-                      { offset: 1, color: "#06b6d4" },
-                    ]),
-                borderRadius: [0, 6, 6, 0],
-              },
-            })),
+            data: data.map((d: { name: string; value: number }) => {
+              const isSelected = selectedFilterVals.includes(d.name);
+              return {
+                value: d.value,
+                itemStyle: {
+                  opacity: !hasCategoryFilter || isSelected ? 1.0 : 0.2,
+                  color: isSelected
+                    ? "#06b6d4"
+                    : new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                        { offset: 0, color: "#3b82f6" },
+                        { offset: 1, color: "#06b6d4" },
+                      ]),
+                  borderRadius: [0, 6, 6, 0],
+                  shadowBlur: isSelected ? 10 : 0,
+                  shadowColor: isSelected ? "#06b6d4" : undefined,
+                },
+              };
+            }),
           },
         ],
       };

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { usePinnedChartStore } from "@/store/usePinnedChartStore";
+import { useFilterStore } from "@/store/useFilterStore";
 
 interface TreeNode {
   name: string;
@@ -269,6 +270,15 @@ export const DecompositionTreePanel: React.FC<DecompositionTreePanelProps> = ({ 
     };
 
     chartInstance.current.setOption(option, true);
+
+    const handleTreeNodeClick = (params: any) => {
+      if (params.data && params.data.dimension && params.data.name) {
+        useFilterStore.getState().toggleCategoryValue(params.data.dimension, params.data.name);
+      }
+    };
+
+    chartInstance.current.off("click");
+    chartInstance.current.on("click", handleTreeNodeClick);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener("resize", handleResize);

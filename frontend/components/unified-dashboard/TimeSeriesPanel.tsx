@@ -18,7 +18,7 @@ export default function TimeSeriesPanel({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
-  const { setDateRange } = useFilterStore();
+  const { setDateRange, dateRange, activeCategoryValues, toggleCategoryValue } = useFilterStore();
 
   const dateCol = columns.find(
     (c) =>
@@ -89,8 +89,12 @@ export default function TimeSeriesPanel({
         values.push(Math.max(1, Math.round(currentVal * 100) / 100));
       }
 
+      const hasDateFilter = dateRange && dateRange.start && dateRange.end;
+
       const option: echarts.EChartsOption = {
         backgroundColor: "transparent",
+        animationDuration: 350,
+        animationEasing: "cubicOut",
         tooltip: {
           trigger: "axis",
           backgroundColor: "#0f172a",
@@ -139,14 +143,25 @@ export default function TimeSeriesPanel({
             symbol: "circle",
             symbolSize: 6,
             itemStyle: { color: "#06b6d4" },
-            lineStyle: { width: 3, color: "#06b6d4" },
+            lineStyle: { width: 3, color: "#06b6d4", opacity: hasDateFilter ? 0.8 : 1.0 },
             areaStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: "rgba(6, 182, 212, 0.4)" },
+                { offset: 0, color: hasDateFilter ? "rgba(6, 182, 212, 0.2)" : "rgba(6, 182, 212, 0.4)" },
                 { offset: 1, color: "rgba(6, 182, 212, 0.0)" },
               ]),
             },
-            data: values,
+            data: values.map((val, idx) => {
+              const dStr = dates[idx];
+              const isInRange =
+                !hasDateFilter ||
+                (dateRange?.start && dateRange?.end && dStr >= dateRange.start && dStr <= dateRange.end);
+              return {
+                value: val,
+                itemStyle: {
+                  opacity: isInRange ? 1.0 : 0.2,
+                },
+              };
+            }),
           },
         ],
       };
@@ -180,8 +195,13 @@ export default function TimeSeriesPanel({
         catValues = Array.from({ length: 8 }, () => Math.round(baseMean * (0.5 + Math.random())));
       }
 
+      const activeCatFilter = primaryCat ? activeCategoryValues[primaryCat.name] || [] : [];
+      const hasCatFilter = activeCatFilter.length > 0;
+
       const option: echarts.EChartsOption = {
         backgroundColor: "transparent",
+        animationDuration: 350,
+        animationEasing: "cubicOut",
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "shadow" },
@@ -215,19 +235,38 @@ export default function TimeSeriesPanel({
             name: selectedMetric,
             type: "bar",
             barMaxWidth: 35,
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: "#06b6d4" },
-                { offset: 1, color: "#3b82f6" },
-              ]),
-              borderRadius: [6, 6, 0, 0],
-            },
-            data: catValues,
+            data: catValues.map((val, idx) => {
+              const catName = categories[idx];
+              const isSelected = activeCatFilter.includes(catName);
+              return {
+                value: val,
+                itemStyle: {
+                  opacity: !hasCatFilter || isSelected ? 1.0 : 0.2,
+                  color: isSelected
+                    ? "#06b6d4"
+                    : new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: "#06b6d4" },
+                        { offset: 1, color: "#3b82f6" },
+                      ]),
+                  borderRadius: [6, 6, 0, 0],
+                },
+              };
+            }),
           },
         ],
       };
 
       chartInstance.current.setOption(option, true);
+
+      // Add click cross-filter listener for non-temporal bar series
+      const handleBarClick = (params: any) => {
+        if (primaryCat && params.name) {
+          toggleCategoryValue(primaryCat.name, params.name);
+        }
+      };
+
+      chartInstance.current.off("click");
+      chartInstance.current.on("click", handleBarClick);
     }
 
     const handleResize = () => chartInstance.current?.resize();

@@ -67,7 +67,7 @@ class AnalyticsEngine:
                 "analytics.engine.fallback_profile file=%s — "
                 "no stored profile found; computing inline. "
                 "Consider running /api/datasets/{id}/reprofile to persist a profile.",
-                os.path.basename(file_path),
+                self.file_path if isinstance(self.file_path, str) else "dataframe",
             )
             self._profile = DatasetProfiler.profile_full(self.df)
 
@@ -774,6 +774,223 @@ class AnalyticsEngine:
             },
             "distribution_bins": distribution_bins,
             "ai_risk_narrative": ai_narrative,
+        }
+
+    # ------------------------------------------------------------------
+    # AI-Powered Natural Language Calculated Fields Engine
+    # ------------------------------------------------------------------
+
+    def evaluate_calculated_field(
+        self, prompt: str, field_name: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Translates a natural language calculation prompt (e.g. '7-day rolling average of revenue',
+        'Profit margin ratio', 'Z-score of Sales', 'Percentage of Total') into safe Polars/Pandas
+        expressions and appends the computed vector as a virtual schema column.
+        Returns formula metadata, DAX/LOD equivalents, summary stats, and sample preview.
+        """
+        if not prompt or not prompt.strip():
+            raise ValueError("Prompt for calculated field cannot be empty.")
+
+        prompt_lower = prompt.lower().strip()
+        table_name = os.path.basename(self.file_path) if isinstance(self.file_path, str) else "Dataset"
+
+        # Resolve columns from profile or heuristics
+        target_metric = self.metric_col or (self.numeric_cols[0] if self.numeric_cols else None)
+        target_date = self.date_col or (self.date_cols[0] if self.date_cols else None)
+        target_category = self.category_col or (self.categorical_cols[0] if self.categorical_cols else None)
+
+        # Match specific numeric columns mentioned in prompt
+        matched_num_cols = [c for c in self.numeric_cols if c.lower() in prompt_lower]
+        if matched_num_cols:
+            target_metric = matched_num_cols[0]
+
+        if not target_metric:
+            raise ValueError("No valid numeric column found in dataset to apply calculation.")
+
+        # Determine calculation pattern & construct Polars expression
+        expr: pl.Expr | None = None
+        calc_type = "custom"
+        formula_code = ""
+        dax_code = ""
+        lod_code = ""
+        explanation = ""
+        inferred_dtype = "numeric"
+
+        # Pattern 1: Rolling Average / Moving Window
+        if "rolling" in prompt_lower or "moving" in prompt_lower or "trend average" in prompt_lower:
+            window_size = 7
+            import re
+            match = re.search(r"(\d+)\s*[-_\s]*(day|m|month|period|step|row)", prompt_lower)
+            if match:
+                window_size = int(match.group(1))
+
+            if target_date and target_date in self.df.columns:
+                # Sort by date for proper windowing
+                try:
+                    df_sorted = self.df.sort(target_date)
+                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
+                except Exception:
+                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
+            else:
+                expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
+
+            calc_type = "rolling_window"
+            default_name = f"{target_metric}_{window_size}D_RollingAvg"
+            formula_code = f"pl.col('{target_metric}').rolling_mean(window_size={window_size})"
+            dax_code = f"CALCULATE(AVERAGE('{table_name}'[{target_metric}]), DATESINPERIOD(Calendar[Date], LASTDATE(Calendar[Date]), -{window_size}, DAY))"
+            lod_code = f"WINDOW_AVG(SUM([{target_metric}]), -{window_size - 1}, 0)"
+            explanation = f"Computes a trailing {window_size}-period moving average of '{target_metric}' to smooth out volatility and isolate trends."
+
+        # Pattern 2: Percentage of Total / Share
+        elif "percent of total" in prompt_lower or "% of total" in prompt_lower or "share" in prompt_lower or "ratio of total" in prompt_lower:
+            expr = (pl.col(target_metric) / (pl.col(target_metric).sum() + 1e-9) * 100.0).fill_nan(0.0).fill_null(0.0)
+            calc_type = "percentage_of_total"
+            default_name = f"{target_metric}_Pct_Of_Total"
+            formula_code = f"(pl.col('{target_metric}') / pl.col('{target_metric}').sum()) * 100.0"
+            dax_code = f"DIVIDE(SUM('{table_name}'[{target_metric}]), CALCULATE(SUM('{table_name}'[{target_metric}]), ALL()), 0) * 100"
+            lod_code = f"SUM([{target_metric}]) / SUM({{ EXCLUDE [{target_category or 'All'}] : SUM([{target_metric}]) }})"
+            explanation = f"Calculates each row's relative percentage contribution of '{target_metric}' against the grand total."
+
+        # Pattern 3: Z-Score / Standardization
+        elif "z-score" in prompt_lower or "z score" in prompt_lower or "standardiz" in prompt_lower or "normaliz" in prompt_lower:
+            mean_val = float(self.df[target_metric].mean() or 0)
+            std_val = float(self.df[target_metric].std() or 1.0)
+            if std_val == 0:
+                std_val = 1.0
+            expr = ((pl.col(target_metric) - mean_val) / std_val).fill_nan(0.0).fill_null(0.0)
+            calc_type = "z_score"
+            default_name = f"{target_metric}_ZScore"
+            formula_code = f"(pl.col('{target_metric}') - {mean_val:.2f}) / {std_val:.2f}"
+            dax_code = f"DIVIDE('{table_name}'[{target_metric}] - AVERAGE('{table_name}'[{target_metric}]), STDEV.P('{table_name}'[{target_metric}]), 0)"
+            lod_code = f"([{target_metric}] - WINDOW_AVG(AVG([{target_metric}]))) / WINDOW_STDEV(AVG([{target_metric}]))"
+            explanation = f"Standardizes '{target_metric}' into standard deviation units (Z-scores) where 0 is the dataset mean."
+
+        # Pattern 4: Margin / Difference Ratio
+        elif ("margin" in prompt_lower or "diff" in prompt_lower or "minus" in prompt_lower or "subtr" in prompt_lower) and len(matched_num_cols) >= 2:
+            c1, c2 = matched_num_cols[0], matched_num_cols[1]
+            if "pct" in prompt_lower or "%" in prompt_lower or "margin" in prompt_lower:
+                expr = (((pl.col(c1) - pl.col(c2)) / (pl.col(c1) + 1e-9)) * 100.0).fill_nan(0.0).fill_null(0.0)
+                default_name = f"{c1}_{c2}_Margin_Pct"
+                formula_code = f"((pl.col('{c1}') - pl.col('{c2}')) / pl.col('{c1}')) * 100.0"
+                dax_code = f"DIVIDE(SUM('{table_name}'[{c1}]) - SUM('{table_name}'[{c2}]), SUM('{table_name}'[{c1}]), 0)"
+                lod_code = f"(SUM([{c1}]) - SUM([{c2}])) / SUM([{c1}])"
+                explanation = f"Calculates percentage margin between '{c1}' and '{c2}'."
+            else:
+                expr = (pl.col(c1) - pl.col(c2)).fill_null(0.0)
+                default_name = f"{c1}_Minus_{c2}"
+                formula_code = f"pl.col('{c1}') - pl.col('{c2}')"
+                dax_code = f"SUM('{table_name}'[{c1}]) - SUM('{table_name}'[{c2}])"
+                lod_code = f"SUM([{c1}]) - SUM([{c2}])"
+                explanation = f"Computes net variance between '{c1}' and '{c2}'."
+            calc_type = "metric_arithmetic"
+
+        # Pattern 5: Logarithmic Transformation
+        elif "log" in prompt_lower or "logarithm" in prompt_lower:
+            expr = (pl.col(target_metric).map_elements(lambda x: np.log1p(max(0, float(x or 0))), return_dtype=pl.Float64)).fill_nan(0.0)
+            calc_type = "log_transform"
+            default_name = f"{target_metric}_Log1p"
+            formula_code = f"pl.col('{target_metric}').log(1p)"
+            dax_code = f"LN(1 + '{table_name}'[{target_metric}])"
+            lod_code = f"LOG(1 + [{target_metric}])"
+            explanation = f"Applies log1p transformation to '{target_metric}' to compress skewed distribution tails."
+
+        # Pattern 6: Conditional Tiering / Binning
+        elif "if" in prompt_lower or "tier" in prompt_lower or "bin" in prompt_lower or "category" in prompt_lower or "level" in prompt_lower:
+            mean_val = float(self.df[target_metric].mean() or 0)
+            expr = (
+                pl.when(pl.col(target_metric) >= mean_val * 1.25)
+                .then(pl.lit("High Tier"))
+                .when(pl.col(target_metric) >= mean_val * 0.75)
+                .then(pl.lit("Medium Tier"))
+                .otherwise(pl.lit("Low Tier"))
+            )
+            calc_type = "conditional_binning"
+            default_name = f"{target_metric}_Performance_Tier"
+            formula_code = f"pl.when(pl.col('{target_metric}') >= {mean_val*1.25:.1f}).then('High Tier').otherwise('Low Tier')"
+            dax_code = f"IF('{table_name}'[{target_metric}] >= {mean_val*1.25:.1f}, \"High Tier\", \"Low Tier\")"
+            lod_code = f"IF SUM([{target_metric}]) >= {mean_val*1.25:.1f} THEN 'High Tier' ELSE 'Low Tier' END"
+            explanation = f"Categorizes rows into Performance Tiers based on threshold multiples of '{target_metric}'."
+            inferred_dtype = "categorical"
+
+        # Fallback Default: Multiplicative / Linear Scaling
+        else:
+            scale_factor = 1.0
+            import re
+            match = re.search(r"(\d+(\.\d+)?)", prompt)
+            if match:
+                scale_factor = float(match.group(1))
+
+            if "/" in prompt:
+                expr = (pl.col(target_metric) / scale_factor).fill_nan(0.0).fill_null(0.0)
+                formula_code = f"pl.col('{target_metric}') / {scale_factor}"
+                dax_code = f"DIVIDE('{table_name}'[{target_metric}], {scale_factor}, 0)"
+                lod_code = f"[{target_metric}] / {scale_factor}"
+                default_name = f"{target_metric}_Div_{int(scale_factor)}"
+            else:
+                expr = (pl.col(target_metric) * scale_factor).fill_null(0.0)
+                formula_code = f"pl.col('{target_metric}') * {scale_factor}"
+                dax_code = f"'{table_name}'[{target_metric}] * {scale_factor}"
+                lod_code = f"[{target_metric}] * {scale_factor}"
+                default_name = f"{target_metric}_Scaled"
+
+            calc_type = "linear_scale"
+            explanation = f"Applies custom mathematical expression to '{target_metric}'."
+
+        # Assign clean unique target column name
+        final_col_name = field_name.strip() if field_name and field_name.strip() else default_name
+        # Clean special chars in col name
+        final_col_name = "".join(c if c.isalnum() or c == "_" else "_" for c in final_col_name)
+
+        # Compute vector with Polars
+        computed_series = self.df.select(expr.alias(final_col_name))[final_col_name]
+        self.df = self.df.with_columns(computed_series)
+
+        # Update headers and column lists
+        if final_col_name not in self.headers:
+            self.headers = self.df.columns
+            if inferred_dtype == "numeric" and final_col_name not in self.numeric_cols:
+                self.numeric_cols.append(final_col_name)
+            elif inferred_dtype == "categorical" and final_col_name not in self.categorical_cols:
+                self.categorical_cols.append(final_col_name)
+
+        # Compute stats
+        stats = {}
+        if inferred_dtype == "numeric":
+            valid_series = computed_series.drop_nans().drop_nulls()
+            stats = {
+                "min": round(float(valid_series.min() or 0), 4),
+                "max": round(float(valid_series.max() or 0), 4),
+                "mean": round(float(valid_series.mean() or 0), 4),
+                "std": round(float(valid_series.std() or 0), 4),
+                "null_count": int(computed_series.null_count()),
+            }
+        else:
+            stats = {
+                "unique_count": int(computed_series.n_unique()),
+                "top_value": str(computed_series.mode()[0]) if len(computed_series.mode()) > 0 else "N/A",
+                "null_count": int(computed_series.null_count()),
+            }
+
+        # Build 5 sample preview rows with surrounding context
+        context_cols = [c for c in [target_date, target_category, target_metric] if c and c in self.df.columns]
+        sample_df = self.df.select(context_cols + [final_col_name]).head(5)
+        preview_sample = sample_df.to_dicts()
+
+        return {
+            "status": "success",
+            "field_name": final_col_name,
+            "calc_type": calc_type,
+            "prompt": prompt,
+            "inferred_dtype": inferred_dtype,
+            "formula_code": formula_code,
+            "dax_code": dax_code,
+            "lod_code": lod_code,
+            "ai_explanation": explanation,
+            "target_metric": target_metric,
+            "stats": stats,
+            "preview_sample": preview_sample,
+            "num_rows_affected": self.num_rows,
         }
 
     # ------------------------------------------------------------------

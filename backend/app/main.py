@@ -552,6 +552,41 @@ def get_monte_carlo_endpoint(
         raise HTTPException(status_code=500, detail=f"Could not run Monte Carlo simulation: {e}")
 
 
+class CalculatedFieldRequest(BaseModel):
+    prompt: str
+    field_name: str | None = None
+
+
+@app.post("/api/datasets/{dataset_id}/calculated-fields")
+def create_calculated_field_endpoint(
+    dataset_id: int,
+    req: CalculatedFieldRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Translates natural language prompts into Polars/Pandas expressions, DAX formulas, and Tableau LODs.
+    Appends the computed vector as a virtual schema column and returns summary statistics and preview rows.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        res = eng.evaluate_calculated_field(prompt=req.prompt, field_name=req.field_name)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not calculate field: {e}")
+
+
 @app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(
     dataset_id: int,

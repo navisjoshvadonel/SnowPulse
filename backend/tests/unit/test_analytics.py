@@ -1,4 +1,5 @@
 
+import polars as pl
 import pytest
 
 from backend.app.analytics.engine import AnalyticsEngine
@@ -130,4 +131,41 @@ def test_engine_monte_carlo_simulation(sample_csv):
     assert "distribution_bins" in sim
     assert len(sim["distribution_bins"]) > 0
     assert "ai_risk_narrative" in sim
+
+
+def test_engine_evaluate_calculated_field():
+    dates = [f"2026-01-{i:02d}" for i in range(1, 21)]
+    revs = [100.0 + i * 10 for i in range(20)]
+    categories = ["North" if i % 2 == 0 else "South" for i in range(20)]
+    df = pl.DataFrame({"Date": dates, "Revenue": revs, "Region": categories})
+
+    eng = AnalyticsEngine(df)
+
+    # 1. Rolling average prompt
+    res_rolling = eng.evaluate_calculated_field("Calculate 7-day rolling average of revenue")
+    assert res_rolling["status"] == "success"
+    assert "RollingAvg" in res_rolling["field_name"]
+    assert res_rolling["calc_type"] == "rolling_window"
+    assert "dax_code" in res_rolling
+    assert "lod_code" in res_rolling
+    assert res_rolling["field_name"] in eng.df.columns
+
+    # 2. Percentage of total prompt
+    res_pct = eng.evaluate_calculated_field("Revenue % of total", field_name="Rev_Pct")
+    assert res_pct["status"] == "success"
+    assert res_pct["field_name"] == "Rev_Pct"
+    assert res_pct["calc_type"] == "percentage_of_total"
+    assert res_pct["stats"]["mean"] > 0
+
+    # 3. Z-score prompt
+    res_z = eng.evaluate_calculated_field("Z-score of revenue")
+    assert res_z["status"] == "success"
+    assert res_z["calc_type"] == "z_score"
+
+    # 4. Conditional Tier prompt
+    res_tier = eng.evaluate_calculated_field("Performance tier category based on revenue")
+    assert res_tier["status"] == "success"
+    assert res_tier["inferred_dtype"] == "categorical"
+    assert res_tier["field_name"] in eng.df.columns
+
 

@@ -14,6 +14,7 @@ import OutlierAnomalyPanel from "./OutlierAnomalyPanel";
 import PinnedChartsPanel from "./PinnedChartsPanel";
 import DecompositionTreePanel from "@/components/analytics/DecompositionTreePanel";
 import { MonteCarloSimulatorPanel } from "@/components/analytics/MonteCarloSimulatorPanel";
+import { NaturalLanguageCalculatedFieldPanel } from "@/components/analytics/NaturalLanguageCalculatedFieldPanel";
 
 import { apiService } from "@/services/api";
 
@@ -195,6 +196,13 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
         datasetId={datasetId}
         datasetName={schemaData.name || "Uploaded Dataset"}
         metricColumn={primaryMetric}
+        numericColumns={columns.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer").map((c: any) => c.name)}
+      />
+
+      {/* 6. AI Natural Language Calculated Fields Engine */}
+      <NaturalLanguageCalculatedFieldPanel
+        datasetId={datasetId}
+        datasetName={schemaData.name || "Uploaded Dataset"}
         numericColumns={columns.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer").map((c: any) => c.name)}
       />
 

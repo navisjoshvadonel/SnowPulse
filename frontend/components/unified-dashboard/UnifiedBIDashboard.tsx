@@ -13,6 +13,7 @@ import NaturalLanguageSummaryPanel from "./NaturalLanguageSummaryPanel";
 import OutlierAnomalyPanel from "./OutlierAnomalyPanel";
 import PinnedChartsPanel from "./PinnedChartsPanel";
 import DecompositionTreePanel from "@/components/analytics/DecompositionTreePanel";
+import { MonteCarloSimulatorPanel } from "@/components/analytics/MonteCarloSimulatorPanel";
 
 import { apiService } from "@/services/api";
 
@@ -189,7 +190,15 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
       {/* 4. Autonomous Root-Cause Decomposition Tree */}
       <DecompositionTreePanel datasetId={datasetId} />
 
-      {/* 5. Time-Series Area Trend Panel (Conditional) */}
+      {/* 5. AI Monte Carlo Risk & Scenario Simulator */}
+      <MonteCarloSimulatorPanel
+        datasetId={datasetId}
+        datasetName={schemaData.name || "Uploaded Dataset"}
+        metricColumn={primaryMetric}
+        numericColumns={columns.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer").map((c: any) => c.name)}
+      />
+
+      {/* 6. Time-Series Area Trend Panel (Conditional) */}
       <TimeSeriesPanel columns={columns} datasetId={datasetId} />
 
       {/* 5. Main Visual Analytics Grid */}

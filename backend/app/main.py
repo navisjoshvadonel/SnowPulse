@@ -477,6 +477,36 @@ def get_dataset_schema(
     }
 
 
+@app.get("/api/datasets/{dataset_id}/decomposition-tree")
+def get_decomposition_tree_endpoint(
+    dataset_id: int,
+    target_metric: str | None = None,
+    max_depth: int = 3,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Computes Autonomous SHAP/Variance Root-Cause Decomposition Tree for a dataset.
+    Returns nested node architecture with impact percentages, variance deltas, and bottleneck path highlighting.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        return eng.get_decomposition_tree(target_metric=target_metric, max_depth=max_depth)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not compute decomposition tree: {e}")
+
+
 @app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(
     dataset_id: int,

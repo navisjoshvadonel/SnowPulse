@@ -12,6 +12,7 @@ import CorrelationPanel from "./CorrelationPanel";
 import NaturalLanguageSummaryPanel from "./NaturalLanguageSummaryPanel";
 import OutlierAnomalyPanel from "./OutlierAnomalyPanel";
 import PinnedChartsPanel from "./PinnedChartsPanel";
+import DecompositionTreePanel from "@/components/analytics/DecompositionTreePanel";
 
 import { apiService } from "@/services/api";
 
@@ -185,7 +186,10 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
         columns={columns}
       />
 
-      {/* 4. Time-Series Area Trend Panel (Conditional) */}
+      {/* 4. Autonomous Root-Cause Decomposition Tree */}
+      <DecompositionTreePanel datasetId={datasetId} />
+
+      {/* 5. Time-Series Area Trend Panel (Conditional) */}
       <TimeSeriesPanel columns={columns} datasetId={datasetId} />
 
       {/* 5. Main Visual Analytics Grid */}

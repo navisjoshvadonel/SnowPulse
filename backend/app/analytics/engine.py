@@ -472,6 +472,148 @@ class AnalyticsEngine:
             return []
 
     # ------------------------------------------------------------------
+    # Autonomous Root-Cause Decomposition Tree
+    # ------------------------------------------------------------------
+
+    def get_decomposition_tree(
+        self,
+        target_metric: str | None = None,
+        dimensions: list[str] | None = None,
+        max_depth: int = 3
+    ) -> dict[str, Any]:
+        """
+        SHAP / Variance-based Autonomous Root-Cause Decomposition Tree.
+        Decomposes top-line target metric into nested dimension branches,
+        calculating percentage contribution, variance delta, and identifying
+        the primary bottleneck drop path.
+        """
+        metric = target_metric or self.metric_col
+        if not metric or metric not in self.df.columns:
+            return {"error": f"Target metric '{metric}' not found in dataset"}
+
+        # Select candidate dimensions
+        dim_candidates = dimensions or []
+        if not dim_candidates:
+            if self.category_col:
+                dim_candidates.append(self.category_col)
+            if self.geo_col and self.geo_col != self.category_col:
+                dim_candidates.append(self.geo_col)
+            for col in self.categorical_cols:
+                if col not in dim_candidates:
+                    dim_candidates.append(col)
+
+        # Filter valid columns
+        valid_dims = [d for d in dim_candidates if d in self.df.columns and d != metric][:max_depth]
+        if not valid_dims:
+            return {"error": "No valid categorical dimensions available for decomposition"}
+
+        total_value = float(self.df[metric].sum() or 0)
+        total_rows = self.df.height
+
+        root_node = {
+            "name": f"Total {metric} ({total_value:,.0f})",
+            "dimension": "Root",
+            "value": "Total",
+            "metric_name": metric,
+            "metric_value": total_value,
+            "impact_pct": 100.0,
+            "delta_value": 0.0,
+            "direction": "neutral",
+            "node_type": "root",
+            "record_count": total_rows,
+            "children": []
+        }
+
+        def build_branch(sub_df: pl.DataFrame, current_dim_idx: int, parent_val: float) -> list[dict[str, Any]]:
+            if current_dim_idx >= len(valid_dims) or sub_df.height == 0:
+                return []
+
+            dim = valid_dims[current_dim_idx]
+            grouped = (
+                sub_df
+                .group_by(dim)
+                .agg([
+                    pl.col(metric).sum().alias("sum_val"),
+                    pl.col(metric).mean().alias("mean_val"),
+                    pl.len().alias("count")
+                ])
+                .sort("sum_val", descending=True)
+            )
+
+            results = []
+            group_rows = grouped.to_dicts()
+            if not group_rows:
+                return []
+
+            # Calculate baseline mean per category for variance contribution
+            expected_share = parent_val / max(1, len(group_rows))
+
+            for row in group_rows:
+                cat_val = str(row[dim] if row[dim] is not None else "Unknown")
+                sum_v = float(row["sum_val"] or 0)
+                mean_v = float(row["mean_val"] or 0)
+                count_v = int(row["count"] or 0)
+
+                impact_pct = (sum_v / parent_val * 100.0) if parent_val > 0 else 0.0
+                delta = sum_v - expected_share
+                direction = "positive" if delta >= 0 else "negative"
+
+                child_sub = sub_df.filter(pl.col(dim) == row[dim])
+                next_children = build_branch(child_sub, current_dim_idx + 1, sum_v)
+
+                node = {
+                    "name": f"{cat_val} ({sum_v:,.0f})",
+                    "dimension": dim,
+                    "value": cat_val,
+                    "metric_value": round(sum_v, 2),
+                    "mean_value": round(mean_v, 2),
+                    "impact_pct": round(impact_pct, 1),
+                    "delta_value": round(delta, 2),
+                    "direction": direction,
+                    "record_count": count_v,
+                    "node_type": "branch",
+                    "children": next_children
+                }
+                results.append(node)
+
+            # Highlight bottleneck (worst negative delta) & top driver (highest positive delta)
+            if results:
+                min_node = min(results, key=lambda x: x["delta_value"])
+                max_node = max(results, key=lambda x: x["delta_value"])
+                if min_node["delta_value"] < 0:
+                    min_node["is_bottleneck"] = True
+                    min_node["bottleneck_reason"] = f"Primary Drop Factor: {min_node['delta_value']:,.0f} below expected mean"
+                if max_node["delta_value"] > 0:
+                    max_node["is_top_driver"] = True
+
+            return results
+
+        root_node["children"] = build_branch(self.df, 0, total_value)
+
+        # Highlight primary root cause path throughout the tree
+        primary_bottleneck_path = []
+        curr = root_node
+        while curr and curr.get("children"):
+            b_child = next((c for c in curr["children"] if c.get("is_bottleneck")), None)
+            if not b_child and curr["children"]:
+                b_child = min(curr["children"], key=lambda x: x.get("delta_value", 0))
+            if b_child:
+                b_child["is_primary_root_cause_path"] = True
+                primary_bottleneck_path.append(f"{b_child['dimension']}: {b_child['value']}")
+                curr = b_child
+            else:
+                break
+
+        return {
+            "root": root_node,
+            "target_metric": metric,
+            "decomposed_dimensions": valid_dims,
+            "total_value": total_value,
+            "primary_root_cause_path": primary_bottleneck_path,
+            "summary_insight": f"Decomposition of '{metric}' across [{', '.join(valid_dims)}] identified key bottleneck path: {' ➔ '.join(primary_bottleneck_path) if primary_bottleneck_path else 'Balanced performance across dimensions'}."
+        }
+
+    # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
 

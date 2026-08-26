@@ -89,3 +89,19 @@ def test_engine_context_summary(sample_csv):
     assert "Total aggregate value: 2,990.00" in summary
     assert "Electronics" in summary
     assert "North" in summary
+
+
+def test_engine_decomposition_tree(sample_csv):
+    engine = AnalyticsEngine(sample_csv)
+    tree_data = engine.get_decomposition_tree()
+    assert "root" in tree_data
+    assert tree_data["target_metric"] == "Revenue"
+    assert tree_data["total_value"] == 2990
+    root = tree_data["root"]
+    assert root["node_type"] == "root"
+    assert len(root["children"]) > 0
+    first_child = root["children"][0]
+    assert "impact_pct" in first_child
+    assert "delta_value" in first_child
+    assert "direction" in first_child
+    assert "summary_insight" in tree_data

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, AlertTriangle, TrendingUp, Sparkles, MessageSquare, CheckSquare, BrainCircuit, RefreshCw, FileText } from "lucide-react";
+import { Send, AlertTriangle, TrendingUp, Sparkles, MessageSquare, CheckSquare, BrainCircuit, RefreshCw, FileText, Mic, MicOff } from "lucide-react";
 import { apiService } from "@/services/api";
 
 import GenerativeChart, { UISchema } from "./GenerativeChart";
@@ -366,9 +366,33 @@ export default function InsightsCenter({
   ]);
   const [input, setInput] = useState("");
   const [copilotLoading, setCopilotLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const handleVoiceDictation = () => {
+    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
+      alert("Voice input is not supported in this browser. Try Google Chrome or Microsoft Edge.");
+      return;
+    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      processQuery(transcript);
+    };
+
+    recognition.start();
+  };
 
   // Forecasting state
   const [forecastModel, setForecastModel] = useState<"linear" | "exponential" | "moving_avg">("linear");
@@ -694,19 +718,19 @@ export default function InsightsCenter({
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                 <button
                   type="button"
-                  onClick={() => handleQuickPrompt("top sectors")}
+                  onClick={() => handleQuickPrompt("top sectors bar chart")}
                   className="px-3 py-1 rounded-full datagem-badge hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105"
                 >
                   <Sparkles className="w-3 h-3 text-purple-400" />
-                  📊 Top Sectors
+                  📊 Top Sectors Bar
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleQuickPrompt("show columns")}
+                  onClick={() => handleQuickPrompt("forecast line chart")}
                   className="px-3 py-1 rounded-full datagem-badge hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-[10px] font-mono whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105"
                 >
-                  <BrainCircuit className="w-3 h-3 text-indigo-400" />
-                  📋 Dataset Columns
+                  <TrendingUp className="w-3 h-3 text-indigo-400" />
+                  📈 Forecast Trajectory
                 </button>
                 <button
                   type="button"
@@ -721,12 +745,28 @@ export default function InsightsCenter({
               <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Ask about growth, top sectors, specific columns..."
+                  placeholder={isListening ? "Listening... Speak now..." : "Ask about growth, top sectors, generate charts..."}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   disabled={copilotLoading}
-                  className="flex-1 bg-black/40 border border-purple-500/20 text-xs text-white rounded-xl px-4 py-2.5 outline-none focus:border-purple-400/60 font-sans transition-all shadow-inner"
+                  className={`flex-1 bg-black/40 border text-xs text-white rounded-xl px-4 py-2.5 outline-none font-sans transition-all shadow-inner ${
+                    isListening
+                      ? "border-emerald-500 text-emerald-300 animate-pulse ring-2 ring-emerald-500/30"
+                      : "border-purple-500/20 focus:border-purple-400/60"
+                  }`}
                 />
+                <button
+                  type="button"
+                  onClick={handleVoiceDictation}
+                  title="Hands-free Voice-to-Visualization Input"
+                  className={`p-2.5 rounded-xl border transition-all cursor-pointer shadow-lg ${
+                    isListening
+                      ? "bg-rose-600 text-white border-rose-500 animate-bounce"
+                      : "bg-white/5 hover:bg-white/10 text-purple-300 border-purple-500/30 hover:border-purple-400"
+                  }`}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
                 <button
                   type="submit"
                   disabled={copilotLoading}

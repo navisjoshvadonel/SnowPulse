@@ -11,6 +11,7 @@ import TimeSeriesPanel from "./TimeSeriesPanel";
 import CorrelationPanel from "./CorrelationPanel";
 import NaturalLanguageSummaryPanel from "./NaturalLanguageSummaryPanel";
 import OutlierAnomalyPanel from "./OutlierAnomalyPanel";
+import PinnedChartsPanel from "./PinnedChartsPanel";
 
 import { apiService } from "@/services/api";
 
@@ -156,6 +157,9 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
     <div className="w-full space-y-6">
       {/* 0. Filter Chip Bar (Visibility & One-Click Removal of active filters) */}
       <FilterChipBar />
+
+      {/* Pinned Conversational AI Charts */}
+      <PinnedChartsPanel />
 
       {/* 1. Dynamic Filter & Slicer Bar */}
       <FilterSlicerBar

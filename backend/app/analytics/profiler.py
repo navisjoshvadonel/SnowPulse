@@ -581,21 +581,28 @@ class DatasetProfiler:
             sub = df.select(numeric_cols).drop_nulls()
             if sub.height < 3:
                 return None
+
+            # Vectorized correlation matrix calculation
+            data_matrix = sub.to_numpy().astype(float).T
+            stds = np.std(data_matrix, axis=1)
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr_matrix = np.atleast_2d(np.corrcoef(data_matrix))
+
             matrix: list[list[float | None]] = []
-            for col_a in numeric_cols:
+            num_cols = len(numeric_cols)
+            for i in range(num_cols):
                 row: list[float | None] = []
-                arr_a = sub[col_a].to_numpy().astype(float)
-                std_a = arr_a.std()
-                for col_b in numeric_cols:
-                    arr_b = sub[col_b].to_numpy().astype(float)
-                    std_b = arr_b.std()
+                std_a = stds[i]
+                for j in range(num_cols):
+                    std_b = stds[j]
                     if std_a == 0 or std_b == 0:
                         row.append(None)
                     else:
-                        with np.errstate(invalid="ignore", divide="ignore"):
-                            corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
-                        row.append(None if np.isnan(corr) else round(corr, 4))
+                        corr = corr_matrix[i, j]
+                        row.append(None if np.isnan(corr) else round(float(corr), 4))
                 matrix.append(row)
+
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:
             logger.warning("Correlation matrix failed: %s", exc)

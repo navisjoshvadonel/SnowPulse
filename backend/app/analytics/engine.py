@@ -596,7 +596,7 @@ class AnalyticsEngine:
         while curr and curr.get("children"):
             b_child = next((c for c in curr["children"] if c.get("is_bottleneck")), None)
             if not b_child and curr["children"]:
-                b_child = min(curr["children"], key=lambda x: x.get("delta_value", 0))
+                b_child = min(curr["children"], key=lambda x: float(x.get("delta_value", 0) or 0))
             if b_child:
                 b_child["is_primary_root_cause_path"] = True
                 primary_bottleneck_path.append(f"{b_child['dimension']}: {b_child['value']}")
@@ -828,7 +828,7 @@ class AnalyticsEngine:
             if target_date and target_date in self.df.columns:
                 # Sort by date for proper windowing
                 try:
-                    df_sorted = self.df.sort(target_date)
+                    self.df.sort(target_date)
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)

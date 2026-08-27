@@ -581,25 +581,21 @@ class DatasetProfiler:
             sub = df.select(numeric_cols).drop_nulls()
             if sub.height < 3:
                 return None
-
-            # Bolt optimization: Vectorize correlation matrix calculation instead of O(N^2) double loops
-            arr = sub.to_numpy().astype(float).T
-            stds = arr.std(axis=1)
-
-            with np.errstate(invalid="ignore", divide="ignore"):
-                corr_matrix = np.atleast_2d(np.corrcoef(arr))
-
             matrix: list[list[float | None]] = []
-            for i in range(len(numeric_cols)):
+            for col_a in numeric_cols:
                 row: list[float | None] = []
-                for j in range(len(numeric_cols)):
-                    if stds[i] == 0 or stds[j] == 0:
+                arr_a = sub[col_a].to_numpy().astype(float)
+                std_a = arr_a.std()
+                for col_b in numeric_cols:
+                    arr_b = sub[col_b].to_numpy().astype(float)
+                    std_b = arr_b.std()
+                    if std_a == 0 or std_b == 0:
                         row.append(None)
                     else:
-                        corr = float(corr_matrix[i, j])
+                        with np.errstate(invalid="ignore", divide="ignore"):
+                            corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
                         row.append(None if np.isnan(corr) else round(corr, 4))
                 matrix.append(row)
-
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:
             logger.warning("Correlation matrix failed: %s", exc)

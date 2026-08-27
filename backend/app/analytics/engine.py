@@ -596,7 +596,7 @@ class AnalyticsEngine:
         while curr and curr.get("children"):
             b_child = next((c for c in curr["children"] if c.get("is_bottleneck")), None)
             if not b_child and curr["children"]:
-                b_child = min(curr["children"], key=lambda x: x.get("delta_value", 0))
+                b_child = min(curr["children"], key=lambda x: float(x.get("delta_value", 0) or 0))
             if b_child:
                 b_child["is_primary_root_cause_path"] = True
                 primary_bottleneck_path.append(f"{b_child['dimension']}: {b_child['value']}")

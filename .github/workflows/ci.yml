@@ -402,12 +402,12 @@ jobs:
   notify:
     name: Workflow Status Notification
     runs-on: ubuntu-latest
-    needs: [ integration-test ]
+    needs: [ code-quality, backend-tests, frontend-tests, node-security, docker-build, integration-test ]
     if: always()
     steps:
       - name: Determine Workflow Status
         run: |
-          if [ "${{ needs.integration-test.result }}" = "success" ]; then
+          if [ "${{ needs.integration-test.result }}" = "success" ] && [ "${{ needs.code-quality.result }}" = "success" ] && [ "${{ needs.backend-tests.result }}" = "success" ] && [ "${{ needs.frontend-tests.result }}" = "success" ] && [ "${{ needs.node-security.result }}" = "success" ] && [ "${{ needs.docker-build.result }}" = "success" ]; then
             echo "CI/CD Pipeline: ✅ All checks passed"
             exit 0
           else

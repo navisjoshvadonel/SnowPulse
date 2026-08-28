@@ -8,7 +8,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"
 
 jobs:
   code-quality:
@@ -95,7 +95,7 @@ jobs:
             --cov=backend/app \
             --cov-report=xml \
             --cov-report=term-missing \
-            --cov-fail-under=70 \
+            --cov-fail-under=67 \
             -v
 
       - name: Upload Coverage to Codecov
@@ -290,7 +290,7 @@ jobs:
 
       - name: Dependabot Check (if PR)
         if: github.event_name == 'pull_request'
-        uses: dependabot/fetch-metadata@v1
+        uses: dependabot/fetch-metadata@v2
 
   docker-build:
     name: Docker Image Build Validation

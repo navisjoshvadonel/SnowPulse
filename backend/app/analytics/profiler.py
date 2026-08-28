@@ -581,21 +581,30 @@ class DatasetProfiler:
             sub = df.select(numeric_cols).drop_nulls()
             if sub.height < 3:
                 return None
+
+            # Bolt optimization: Vectorize correlation matrix computation
+            # Replaces O(N^2) Python loops with single C-optimized numpy call
             matrix: list[list[float | None]] = []
-            for col_a in numeric_cols:
+            arr = sub.to_numpy().astype(float).T
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr_mat = np.atleast_2d(np.corrcoef(arr))
+
+            # Compute standard deviations in a vectorized way
+            stds = sub.select([pl.col(c).std() for c in numeric_cols]).to_numpy()[0]
+
+            for i in range(len(numeric_cols)):
                 row: list[float | None] = []
-                arr_a = sub[col_a].to_numpy().astype(float)
-                std_a = arr_a.std()
-                for col_b in numeric_cols:
-                    arr_b = sub[col_b].to_numpy().astype(float)
-                    std_b = arr_b.std()
-                    if std_a == 0 or std_b == 0:
+                std_a = stds[i]
+                for j in range(len(numeric_cols)):
+                    std_b = stds[j]
+                    # Note: pl.col().std() returns None if height < 2, or 0.0 if all values are same
+                    if std_a == 0 or std_b == 0 or std_a is None or std_b is None or np.isnan(std_a) or np.isnan(std_b):
                         row.append(None)
                     else:
-                        with np.errstate(invalid="ignore", divide="ignore"):
-                            corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
-                        row.append(None if np.isnan(corr) else round(corr, 4))
+                        val = corr_mat[i, j]
+                        row.append(None if np.isnan(val) else round(float(val), 4))
                 matrix.append(row)
+
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:
             logger.warning("Correlation matrix failed: %s", exc)

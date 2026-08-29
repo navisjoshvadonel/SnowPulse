@@ -179,7 +179,7 @@ CRITICAL: Return ONLY valid, minified JSON. Do not include markdown codeblocks o
             model = self._get_or_create_context_cache(str(stats_context)) or self.model
             response = model.generate_content(prompt)
             text = response.text.strip()
-            
+
             data = _extract_json(text)
             self.record_usage(str(prompt), text, getattr(response, "usage_metadata", None))
             return {

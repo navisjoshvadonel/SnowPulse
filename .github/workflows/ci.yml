@@ -291,6 +291,7 @@ jobs:
       - name: Dependabot Check (if PR)
         if: github.event_name == 'pull_request'
         uses: dependabot/fetch-metadata@v1
+        continue-on-error: true
 
   docker-build:
     name: Docker Image Build Validation

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import polars as pl
+
 from app.analytics.profiler import DatasetProfiler
 from app.analytics.rules_engine import ChartSuggester
 from app.analytics.semantic_enricher import SemanticEnricher

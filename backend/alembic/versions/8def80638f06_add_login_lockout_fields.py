@@ -9,6 +9,7 @@ Location: backend/alembic/versions/8def80638f06_add_login_lockout_fields.py
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "8def80638f06"

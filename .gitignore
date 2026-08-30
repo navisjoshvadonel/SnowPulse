@@ -33,3 +33,6 @@ coverage.xml
 .ruff_cache/
 
 
+backend/local_storage/models/*.joblib
+test_corr.py
+test_polars_np.py

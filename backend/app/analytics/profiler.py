@@ -581,19 +581,22 @@ class DatasetProfiler:
             sub = df.select(numeric_cols).drop_nulls()
             if sub.height < 3:
                 return None
+
+            matrix_data = sub.select(numeric_cols).to_numpy().astype(float)
+            stds = matrix_data.std(axis=0)
+
+            # Vectorized O(1) correlation matrix computation instead of O(N^2) loop
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr_matrix = np.atleast_2d(np.corrcoef(matrix_data, rowvar=False))
+
             matrix: list[list[float | None]] = []
-            for col_a in numeric_cols:
+            for i in range(len(numeric_cols)):
                 row: list[float | None] = []
-                arr_a = sub[col_a].to_numpy().astype(float)
-                std_a = arr_a.std()
-                for col_b in numeric_cols:
-                    arr_b = sub[col_b].to_numpy().astype(float)
-                    std_b = arr_b.std()
-                    if std_a == 0 or std_b == 0:
+                for j in range(len(numeric_cols)):
+                    if stds[i] == 0 or stds[j] == 0:
                         row.append(None)
                     else:
-                        with np.errstate(invalid="ignore", divide="ignore"):
-                            corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
+                        corr = float(corr_matrix[i, j])
                         row.append(None if np.isnan(corr) else round(corr, 4))
                 matrix.append(row)
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)

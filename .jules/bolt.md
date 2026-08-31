@@ -1,3 +1,0 @@
-## 2025-03-05 - [Vectorized Correlation Matrices for Data Profiling]
-**Learning:** Polars/Numpy workflows calculating correlation matrices using O(N^2) nested loops for `np.corrcoef(arr_a, arr_b)` become severe bottlenecks when datasets have many numeric columns. This approach is highly inefficient compared to a single vectorized `np.corrcoef(matrix, rowvar=False)`.
-**Action:** Always prefer fully vectorized operations in numpy/polars (like `np.corrcoef` on a full 2D matrix) instead of pairwise looping. Wrap dynamic 2D array results with `np.atleast_2d()` to prevent indexing errors if a single-column matrix is passed.

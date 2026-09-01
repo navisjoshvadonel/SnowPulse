@@ -582,18 +582,25 @@ class DatasetProfiler:
             if sub.height < 3:
                 return None
             matrix: list[list[float | None]] = []
-            for col_a in numeric_cols:
+
+            # ⚡ Bolt: Vectorize correlation matrix computation to O(1) numpy operations
+            # instead of O(N^2) python nested loops
+            arr = sub.select(numeric_cols).to_numpy().astype(float)
+            stds = arr.std(axis=0)
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr_matrix = np.corrcoef(arr, rowvar=False)
+                corr_matrix = np.atleast_2d(corr_matrix)
+
+            for i in range(len(numeric_cols)):
                 row: list[float | None] = []
-                arr_a = sub[col_a].to_numpy().astype(float)
-                std_a = arr_a.std()
-                for col_b in numeric_cols:
-                    arr_b = sub[col_b].to_numpy().astype(float)
-                    std_b = arr_b.std()
+                std_a = stds[i]
+                for j in range(len(numeric_cols)):
+                    std_b = stds[j]
                     if std_a == 0 or std_b == 0:
                         row.append(None)
                     else:
-                        with np.errstate(invalid="ignore", divide="ignore"):
-                            corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
+                        corr = float(corr_matrix[i, j])
                         row.append(None if np.isnan(corr) else round(corr, 4))
                 matrix.append(row)
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)

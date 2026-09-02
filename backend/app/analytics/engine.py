@@ -837,7 +837,7 @@ class AnalyticsEngine:
             if target_date and target_date in self.df.columns:
                 # Sort by date for proper windowing
                 try:
-                    df_sorted = self.df.sort(target_date)
+                    self.df = self.df.sort(target_date)
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)

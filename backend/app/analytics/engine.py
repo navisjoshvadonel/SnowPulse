@@ -1271,16 +1271,28 @@ class AnalyticsEngine:
                 for i in range(k):
                     mask = labels == i
                     cluster_vals = values[mask]
-                    density_clusters.append({
-                        "cluster_id": i,
-                        "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
-                        "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
-                        "point_count": int(mask.sum()),
-                        "total_value": round(float(cluster_vals.sum()), 2),
-                        "avg_value": round(float(cluster_vals.mean()), 2),
-                        "max_value": round(float(cluster_vals.max()), 2),
-                        "density_score": round(float(mask.sum()) / max(len(coords), 1) * 100, 2),
-                    })
+                    if len(cluster_vals) > 0:
+                        density_clusters.append({
+                            "cluster_id": i,
+                            "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
+                            "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
+                            "point_count": int(mask.sum()),
+                            "total_value": round(float(cluster_vals.sum()), 2),
+                            "avg_value": round(float(cluster_vals.mean()), 2),
+                            "max_value": round(float(cluster_vals.max()), 2),
+                            "density_score": round(float(mask.sum()) / max(len(coords), 1) * 100, 2),
+                        })
+                    else:
+                        density_clusters.append({
+                            "cluster_id": i,
+                            "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
+                            "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
+                            "point_count": 0,
+                            "total_value": 0.0,
+                            "avg_value": 0.0,
+                            "max_value": 0.0,
+                            "density_score": 0.0,
+                        })
                 density_clusters.sort(key=lambda c: c["total_value"], reverse=True)
         except Exception as e:
             logger.warning("Geo density clustering failed: %s", e)

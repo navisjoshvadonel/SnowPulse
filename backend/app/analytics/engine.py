@@ -397,17 +397,26 @@ class AnalyticsEngine:
         if sub_df.height < 3:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
+        # ⚡ Bolt: Vectorize correlation matrix calculation
+        # Instead of an O(N^2) loop where we do column-pair extraction,
+        # extract all needed columns simultaneously and pass to np.corrcoef for C-level vectorization.
+        arr = sub_df.select(all_numeric).to_numpy().T.astype(float)
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            # Ensure the correlation matrix is always 2D even when passing a 1D array
+            corr_matrix = np.atleast_2d(np.corrcoef(np.atleast_2d(arr)))
+
+        stds = np.std(arr, axis=1)
+
         matrix: list[list[float]] = []
-        for col_a in all_numeric:
+        for i in range(len(all_numeric)):
             row_corrs: list[float] = []
-            std_a = sub_df[col_a].std() or 0
-            for col_b in all_numeric:
-                std_b = sub_df[col_b].std() or 0
-                if std_a <= 1e-12 or std_b <= 1e-12:
+            for j in range(len(all_numeric)):
+                if stds[i] <= 1e-12 or stds[j] <= 1e-12:
                     row_corrs.append(0.0)
                 else:
-                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
-                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
+                    corr = corr_matrix[i, j]
+                    row_corrs.append(0.0 if np.isnan(corr) else round(float(corr), 4))
             matrix.append(row_corrs)
 
         return {"columns": all_numeric, "matrix": matrix}

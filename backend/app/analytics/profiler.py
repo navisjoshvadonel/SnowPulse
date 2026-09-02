@@ -581,20 +581,27 @@ class DatasetProfiler:
             sub = df.select(numeric_cols).drop_nulls()
             if sub.height < 3:
                 return None
+
+            # ⚡ Bolt: Vectorize correlation matrix calculation
+            # By extracting all columns to a 2D matrix at once, np.corrcoef
+            # computes the entire matrix in one vectorized C-level call instead of O(N^2) Python loops.
+            arr = sub.select(numeric_cols).to_numpy().T.astype(float)
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                # Ensure the correlation matrix is always 2D even when passing a 1D array
+                corr_matrix = np.atleast_2d(np.corrcoef(np.atleast_2d(arr)))
+
+            stds = np.std(arr, axis=1)
+
             matrix: list[list[float | None]] = []
-            for col_a in numeric_cols:
+            for i in range(len(numeric_cols)):
                 row: list[float | None] = []
-                arr_a = sub[col_a].to_numpy().astype(float)
-                std_a = arr_a.std()
-                for col_b in numeric_cols:
-                    arr_b = sub[col_b].to_numpy().astype(float)
-                    std_b = arr_b.std()
-                    if std_a == 0 or std_b == 0:
+                for j in range(len(numeric_cols)):
+                    if stds[i] == 0 or stds[j] == 0:
                         row.append(None)
                     else:
-                        with np.errstate(invalid="ignore", divide="ignore"):
-                            corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
-                        row.append(None if np.isnan(corr) else round(corr, 4))
+                        corr = corr_matrix[i, j]
+                        row.append(None if np.isnan(corr) else round(float(corr), 4))
                 matrix.append(row)
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:

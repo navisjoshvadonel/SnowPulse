@@ -398,15 +398,22 @@ class AnalyticsEngine:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
         matrix: list[list[float]] = []
-        for col_a in all_numeric:
+
+        # Optimization: Vectorized correlation matrix calculation (⚡ Bolt)
+        # Prevents O(N^2) nested loop over individual column arrays.
+        arr = sub_df.select(all_numeric).to_numpy().astype(float)
+        stds = arr.std(axis=0)
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            corr_np = np.atleast_2d(np.corrcoef(arr, rowvar=False))
+
+        for i in range(len(all_numeric)):
             row_corrs: list[float] = []
-            std_a = sub_df[col_a].std() or 0
-            for col_b in all_numeric:
-                std_b = sub_df[col_b].std() or 0
-                if std_a <= 1e-12 or std_b <= 1e-12:
+            for j in range(len(all_numeric)):
+                if stds[i] <= 1e-12 or stds[j] <= 1e-12:
                     row_corrs.append(0.0)
                 else:
-                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
+                    corr = float(corr_np[i, j])
                     row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
             matrix.append(row_corrs)
 

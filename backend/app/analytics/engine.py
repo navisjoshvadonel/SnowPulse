@@ -397,17 +397,31 @@ class AnalyticsEngine:
         if sub_df.height < 3:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
+        # Use fully vectorized correlation for performance
+        arr = sub_df.select(all_numeric).to_numpy().astype(float)
+        stds = arr.std(axis=0)
+        valid_mask = stds > 1e-12
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
+
+        # Check if the output matrix matches expectations
+        if corr_matrix.shape != (len(all_numeric), len(all_numeric)):
+            # For 1 column, np.corrcoef returns [[1.0]].
+            # Our code shouldn't reach here for < 2 cols, but just in case
+            if len(all_numeric) == 1:
+               corr_matrix = np.array([[1.0]])
+
         matrix: list[list[float]] = []
-        for col_a in all_numeric:
+        n_cols = len(all_numeric)
+        for i in range(n_cols):
             row_corrs: list[float] = []
-            std_a = sub_df[col_a].std() or 0
-            for col_b in all_numeric:
-                std_b = sub_df[col_b].std() or 0
-                if std_a <= 1e-12 or std_b <= 1e-12:
+            for j in range(n_cols):
+                if not valid_mask[i] or not valid_mask[j]:
                     row_corrs.append(0.0)
                 else:
-                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
-                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
+                    val = corr_matrix[i, j]
+                    row_corrs.append(0.0 if np.isnan(val) else round(float(val), 4))
             matrix.append(row_corrs)
 
         return {"columns": all_numeric, "matrix": matrix}
@@ -828,7 +842,7 @@ class AnalyticsEngine:
             if target_date and target_date in self.df.columns:
                 # Sort by date for proper windowing
                 try:
-                    df_sorted = self.df.sort(target_date)
+                    self.df.sort(target_date)
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)

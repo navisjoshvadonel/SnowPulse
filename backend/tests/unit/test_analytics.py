@@ -213,3 +213,10 @@ def test_engine_geo_spatial_analysis_latlng():
     centroid = result["distribution_stats"]["weighted_centroid"]
     assert 25 < centroid["lat"] < 50
     assert -130 < centroid["lng"] < -70
+
+def test_engine_correlations_single_column():
+    df = pl.DataFrame({"Revenue": [100.0, 200.0, 300.0]})
+    engine = AnalyticsEngine(df)
+    corr = engine.get_correlations()
+    assert corr["columns"] == ["Revenue"]
+    assert corr["matrix"] == [[1.0]]

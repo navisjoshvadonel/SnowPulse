@@ -405,6 +405,13 @@ class AnalyticsEngine:
         with np.errstate(invalid="ignore", divide="ignore"):
             corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
 
+        # Check if the output matrix matches expectations
+        if corr_matrix.shape != (len(all_numeric), len(all_numeric)):
+            # For 1 column, np.corrcoef returns [[1.0]].
+            # Our code shouldn't reach here for < 2 cols, but just in case
+            if len(all_numeric) == 1:
+               corr_matrix = np.array([[1.0]])
+
         matrix: list[list[float]] = []
         n_cols = len(all_numeric)
         for i in range(n_cols):

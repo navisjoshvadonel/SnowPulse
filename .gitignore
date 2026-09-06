@@ -33,3 +33,5 @@ coverage.xml
 .ruff_cache/
 
 
+
+backend/local_storage/models/*.joblib

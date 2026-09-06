@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { 
   Database, 
@@ -26,6 +26,41 @@ const generateMockDatasets = () => [
   { id: 5, name: "crm_accounts_sync", source: "postgres", rows: 45020, lastSynced: "12m ago", status: "healthy" },
 ];
 
+const getSourceIcon = (source: string) => {
+  switch(source) {
+    case 'postgres': return <Database className="w-4 h-4 text-blue-400" />;
+    case 'csv': return <FileText className="w-4 h-4 text-emerald-400" />;
+    case 's3': return <Cloud className="w-4 h-4 text-amber-400" />;
+    case 'api':
+    default: return <RefreshCw className="w-4 h-4 text-violet-400" />;
+  }
+};
+
+const getStatusPill = (status: string) => {
+  switch(status) {
+    case 'healthy':
+      return (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
+          <CheckCircle2 className="w-3 h-3" /> Healthy
+        </div>
+      );
+    case 'syncing':
+      return (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[11px] font-medium">
+          <RefreshCw className="w-3 h-3 animate-spin" /> Syncing
+        </div>
+      );
+    case 'error':
+      return (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-medium">
+          <AlertCircle className="w-3 h-3" /> Error
+        </div>
+      );
+    default:
+      return null;
+  }
+};
+
 export default function DatasetList() {
   const [filter, setFilter] = useState("all");
   const [sortDesc, setSortDesc] = useState(true);
@@ -38,46 +73,13 @@ export default function DatasetList() {
   const datasets = data || [];
   
   // Client-side filtering and sorting for demo
-  const filtered = datasets
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((d: any) => filter === "all" || d.status === filter)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .sort((a: any, b: any) => sortDesc ? 1 : -1); // Simplified sort simulation
-
-  const getSourceIcon = (source: string) => {
-    switch(source) {
-      case 'postgres': return <Database className="w-4 h-4 text-blue-400" />;
-      case 'csv': return <FileText className="w-4 h-4 text-emerald-400" />;
-      case 's3': return <Cloud className="w-4 h-4 text-amber-400" />;
-      case 'api':
-      default: return <RefreshCw className="w-4 h-4 text-violet-400" />;
-    }
-  };
-
-  const getStatusPill = (status: string) => {
-    switch(status) {
-      case 'healthy':
-        return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
-            <CheckCircle2 className="w-3 h-3" /> Healthy
-          </div>
-        );
-      case 'syncing':
-        return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[11px] font-medium">
-            <RefreshCw className="w-3 h-3 animate-spin" /> Syncing
-          </div>
-        );
-      case 'error':
-        return (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-medium">
-            <AlertCircle className="w-3 h-3" /> Error
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  const filtered = useMemo(() => {
+    return datasets
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((d: any) => filter === "all" || d.status === filter)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .sort((a: any, b: any) => sortDesc ? 1 : -1); // Simplified sort simulation
+  }, [datasets, filter, sortDesc]);
 
   if (datasets.length === 0) {
     return (

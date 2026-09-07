@@ -397,18 +397,12 @@ class AnalyticsEngine:
         if sub_df.height < 3:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
-        matrix: list[list[float]] = []
-        for col_a in all_numeric:
-            row_corrs: list[float] = []
-            std_a = sub_df[col_a].std() or 0
-            for col_b in all_numeric:
-                std_b = sub_df[col_b].std() or 0
-                if std_a <= 1e-12 or std_b <= 1e-12:
-                    row_corrs.append(0.0)
-                else:
-                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
-                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
-            matrix.append(row_corrs)
+        arr = sub_df.select(all_numeric).to_numpy()
+        with np.errstate(invalid='ignore', divide='ignore'):
+            corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
+
+        corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+        matrix: list[list[float]] = np.round(corr_matrix, 4).tolist()
 
         return {"columns": all_numeric, "matrix": matrix}
 
@@ -828,7 +822,7 @@ class AnalyticsEngine:
             if target_date and target_date in self.df.columns:
                 # Sort by date for proper windowing
                 try:
-                    df_sorted = self.df.sort(target_date)
+                    self.df = self.df.sort(target_date)
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)

@@ -850,7 +850,7 @@ export default function HomePage() {
       const res = await apiService.getMe();
       if (res.ok) {
         const userData = await res.json();
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+
         setUser({ email: userData.email });
         fetchDatasets();
       } else {
@@ -861,7 +861,7 @@ export default function HomePage() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const token = localStorage.getItem("snow_access_token");
     if (token) {

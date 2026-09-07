@@ -6,9 +6,9 @@ import * as echarts from "echarts";
 // Utility to generate initial 24h data points
 const generateInitialData = () => {
   const data = [];
-  let now = new Date();
+  const now = new Date();
   for (let i = 24; i >= 0; i--) {
-    let t = new Date(now.getTime() - i * 3600 * 1000);
+    const t = new Date(now.getTime() - i * 3600 * 1000);
     // Format: [timestamp, value]
     data.push([
       t.toISOString(),

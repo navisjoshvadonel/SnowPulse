@@ -205,7 +205,7 @@ function generateClientSideInsight(
                         qLower.includes("department") || qLower.includes("breakdown") || qLower.includes("distribution");
 
   if (isSectorQuery) {
-    let catCol = matchedCols.find((c: any) => c.role === "categorical" || c.role === "category" || c.role === "geo") ||
+    const catCol = matchedCols.find((c: any) => c.role === "categorical" || c.role === "category" || c.role === "geo") ||
                  cols.find((c: any) => {
                    const name = c.name.toLowerCase();
                    return name.includes("sector") || name.includes("category") || name.includes("industry") || name.includes("department") || name.includes("region") || name.includes("segment");

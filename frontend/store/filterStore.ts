@@ -217,7 +217,7 @@ export const useFilterStore = create<FilterStoreState>((set, get) => ({
       [column]: updated,
     };
 
-    let updatedFilters = get().selectedFilters.filter((f) => f.column !== column);
+    const updatedFilters = get().selectedFilters.filter((f) => f.column !== column);
     if (updated.length > 0) {
       updatedFilters.push({
         column,
@@ -235,7 +235,7 @@ export const useFilterStore = create<FilterStoreState>((set, get) => ({
 
   setNumericRange: (column, range) => {
     const nextRanges = { ...get().activeNumericRanges };
-    let updatedFilters = get().selectedFilters.filter((f) => f.column !== column);
+    const updatedFilters = get().selectedFilters.filter((f) => f.column !== column);
 
     if (range) {
       nextRanges[column] = range;

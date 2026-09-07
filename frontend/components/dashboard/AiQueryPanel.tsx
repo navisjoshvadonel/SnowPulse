@@ -41,7 +41,7 @@ export default function AiQueryPanel() {
       } else {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setPlaceholderIdx((prev) => (prev + 1) % placeholders.length);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+
         setIsTyping(true);
       }
     }

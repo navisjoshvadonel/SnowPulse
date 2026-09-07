@@ -87,7 +87,7 @@ export function runMonteCarloSimulation(params: MonteCarloParams): MonteCarloRes
   for (let i = 0; i < numIterations; i++) {
     for (let t = 1; t <= numSteps; t++) {
       let u1 = Math.random();
-      let u2 = Math.random();
+      const u2 = Math.random();
       while (u1 === 0) u1 = Math.random();
       const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
 

@@ -581,21 +581,29 @@ class DatasetProfiler:
             sub = df.select(numeric_cols).drop_nulls()
             if sub.height < 3:
                 return None
+
+            # Bolt optimization: Convert the selected dataframe to a 2D numpy array and
+            # use a fully vectorized correlation matrix computation. This avoids the O(N^2)
+            # Python nested loops that calculate standard deviations and correlations individually.
+            # Using `.select(numeric_cols)` guarantees correct column alignment.
+            arr = sub.select(numeric_cols).to_numpy().astype(float)
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr_matrix = np.corrcoef(arr, rowvar=False)
+                # Ensure the output is at least 2D to prevent indexing errors if len(numeric_cols) is 1.
+                # (Though len < 2 is already checked above, this is best practice.)
+                corr_matrix = np.atleast_2d(corr_matrix)
+
             matrix: list[list[float | None]] = []
-            for col_a in numeric_cols:
+            num_cols = len(numeric_cols)
+            for i in range(num_cols):
                 row: list[float | None] = []
-                arr_a = sub[col_a].to_numpy().astype(float)
-                std_a = arr_a.std()
-                for col_b in numeric_cols:
-                    arr_b = sub[col_b].to_numpy().astype(float)
-                    std_b = arr_b.std()
-                    if std_a == 0 or std_b == 0:
-                        row.append(None)
-                    else:
-                        with np.errstate(invalid="ignore", divide="ignore"):
-                            corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
-                        row.append(None if np.isnan(corr) else round(corr, 4))
+                for j in range(num_cols):
+                    val = corr_matrix[i, j]
+                    # Retain identical formatting logic: NaN to None, else round to 4 decimals
+                    row.append(None if np.isnan(val) else round(float(val), 4))
                 matrix.append(row)
+
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:
             logger.warning("Correlation matrix failed: %s", exc)

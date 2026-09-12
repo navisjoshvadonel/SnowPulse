@@ -289,8 +289,8 @@ class SignalDetector:
 
                 biz_rel = (cls._calc_business_relevance(c1, profile) + cls._calc_business_relevance(c2, profile)) / 2.0
 
-                if r_val >= 0.80:
-                    stat_sig = min(1.0, r_val)
+                if r_val is not None and r_val >= 0.80:
+                    stat_sig = min(1.0, float(r_val))
                     sev_score = min(1.0, stat_sig * biz_rel)
                     signals.append(
                         DetectedSignal(
@@ -305,8 +305,8 @@ class SignalDetector:
                             details={"r": round(r_val, 3), "relationship": "positive"}
                         )
                     )
-                elif r_val <= -0.80:
-                    stat_sig = min(1.0, abs(r_val))
+                elif r_val is not None and r_val <= -0.80:
+                    stat_sig = min(1.0, abs(float(r_val)))
                     sev_score = min(1.0, stat_sig * biz_rel)
                     signals.append(
                         DetectedSignal(

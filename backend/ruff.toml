@@ -17,6 +17,8 @@ ignore = [
     "E501",  # Line too long
     "E402",  # Module level import not at top of file (used in test config/limiter)
     "B904",  # Within an except clause, raise exceptions with raise...from
+    "F841",  # Local variable is assigned to but never used
+    "UP038", # Use `X | Y` in `isinstance` call instead of `(X, Y)`
     "C901",  # Function is too complex
 ]
 

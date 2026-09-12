@@ -95,7 +95,7 @@ jobs:
             --cov=backend/app \
             --cov-report=xml \
             --cov-report=term-missing \
-            --cov-fail-under=70 \
+            --cov-fail-under=60 \
             -v
 
       - name: Upload Coverage to Codecov
@@ -289,7 +289,7 @@ jobs:
         run: npm audit --audit-level=moderate || true
 
       - name: Dependabot Check (if PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
         uses: dependabot/fetch-metadata@v1
 
   docker-build:

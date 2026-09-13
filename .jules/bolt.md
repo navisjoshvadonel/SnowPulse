@@ -1,0 +1,3 @@
+## 2023-10-27 - Vectorize numpy correlation matrix calculations
+**Learning:** Computing correlation matrices inside explicit python O(n^2) nested loops is a significant performance bottleneck, especially as column counts grow. Calculating correlations individually via `np.corrcoef(arr_a, arr_b)` inside a double `for` loop wastes numpy's highly optimized C backend.
+**Action:** Always compute correlation matrices in bulk by converting the data to a 2D array and running `np.corrcoef(arr, rowvar=False)`. Wrap the result in `np.atleast_2d()` to handle edge cases with dynamic single-column inputs, and explicitly handle zero variance columns with `np.errstate(invalid='ignore', divide='ignore')` to prevent crashes when processing uncleaned user data.

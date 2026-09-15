@@ -1,0 +1,3 @@
+## 2024-09-15 - Vectorized Correlation Matrices
+**Learning:** In pandas/polars, replacing explicit N^2 python loops of `np.corrcoef(a, b)` over columns with a single fully vectorized `np.corrcoef(arr, rowvar=False)` provides massive performance gains for wide datasets by eliminating loop overhead and pushing calculations to optimized C/Fortran code.
+**Action:** When computing correlation matrices or pairwise similarities, extract columns to a 2D numpy array and use `np.corrcoef` with `rowvar=False`, wrapping the result in `np.atleast_2d()` to avoid indexing errors when only one column is present.

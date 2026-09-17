@@ -391,23 +391,26 @@ class AnalyticsEngine:
         # Fallback: compute on the fly, masking out zero-variance columns
         all_numeric = [c for c in self.numeric_cols if c in self.headers and (self.df[c].std() or 0) > 1e-12]
         if len(all_numeric) < 2:
-            return {"columns": all_numeric, "matrix": [[1.0]]}
+            if len(all_numeric) == 1:
+                return {"columns": all_numeric, "matrix": [[1.0]]}
+            return {"columns": [], "matrix": []}
 
         sub_df = self.df.select(all_numeric).drop_nulls()
         if sub_df.height < 3:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
+        # Vectorized correlation matrix computation
+        # Select columns explicitly to guarantee correct order before to_numpy()
+        arr = sub_df.select(all_numeric).to_numpy()
+        with np.errstate(invalid="ignore", divide="ignore"):
+            corr_mat = np.atleast_2d(np.corrcoef(arr, rowvar=False))
+
         matrix: list[list[float]] = []
-        for col_a in all_numeric:
+        for i in range(len(all_numeric)):
             row_corrs: list[float] = []
-            std_a = sub_df[col_a].std() or 0
-            for col_b in all_numeric:
-                std_b = sub_df[col_b].std() or 0
-                if std_a <= 1e-12 or std_b <= 1e-12:
-                    row_corrs.append(0.0)
-                else:
-                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
-                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
+            for j in range(len(all_numeric)):
+                val = corr_mat[i, j]
+                row_corrs.append(0.0 if np.isnan(val) else round(float(val), 4))
             matrix.append(row_corrs)
 
         return {"columns": all_numeric, "matrix": matrix}

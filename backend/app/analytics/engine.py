@@ -397,17 +397,23 @@ class AnalyticsEngine:
         if sub_df.height < 3:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
+        # Bolt optimization: Vectorize correlation matrix calculation
+        # Convert necessary columns to a 2D numpy array and use np.corrcoef
+        arr = sub_df.select(all_numeric).to_numpy().astype(float)
+        stds = arr.std(axis=0)
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
+
         matrix: list[list[float]] = []
-        for col_a in all_numeric:
+        for i in range(len(all_numeric)):
             row_corrs: list[float] = []
-            std_a = sub_df[col_a].std() or 0
-            for col_b in all_numeric:
-                std_b = sub_df[col_b].std() or 0
-                if std_a <= 1e-12 or std_b <= 1e-12:
+            for j in range(len(all_numeric)):
+                if stds[i] <= 1e-12 or stds[j] <= 1e-12:
                     row_corrs.append(0.0)
                 else:
-                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
-                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
+                    corr = corr_matrix[i, j]
+                    row_corrs.append(0.0 if np.isnan(corr) else round(float(corr), 4))
             matrix.append(row_corrs)
 
         return {"columns": all_numeric, "matrix": matrix}
@@ -828,7 +834,7 @@ class AnalyticsEngine:
             if target_date and target_date in self.df.columns:
                 # Sort by date for proper windowing
                 try:
-                    df_sorted = self.df.sort(target_date)
+                    self.df.sort(target_date)
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)

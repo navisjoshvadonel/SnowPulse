@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-
 from app.validation.quality.healer import DataHealer
 
 

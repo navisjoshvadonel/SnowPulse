@@ -114,7 +114,7 @@ def _score_numeric_numeric(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.Da
     a = df[col_a.name].drop_nulls().to_numpy()
     b = df[col_b.name].drop_nulls().to_numpy()
     if len(a) < 2 or len(b) < 2:
-        return 0.0, {}
+        return 0.0, {"chart": "scatter_no_rel"}
     r = np.corrcoef(a, b)[0, 1]
     sig = min(abs(r), 1.0) * 0.7  # stronger correlation → higher significance
     clr = 0.8 if abs(r) > 0.3 else 0.5
@@ -145,9 +145,8 @@ def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.Da
     return score, {"chart": chart, "eta_squared": eta2, "cardinality": cat_card}
 
 def _score_categorical_categorical(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
-    a = df[col_a.name].cast(pl.Categorical)
-    b = df[col_b.name].cast(pl.Categorical)
-    contingency = pl.crosstab(a, b)  # type: ignore[attr-defined]
+    import pandas as pd
+    contingency = pd.crosstab(df[col_a.name].to_list(), df[col_b.name].to_list())
     chi2, p, dof, _ = stats.chi2_contingency(contingency.to_numpy())
     sig = (1 - p) * 0.7
     clr = 0.8 if max(col_a.cardinality, col_b.cardinality) <= 15 else 0.5

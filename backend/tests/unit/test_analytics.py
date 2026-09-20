@@ -82,6 +82,22 @@ def test_engine_correlations(sample_csv):
     correlation_val = corr["matrix"][revenue_idx][outliers_idx]
     assert correlation_val == pytest.approx(1.0, 0.01)
 
+
+def test_engine_correlations_fallback(sample_csv):
+    engine = AnalyticsEngine(sample_csv)
+    # Simulate missing stored profile correlation matrix to exercise fallback path
+    engine._profile.correlation_matrix = None
+    corr = engine.get_correlations()
+    assert "columns" in corr
+    assert "matrix" in corr
+    assert len(corr["columns"]) >= 2
+    rev_idx = corr["columns"].index("Revenue")
+    out_idx = corr["columns"].index("Outliers")
+    assert corr["matrix"][rev_idx][out_idx] == pytest.approx(1.0, 0.01)
+    # Diagonal should be 1.0
+    assert corr["matrix"][rev_idx][rev_idx] == pytest.approx(1.0, 0.01)
+
+
 def test_engine_context_summary(sample_csv):
     engine = AnalyticsEngine(sample_csv)
     summary = engine.generate_statistical_context_summary()

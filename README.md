@@ -1,6 +1,6 @@
 # SnowPulse - AI Analytics Operating System & Dashboard
 
-SnowPulse is a high-fidelity, premium AI analytics platform and data operating system UI. It features a hyper-minimalist glassmorphism design, real-time responsive grids, dynamic particle glow backgrounds, and a production-grade microservices backend.
+SnowPulse is an enterprise-grade AI analytics platform and data operating system. It features a hyper-minimalist glassmorphism design, real-time responsive grids, dynamic particle glow backgrounds, and a production-grade microservices backend.
 
 ---
 

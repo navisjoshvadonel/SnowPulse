@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import os
 import time
 import uuid
@@ -62,8 +63,10 @@ configure_logging()
 
 gemini_service = GeminiService()
 
+
 class QueryRequest(BaseModel):
     query: str
+
 
 from contextlib import asynccontextmanager
 
@@ -76,11 +79,13 @@ async def lifespan(app: FastAPI):
     logger.info("system.startup", message="Initializing SnowPulse AI Gateway model warmup...")
     # Pre-pull required Ollama models in the background to prevent cold-starts
     from .ai.gateway.client import OllamaClient
+
     client = OllamaClient()
     asyncio.create_task(client.ensure_model_pulled(client.primary_model))
     asyncio.create_task(client.ensure_model_pulled(client.fallback_1))
     asyncio.create_task(client.ensure_model_pulled(client.fallback_2))
     yield
+
 
 # Initialize database schemas
 Base.metadata.create_all(bind=engine)
@@ -89,7 +94,7 @@ app = FastAPI(
     title="SnowPulse AI Secure Backend",
     description="Multi-tenant backend demonstrating strict user isolation, cookie-based refresh tokens, and GDPR compliance.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # SlowAPI setup
@@ -98,8 +103,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Parse comma-separated allowed origins from environment variable
 cors_origins_str = os.getenv(
-    "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080"
+    "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080"
 )
 allowed_origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
 
@@ -115,7 +119,6 @@ app.add_middleware(
 from .ai.routes import router as ai_router
 
 app.include_router(ai_router)
-
 
 
 # Structured Logging Middleware
@@ -147,7 +150,7 @@ async def log_request_middleware(request: Request, call_next):
         method=request.method,
         endpoint=request.url.path,
         execution_time=f"{duration:.4f}s",
-        status_code=response.status_code
+        status_code=response.status_code,
     )
 
     response.headers["X-Request-ID"] = request_id
@@ -155,6 +158,7 @@ async def log_request_middleware(request: Request, call_next):
 
 
 # --- AUTHENTICATION ENDPOINTS ---
+
 
 @app.post("/api/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
@@ -164,15 +168,11 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user_in.email).first()
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An account with this email already exists."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="An account with this email already exists."
         )
 
     hashed_pwd = get_password_hash(user_in.password)
-    new_user = User(
-        email=user_in.email,
-        hashed_password=hashed_pwd
-    )
+    new_user = User(email=user_in.email, hashed_password=hashed_pwd)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -185,7 +185,7 @@ def login_user(
     request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Verifies user credentials.
@@ -208,11 +208,7 @@ def login_user(
 
     # 3. Store refresh token in database (for session tracking & revocation capabilities)
     expiry = datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    db_refresh_token = RefreshToken(
-        token=refresh_token_jwt,
-        user_id=user.id,
-        expires_at=expiry
-    )
+    db_refresh_token = RefreshToken(token=refresh_token_jwt, user_id=user.id, expires_at=expiry)
     db.add(db_refresh_token)
     db.commit()
 
@@ -223,11 +219,7 @@ def login_user(
 
 
 @app.post("/api/auth/refresh", response_model=TokenResponse)
-def refresh_access_token(
-    response: Response,
-    refresh_token: str | None = Cookie(None),
-    db: Session = Depends(get_db)
-):
+def refresh_access_token(response: Response, refresh_token: str | None = Cookie(None), db: Session = Depends(get_db)):
     """
     Rotates access token. Looks up the HttpOnly refresh token cookie,
     verifies validity against DB, and returns a new Access Token.
@@ -250,11 +242,15 @@ def refresh_access_token(
         raise credentials_exception
 
     # Query DB to make sure token exists, belongs to the user, and is not revoked
-    db_token = db.query(RefreshToken).filter(
-        RefreshToken.token == refresh_token,
-        RefreshToken.revoked is False,
-        RefreshToken.expires_at > datetime.datetime.utcnow()
-    ).first()
+    db_token = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.token == refresh_token,
+            RefreshToken.revoked is False,
+            RefreshToken.expires_at > datetime.datetime.utcnow(),
+        )
+        .first()
+    )
 
     if not db_token:
         raise credentials_exception
@@ -269,11 +265,7 @@ def refresh_access_token(
 
 
 @app.post("/api/auth/logout")
-def logout(
-    response: Response,
-    refresh_token: str | None = Cookie(None),
-    db: Session = Depends(get_db)
-):
+def logout(response: Response, refresh_token: str | None = Cookie(None), db: Session = Depends(get_db)):
     """
     Log out the user: revokes the refresh token from the database,
     and deletes the client-side HttpOnly cookie.
@@ -298,11 +290,9 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 # --- DATA ACCESS ENDPOINTS (Logical Tenant Isolation) ---
 
+
 @app.get("/api/datasets", response_model=list[DatasetResponse])
-def get_datasets(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+def get_datasets(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Fetch user's datasets or all available datasets.
     """
@@ -310,7 +300,6 @@ def get_datasets(
     if user_datasets:
         return user_datasets
     return db.query(Dataset).all()
-
 
 
 @app.get("/api/datasets/{dataset_id}/profile")
@@ -341,6 +330,7 @@ def get_dataset_profile(
         import polars as _pl
 
         from .storage.service import storage_service as _ss
+
         if dataset.file_path.startswith("minio://"):
             _parts = dataset.file_path.replace("minio://", "").split("/", 1)
             _fb = _ss.get_file(_parts[0], _parts[1])
@@ -363,16 +353,11 @@ def reprofile_dataset(
     Use after cleaning data in-place, or when the profiling engine version changes.
     Detects stale profiles via profile_version and reports whether a refresh occurred.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    was_stale = (
-        dataset.profile_json is None
-        or dataset.profile_version != PROFILE_VERSION
-    )
+    was_stale = dataset.profile_json is None or dataset.profile_version != PROFILE_VERSION
 
     try:
         import io as _io
@@ -380,6 +365,7 @@ def reprofile_dataset(
         import polars as _pl
 
         from .storage.service import storage_service as _ss
+
         if dataset.file_path.startswith("minio://"):
             _parts = dataset.file_path.replace("minio://", "").split("/", 1)
             _fb = _ss.get_file(_parts[0], _parts[1])
@@ -449,8 +435,8 @@ def get_dataset_schema(
         if cp.top_values:
             col_info["unique_values"] = [v["value"] for v in cp.top_values]
         if cp.numeric_stats:
-            col_info["min"]  = cp.numeric_stats.get("min")
-            col_info["max"]  = cp.numeric_stats.get("max")
+            col_info["min"] = cp.numeric_stats.get("min")
+            col_info["max"] = cp.numeric_stats.get("max")
             col_info["mean"] = cp.numeric_stats.get("mean")
             col_info["skew"] = cp.numeric_stats.get("skew")
         if cp.temporal_stats:
@@ -632,17 +618,11 @@ def get_geo_spatial_endpoint(
 
 
 @app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_dataset(
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+def delete_dataset(dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Delete a specific dataset and its physical file if the user owns it.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -662,9 +642,7 @@ def delete_dataset(
 @app.get("/api/dashboards", response_model=list[DashboardResponse])
 @limiter.limit("100/minute")
 def get_user_dashboards(
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Fetch user dashboards.
@@ -679,7 +657,7 @@ def create_user_dashboard(
     request: Request,
     dashboard_in: DashboardCreate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Creates a private user dashboard linked to a shared dataset.
@@ -688,17 +666,14 @@ def create_user_dashboard(
     # Verify dataset exists
     dataset = db.query(Dataset).filter(Dataset.id == dashboard_in.dataset_id).first()
     if not dataset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Shared dataset not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared dataset not found")
 
     db_dashboard = UserDashboard(
         user_id=current_user.id,
         dataset_id=dashboard_in.dataset_id,
         title=dashboard_in.title,
         insight_notes=dashboard_in.insight_notes,
-        query_history=dashboard_in.query_history or []
+        query_history=dashboard_in.query_history or [],
     )
     db.add(db_dashboard)
     db.commit()
@@ -708,10 +683,7 @@ def create_user_dashboard(
 
 @app.get("/api/dashboards/{dashboard_id}", response_model=DashboardResponse)
 @limiter.limit("100/minute")
-def get_single_dashboard(
-    request: Request,
-    dashboard: UserDashboard = Depends(verify_dashboard_ownership)
-):
+def get_single_dashboard(request: Request, dashboard: UserDashboard = Depends(verify_dashboard_ownership)):
     """
     Fetch details of a specific dashboard session.
     Enforces route-level ownership validation dependency.
@@ -721,11 +693,10 @@ def get_single_dashboard(
 
 # --- PRIVACY PURGE (GDPR Compliance - Right to be Forgotten) ---
 
+
 @app.delete("/api/user/account", status_code=status.HTTP_200_OK)
 def delete_user_account(
-    response: Response,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    response: Response, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     GDPR Purge Endpoint.
@@ -740,19 +711,24 @@ def delete_user_account(
 
         # Purge MinIO reports referenced in semantic memory
         from .ai.memory.vector_store import SemanticMemory
-        reports = db.query(SemanticMemory).filter(
-            SemanticMemory.user_id == user_id,
-            SemanticMemory.category == "report"
-        ).all()
+
+        reports = (
+            db.query(SemanticMemory)
+            .filter(SemanticMemory.user_id == user_id, SemanticMemory.category == "report")
+            .all()
+        )
+        report_filenames = []
         for report in reports:
             meta = report.metadata_json or {}
             obj_path = meta.get("object_path")
             if obj_path and obj_path.startswith("minio://reports/"):
-                filename = obj_path.replace("minio://reports/", "")
-                try:
-                    storage_service.delete_file("reports", filename)
-                except Exception as e:
-                    logger.warning(f"Failed to delete report file {filename} during GDPR purge: {e}")
+                report_filenames.append(obj_path.replace("minio://reports/", ""))
+
+        if report_filenames:
+            try:
+                storage_service.delete_files("reports", report_filenames)
+            except Exception as e:
+                logger.warning(f"Failed to delete report files during GDPR purge: {e}")
 
         # Delete database-level semantic memories
         db.query(SemanticMemory).filter(SemanticMemory.user_id == user_id).delete()
@@ -765,40 +741,37 @@ def delete_user_account(
 
         return {
             "status": "success",
-            "message": f"Account registration for {current_user.email} and all associated private dashboards, credentials, and profiles have been completely purged from the system in compliance with GDPR guidelines."
+            "message": f"Account registration for {current_user.email} and all associated private dashboards, credentials, and profiles have been completely purged from the system in compliance with GDPR guidelines.",
         }
     except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while purging user data: {str(e)}"
+            detail=f"An error occurred while purging user data: {str(e)}",
         )
 
 
 # --- DATASET UPLOAD & POLARS/GEMINI ANALYTICS ENDPOINTS ---
 
+
 @app.post("/api/datasets/upload", response_model=DatasetResponse, status_code=status.HTTP_201_CREATED)
 async def upload_dataset(
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Upload a custom CSV or Excel dataset, persist in MinIO, and trigger the analytics pipeline.
     """
-    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-    if ext not in ('csv', 'xlsx', 'xls'):
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ("csv", "xlsx", "xls"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only CSV and Excel (.xlsx, .xls) files are supported."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Only CSV and Excel (.xlsx, .xls) files are supported."
         )
 
     try:
         content_bytes = await file.read()
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to read file stream: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to read file stream: {str(e)}"
         )
 
     # 1. Upload to MinIO S3
@@ -808,20 +781,20 @@ async def upload_dataset(
             bucket_name="datasets",
             object_name=file_key,
             data=content_bytes,
-            content_type=file.content_type or "application/octet-stream"
+            content_type=file.content_type or "application/octet-stream",
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload dataset to storage server: {str(e)}"
+            detail=f"Failed to upload dataset to storage server: {str(e)}",
         )
 
     # 2. Save metadata in DB
     db_dataset = Dataset(
         owner_id=current_user.id,
-        name=file.filename.rsplit('.', 1)[0],
+        name=file.filename.rsplit(".", 1)[0],
         description=f"Uploaded by {current_user.email} (In-flight validation)",
-        file_path=f"minio://datasets/{file_key}"
+        file_path=f"minio://datasets/{file_key}",
     )
     db.add(db_dataset)
     db.commit()
@@ -832,6 +805,7 @@ async def upload_dataset(
         import io as _io
 
         import polars as _pl
+
         _pl_df = _pl.read_csv(_io.BytesIO(content_bytes))
         _profile = DatasetProfiler.profile_full(_pl_df)
         db_dataset.profile_json = _profile.model_dump()
@@ -846,10 +820,7 @@ async def upload_dataset(
     job_id = None
     try:
         job_id = await JobManager.submit_job(
-            "process_pipeline_task",
-            dataset_id=db_dataset.id,
-            file_key=file_key,
-            original_filename=file.filename
+            "process_pipeline_task", dataset_id=db_dataset.id, file_key=file_key, original_filename=file.filename
         )
     except Exception as e:
         logger.error(f"Failed to enqueue background pipeline for dataset {db_dataset.id}: {e}")
@@ -860,16 +831,12 @@ async def upload_dataset(
 
 @app.post("/api/datasets/{dataset_id}/auto-heal", response_model=DatasetResponse)
 async def auto_heal_dataset(
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Automatically impute missing values, cap outliers, and fix schema issues using AI-driven heuristic heuristics.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -886,6 +853,7 @@ async def auto_heal_dataset(
 
         # 2. Convert to pandas
         from .validation.quality.quality_scorer import DataQualityScorer
+
         df = DataQualityScorer.read_file_to_pandas(file_bytes, parts[1])
 
         # 3. Heal Data
@@ -898,10 +866,7 @@ async def auto_heal_dataset(
 
         new_file_key = f"healed_{datetime.datetime.utcnow().timestamp()}_{parts[1].split('_', 1)[-1]}"
         storage_service.upload_file(
-            bucket_name=parts[0],
-            object_name=new_file_key,
-            data=healed_bytes,
-            content_type="text/csv"
+            bucket_name=parts[0], object_name=new_file_key, data=healed_bytes, content_type="text/csv"
         )
 
         # 5. Update Database Record
@@ -924,9 +889,7 @@ async def auto_heal_dataset(
 
 @app.post("/api/datasets/import", response_model=DatasetResponse, status_code=status.HTTP_201_CREATED)
 async def import_external_dataset(
-    config: ConnectorConfig,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    config: ConnectorConfig, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Connect to an external database, fetch a table, persist in MinIO, and trigger the analytics pipeline.
@@ -939,7 +902,7 @@ async def import_external_dataset(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch data from external source: {str(e)}"
+            detail=f"Failed to fetch data from external source: {str(e)}",
         )
 
     # 1. Upload to MinIO S3
@@ -947,15 +910,12 @@ async def import_external_dataset(
     file_key = f"{datetime.datetime.utcnow().timestamp()}_{filename}"
     try:
         storage_service.upload_file(
-            bucket_name="datasets",
-            object_name=file_key,
-            data=content_bytes,
-            content_type="text/csv"
+            bucket_name="datasets", object_name=file_key, data=content_bytes, content_type="text/csv"
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload imported dataset to storage server: {str(e)}"
+            detail=f"Failed to upload imported dataset to storage server: {str(e)}",
         )
 
     # 2. Save metadata in DB
@@ -963,7 +923,7 @@ async def import_external_dataset(
         owner_id=current_user.id,
         name=f"{config.database} - {config.table_name}",
         description=f"Imported from {config.connector_type.upper()} by {current_user.email} (In-flight validation)",
-        file_path=f"minio://datasets/{file_key}"
+        file_path=f"minio://datasets/{file_key}",
     )
     db.add(db_dataset)
     db.commit()
@@ -974,6 +934,7 @@ async def import_external_dataset(
         import io as _io
 
         import polars as _pl
+
         _pl_df = _pl.read_csv(_io.BytesIO(content_bytes))
         _profile = DatasetProfiler.profile_full(_pl_df)
         db_dataset.profile_json = _profile.model_dump()
@@ -988,10 +949,7 @@ async def import_external_dataset(
     job_id = None
     try:
         job_id = await JobManager.submit_job(
-            "process_pipeline_task",
-            dataset_id=db_dataset.id,
-            file_key=file_key,
-            original_filename=filename
+            "process_pipeline_task", dataset_id=db_dataset.id, file_key=file_key, original_filename=filename
         )
     except Exception as e:
         logger.error(f"Failed to enqueue background pipeline for dataset {db_dataset.id}: {e}")
@@ -1007,7 +965,7 @@ def execute_dynamic_query(
     dataset_id: int,
     query: QueryPayload,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Execute a dynamic JSON query against the dataset.
@@ -1033,7 +991,7 @@ def execute_dashboard_aggregate(
     dataset_id: int,
     payload: DashboardAggregatePayload,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Execute server-side aggregation for the active filter state.
@@ -1050,14 +1008,10 @@ def execute_dashboard_aggregate(
     return result
 
 
-
 @app.get("/api/analytics/summary/{dataset_id}")
 @limiter.limit("60/minute")
 def get_analytics_summary(
-    request: Request,
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    request: Request, dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Retrieve statistical summaries, ECharts structures, anomalies, and correlations.
@@ -1078,17 +1032,13 @@ def get_analytics_summary(
     if not (kpis and trends and geo and anomalies and correlations):
         dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
         if not dataset:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Dataset not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
         try:
             _profile = DatasetProfile.model_validate(dataset.profile_json) if dataset.profile_json else None
             analytics_engine = AnalyticsEngine(dataset.file_path, profile=_profile)
         except Exception as e:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Analytics computation failed: {str(e)}"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Analytics computation failed: {str(e)}"
             )
 
     if not kpis and analytics_engine:
@@ -1107,22 +1057,13 @@ def get_analytics_summary(
         correlations = analytics_engine.get_correlations()
         cache_service.set(corr_key, correlations, ttl_seconds=600)
 
-    return {
-        "kpis": kpis,
-        "trends": trends,
-        "geo": geo,
-        "anomalies": anomalies,
-        "correlations": correlations
-    }
+    return {"kpis": kpis, "trends": trends, "geo": geo, "anomalies": anomalies, "correlations": correlations}
 
 
 @app.get("/api/analytics/insights/{dataset_id}")
 @limiter.limit("60/minute")
 def get_analytics_insights(
-    request: Request,
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    request: Request, dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Retrieve automated Gemini AI insights (headline, trends, regional highlights, and recommendations).
@@ -1134,10 +1075,7 @@ def get_analytics_insights(
 
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
     if not dataset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dataset not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 
     try:
         _profile = DatasetProfile.model_validate(dataset.profile_json) if dataset.profile_json else None
@@ -1148,17 +1086,14 @@ def get_analytics_insights(
         return insights
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate insights: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate insights: {str(e)}"
         )
+
 
 @app.get("/api/datasets/{dataset_id}/suggestions")
 @limiter.limit("30/minute")
 def get_dataset_chart_suggestions(
-    request: Request,
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    request: Request, dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Combines deterministic rules_engine chart candidates with Gemini 'soft' semantic titles & summary enrichment.
@@ -1201,10 +1136,7 @@ def get_dataset_chart_suggestions(
 @app.get("/api/datasets/{dataset_id}/signals")
 @limiter.limit("30/minute")
 def get_dataset_signals(
-    request: Request,
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    request: Request, dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Returns top ranked statistical signals (outliers, drift, correlations, missing clusters, category imbalance)
@@ -1216,6 +1148,7 @@ def get_dataset_signals(
 
     try:
         from .analytics.engine import AnalyticsEngine
+
         prof = dataset.get_profile() if hasattr(dataset, "get_profile") else None
         engine = AnalyticsEngine(dataset.file_path, profile=prof)
         signals = engine.get_signals()
@@ -1225,13 +1158,8 @@ def get_dataset_signals(
         raise HTTPException(status_code=500, detail=f"Failed to extract signals: {str(e)}")
 
 
-
-
 @app.get("/api/analytics/usage")
-def get_usage_quota(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+def get_usage_quota(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Returns actual token usage, Gemini call counts, and dataset storage metrics.
     """
@@ -1259,30 +1187,36 @@ def test_connector(config: ConnectorConfig, current_user: User = Depends(get_cur
 
 
 @app.post("/api/connectors/sync")
-def sync_connector(config: ConnectorConfig, table_name: str = "enterprise_table", current_user: User = Depends(get_current_user)):
+def sync_connector(
+    config: ConnectorConfig, table_name: str = "enterprise_table", current_user: User = Depends(get_current_user)
+):
     AuditLogger.log(str(current_user.id), "default_tenant", "connector_sync", f"{config.connector_type}:{table_name}")
     return ConnectorService.sync_table_schema(config, table_name)
 
 
 @app.get("/api/analytics/lineage/{dataset_id}")
-def get_calculation_lineage(dataset_id: int, metric_name: str = "primary_metric", current_user: User = Depends(get_current_user)):
+def get_calculation_lineage(
+    dataset_id: int, metric_name: str = "primary_metric", current_user: User = Depends(get_current_user)
+):
     return {
         "dataset_id": dataset_id,
         "metric": metric_name,
         "polars_query": f"df.group_by('dimension').agg(pl.col('{metric_name}').sum())",
         "sql_equivalent": f"SELECT dimension, SUM({metric_name}) FROM dataset_{dataset_id} GROUP BY dimension;",
-        "confidence": 0.99
+        "confidence": 0.99,
     }
 
 
 @app.post("/api/analytics/export-report")
 def export_executive_report(payload: dict[str, Any], current_user: User = Depends(get_current_user)):
-    AuditLogger.log(str(current_user.id), "default_tenant", "report_export", payload.get("dataset_name", "executive_report.pdf"))
+    AuditLogger.log(
+        str(current_user.id), "default_tenant", "report_export", payload.get("dataset_name", "executive_report.pdf")
+    )
     return {
         "status": "success",
         "format": "pdf",
         "download_url": f"/api/reports/download/executive_brief_{uuid.uuid4().hex[:8]}.pdf",
-        "generated_at": datetime.datetime.utcnow().isoformat()
+        "generated_at": datetime.datetime.utcnow().isoformat(),
     }
 
 
@@ -1291,7 +1225,7 @@ def run_generalized_forecast(
     dataset_id: int,
     payload: dict[str, Any],
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
     metric_col = payload.get("metric_column")
@@ -1300,7 +1234,14 @@ def run_generalized_forecast(
             prof = json.loads(dataset.profile_json) if isinstance(dataset.profile_json, str) else dataset.profile_json
             cols = prof.get("columns", [])
             primary_col = next((c.get("name") for c in cols if c.get("is_primary_metric")), None)
-            numeric_col = next((c.get("name") for c in cols if c.get("dtype_category") == "numeric" or c.get("inferred_role") == "metric"), None)
+            numeric_col = next(
+                (
+                    c.get("name")
+                    for c in cols
+                    if c.get("dtype_category") == "numeric" or c.get("inferred_role") == "metric"
+                ),
+                None,
+            )
             metric_col = primary_col or numeric_col
         except Exception:
             pass
@@ -1329,11 +1270,12 @@ def run_generalized_forecast(
                 "yhat": round((145 + i * 6) * multiplier, 2),
                 "yhat_lower": round((135 + i * 4) * multiplier, 2),
                 "yhat_upper": round((155 + i * 8) * multiplier, 2),
-                "is_forecast": True
-            } for i in range(1, periods + 1)
+                "is_forecast": True,
+            }
+            for i in range(1, periods + 1)
         ],
         "scenario_multiplier": multiplier,
-        "model_type": "Holt-Winters Exponential Smoothing (+95% CI)"
+        "model_type": "Holt-Winters Exponential Smoothing (+95% CI)",
     }
 
 
@@ -1349,19 +1291,14 @@ def post_copilot_query(
     dataset_id: int,
     payload: QueryRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Pose natural language queries to the Gemini Copilot.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
     if not dataset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dataset not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 
     try:
         _profile = DatasetProfile.model_validate(dataset.profile_json) if dataset.profile_json else None
@@ -1370,19 +1307,18 @@ def post_copilot_query(
         response = gemini_service.ask_copilot(payload.query, context)
 
         # Save query to history if user has a dashboard linked to this dataset
-        dashboard = db.query(UserDashboard).filter(
-            UserDashboard.user_id == current_user.id,
-            UserDashboard.dataset_id == dataset_id
-        ).first()
+        dashboard = (
+            db.query(UserDashboard)
+            .filter(UserDashboard.user_id == current_user.id, UserDashboard.dataset_id == dataset_id)
+            .first()
+        )
         if dashboard:
             history = dashboard.query_history or []
             if not history:
                 history = []
-            history.append({
-                "query": payload.query,
-                "timestamp": datetime.datetime.utcnow().isoformat(),
-                "response": response
-            })
+            history.append(
+                {"query": payload.query, "timestamp": datetime.datetime.utcnow().isoformat(), "response": response}
+            )
             # Force dirty session for json mutation
             dashboard.query_history = None
             db.commit()
@@ -1392,8 +1328,7 @@ def post_copilot_query(
         return {"response": response}
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process query: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process query: {str(e)}"
         )
 
 
@@ -1412,18 +1347,16 @@ def health_readiness(response: Response):
     """
     import os
     import sys
+
     result = run_readiness_check(SessionLocal)
-    is_testing = (
-        os.getenv("ENV") == "testing"
-        or "pytest" in sys.modules
-        or any("pytest" in arg for arg in sys.argv)
-    )
+    is_testing = os.getenv("ENV") == "testing" or "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
     if result["status"] != "healthy" and not is_testing:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return result
 
 
 # --- PROMETHEUS METRICS EXPORTER ---
+
 
 @app.get("/metrics")
 def get_metrics():
@@ -1435,31 +1368,24 @@ def get_metrics():
 
 # --- ASYNCHRONOUS BACKGROUND JOBS API ---
 
+
 @app.post("/api/jobs", response_model=JobStatusResponse)
-async def submit_background_job(
-    job_in: JobSubmission,
-    current_user: User = Depends(get_current_user)
-):
+async def submit_background_job(job_in: JobSubmission, current_user: User = Depends(get_current_user)):
     """
     Submit an arbitrary background job (for administrative or pipeline testing).
     """
     try:
         args = job_in.arguments or {}
-        job_id = await JobManager.submit_job(
-            job_in.task_name,
-            queue=job_in.queue,
-            **args
-        )
+        job_id = await JobManager.submit_job(job_in.task_name, queue=job_in.queue, **args)
         return {
             "job_id": job_id,
             "task_name": job_in.task_name,
             "status": "queued",
-            "message": "Job submitted to background queue."
+            "message": "Job submitted to background queue.",
         }
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to submit background job: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to submit background job: {str(e)}"
         )
 
 
@@ -1471,45 +1397,32 @@ async def list_background_jobs(current_user: User = Depends(get_current_user)):
     try:
         return JobManager.get_all_jobs_status()
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list jobs: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to list jobs: {str(e)}")
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(
-    job_id: str,
-    current_user: User = Depends(get_current_user)
-):
+async def get_job_status(job_id: str, current_user: User = Depends(get_current_user)):
     """
     Retrieve status, progress percentage, logs, and results of a background job.
     """
     try:
         status_info = JobManager.get_job_status(job_id)
         if not status_info:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Job {job_id} not found."
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
         return status_info
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve job status: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve job status: {str(e)}"
         )
 
 
 # --- OBJECT STORAGE API ---
 
+
 @app.get("/api/storage/presigned/{bucket}/{key:path}")
-def get_download_url(
-    bucket: str,
-    key: str,
-    current_user: User = Depends(get_current_user)
-):
+def get_download_url(bucket: str, key: str, current_user: User = Depends(get_current_user)):
     """
     Generate a secure, short-lived presigned URL to download files from MinIO.
     """
@@ -1517,17 +1430,17 @@ def get_download_url(
         url = storage_service.get_signed_url(
             bucket_name=bucket,
             object_name=key,
-            expires_in_seconds=600  # 10 minutes
+            expires_in_seconds=600,  # 10 minutes
         )
         return {"url": url}
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate URL: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate URL: {str(e)}"
         )
 
 
 # --- UNIFIED RESOURCE SEARCH API ---
+
 
 @app.get("/api/search")
 def unified_search(
@@ -1535,23 +1448,18 @@ def unified_search(
     filter_by: str | None = None,
     limit: int = 10,
     offset: int = 0,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Unified search across datasets, dashboards, and insights via Meilisearch.
     """
     try:
         return search_service.search(
-            query=q,
-            user_id=current_user.id,
-            resource_type=filter_by,
-            limit=limit,
-            offset=offset
+            query=q, user_id=current_user.id, resource_type=filter_by, limit=limit, offset=offset
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Search request failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Search request failed: {str(e)}"
         )
 
 
@@ -1564,13 +1472,14 @@ def _get_dataset_for_user(db: Session, dataset_id: int, current_user: User) -> D
 
 # --- TIME-SERIES FORECASTING API ---
 
+
 @app.post("/api/forecast/train/{dataset_id}")
 async def trigger_forecast_training(
     dataset_id: int,
     target_col: str,
     steps: int = 30,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Trigger time-series forecast model training for a dataset as a background task.
@@ -1581,10 +1490,7 @@ async def trigger_forecast_training(
 
     try:
         job_id = await JobManager.submit_job(
-            "run_forecast_task",
-            dataset_id=dataset_id,
-            target_col=target_col,
-            steps=steps
+            "run_forecast_task", dataset_id=dataset_id, target_col=target_col, steps=steps
         )
         return {"job_id": job_id, "status": "queued", "message": "Forecasting model training initiated."}
     except Exception as e:
@@ -1593,10 +1499,7 @@ async def trigger_forecast_training(
 
 @app.get("/api/forecast/predict/{dataset_id}")
 def get_forecast_predictions(
-    dataset_id: int,
-    steps: int = 30,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    dataset_id: int, steps: int = 30, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Retrieve future forecast projections and explanations using the best trained model.
@@ -1610,7 +1513,7 @@ def get_forecast_predictions(
         if not predictor.loaded:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No forecasting model found for this dataset. Please train one first."
+                detail="No forecasting model found for this dataset. Please train one first.",
             )
         return predictor.predict(steps=steps)
     except HTTPException:
@@ -1621,15 +1524,15 @@ def get_forecast_predictions(
 
 # --- MACHINE LEARNING PLATFORM API ---
 
+
 class MLTrainRequest(BaseModel):
     task_type: str = "auto"
     target_col: str | None = None
 
+
 @app.get("/api/ml/targets/{dataset_id}")
 def get_ml_target_candidates(
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Returns ranked auto-suggested target candidates using dataset profile interestingness scores.
@@ -1641,12 +1544,14 @@ def get_ml_target_candidates(
 
     try:
         from .ml.trainer import MLTrainer
+
         trainer = MLTrainer(db=db, dataset_id=dataset_id)
         candidates = trainer.suggest_target_candidates()
         return {"dataset_id": dataset_id, "target_candidates": candidates}
     except Exception as e:
         logger.error(f"Failed to suggest targets for dataset {dataset_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/ml/train/{dataset_id}")
 def trigger_ml_training(
@@ -1655,7 +1560,7 @@ def trigger_ml_training(
     target_col: str | None = None,
     payload: MLTrainRequest | None = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Triggers universal AutoML training for any dataset with complex feature extraction,
@@ -1670,6 +1575,7 @@ def trigger_ml_training(
 
     try:
         from .ml.trainer import MLTrainer
+
         trainer = MLTrainer(db=db, dataset_id=dataset_id)
         results = trainer.train_model(task_type=selected_task, target_col=selected_target)
         return results
@@ -1678,14 +1584,13 @@ def trigger_ml_training(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 @app.post("/api/ml/predict/{dataset_id}")
 def run_ml_inference(
     dataset_id: int,
     task_type: str,
     input_records: list[dict[str, Any]],
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Serve predictions using the latest trained model registered for a task type.
@@ -1699,7 +1604,7 @@ def run_ml_inference(
         if not server.loaded:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No trained model registered for task type '{task_type}'. Please trigger training first."
+                detail=f"No trained model registered for task type '{task_type}'. Please trigger training first.",
             )
         return server.predict(input_records)
     except HTTPException:
@@ -1733,18 +1638,15 @@ def get_ml_training_history(
 
 # --- INSIGHTS AUTOMATION API ---
 
+
 @app.get("/api/insights/dataset/{dataset_id}", response_model=list[InsightResponse])
 def get_dataset_insights(
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Retrieve all structured, categorized insights and actionable recommendations for a dataset.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1753,24 +1655,17 @@ def get_dataset_insights(
 
 @app.post("/api/insights/trigger/{dataset_id}")
 async def trigger_insights_generation(
-    dataset_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    dataset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Manually enqueue a background job to run analytical insight scans and recommendations.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     try:
-        job_id = await JobManager.submit_job(
-            "run_insight_generation_task",
-            dataset_id=dataset_id
-        )
+        job_id = await JobManager.submit_job("run_insight_generation_task", dataset_id=dataset_id)
         return {"job_id": job_id, "status": "queued", "message": "AI insights scans initiated in background."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

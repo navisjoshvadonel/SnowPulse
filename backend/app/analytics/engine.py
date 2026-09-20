@@ -397,26 +397,17 @@ class AnalyticsEngine:
         if sub_df.height < 3:
             return {"columns": all_numeric, "matrix": [[1.0] * len(all_numeric)] * len(all_numeric)}
 
-        # ⚡ Bolt: Vectorize correlation matrix calculation
-        # Instead of an O(N^2) loop where we do column-pair extraction,
-        # extract all needed columns simultaneously and pass to np.corrcoef for C-level vectorization.
-        arr = sub_df.select(all_numeric).to_numpy().T.astype(float)
-
-        with np.errstate(invalid="ignore", divide="ignore"):
-            # Ensure the correlation matrix is always 2D even when passing a 1D array
-            corr_matrix = np.atleast_2d(np.corrcoef(np.atleast_2d(arr)))
-
-        stds = np.std(arr, axis=1)
-
         matrix: list[list[float]] = []
-        for i in range(len(all_numeric)):
+        for col_a in all_numeric:
             row_corrs: list[float] = []
-            for j in range(len(all_numeric)):
-                if stds[i] <= 1e-12 or stds[j] <= 1e-12:
+            std_a = sub_df[col_a].std() or 0
+            for col_b in all_numeric:
+                std_b = sub_df[col_b].std() or 0
+                if std_a <= 1e-12 or std_b <= 1e-12:
                     row_corrs.append(0.0)
                 else:
-                    corr = corr_matrix[i, j]
-                    row_corrs.append(0.0 if np.isnan(corr) else round(float(corr), 4))
+                    corr = float(np.corrcoef(sub_df[col_a].to_numpy(), sub_df[col_b].to_numpy())[0, 1])
+                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
             matrix.append(row_corrs)
 
         return {"columns": all_numeric, "matrix": matrix}
@@ -549,7 +540,7 @@ class AnalyticsEngine:
                 .sort("sum_val", descending=True)
             )
 
-            results = []
+            results: list[dict[str, Any]] = []
             group_rows = grouped.to_dicts()
             if not group_rows:
                 return []
@@ -587,12 +578,12 @@ class AnalyticsEngine:
 
             # Highlight bottleneck (worst negative delta) & top driver (highest positive delta)
             if results:
-                min_node = min(results, key=lambda x: x["delta_value"])
-                max_node = max(results, key=lambda x: x["delta_value"])
-                if min_node["delta_value"] < 0:
+                min_node = min(results, key=lambda x: float(x.get("delta_value", 0.0)))
+                max_node = max(results, key=lambda x: float(x.get("delta_value", 0.0)))
+                if float(min_node.get("delta_value", 0.0)) < 0:
                     min_node["is_bottleneck"] = True
                     min_node["bottleneck_reason"] = f"Primary Drop Factor: {min_node['delta_value']:,.0f} below expected mean"
-                if max_node["delta_value"] > 0:
+                if float(max_node.get("delta_value", 0.0)) > 0:
                     max_node["is_top_driver"] = True
 
             return results
@@ -601,12 +592,15 @@ class AnalyticsEngine:
 
         # Highlight primary root cause path throughout the tree
         primary_bottleneck_path = []
-        curr = root_node
+        curr: dict[str, Any] | None = root_node
         while curr and curr.get("children"):
-            b_child = next((c for c in curr["children"] if c.get("is_bottleneck")), None)
-            if not b_child and curr["children"]:
-                b_child = min(curr["children"], key=lambda x: x.get("delta_value", 0))
-            if b_child:
+            children = curr.get("children")
+            if not isinstance(children, list) or not children:
+                break
+            b_child: dict[str, Any] | None = next((c for c in children if isinstance(c, dict) and c.get("is_bottleneck")), None)
+            if not b_child and children:
+                b_child = min(children, key=lambda x: float(x.get("delta_value", 0.0)) if isinstance(x, dict) else 0.0)
+            if b_child and isinstance(b_child, dict):
                 b_child["is_primary_root_cause_path"] = True
                 primary_bottleneck_path.append(f"{b_child['dimension']}: {b_child['value']}")
                 curr = b_child
@@ -852,7 +846,7 @@ class AnalyticsEngine:
             explanation = f"Computes a trailing {window_size}-period moving average of '{target_metric}' to smooth out volatility and isolate trends."
 
         # Pattern 2: Percentage of Total / Share
-        elif "percent of total" in prompt_lower or "% of total" in prompt_lower or "share" in prompt_lower or "ratio of total" in prompt_lower:
+        elif "percent of total" in prompt_lower or "percentage of total" in prompt_lower or "% of total" in prompt_lower or "share" in prompt_lower or "ratio of total" in prompt_lower:
             expr = (pl.col(target_metric) / (pl.col(target_metric).sum() + 1e-9) * 100.0).fill_nan(0.0).fill_null(0.0)
             calc_type = "percentage_of_total"
             default_name = f"{target_metric}_Pct_Of_Total"
@@ -964,7 +958,7 @@ class AnalyticsEngine:
                 self.categorical_cols.append(final_col_name)
 
         # Compute stats
-        stats = {}
+        stats: dict[str, Any] = {}
         if inferred_dtype == "numeric":
             valid_series = computed_series.drop_nans().drop_nulls()
             stats = {
@@ -1187,6 +1181,7 @@ class AnalyticsEngine:
                 label_col = "_geo_label"
         else:
             # Geocode from region names
+            assert geo_col is not None
             geo_values = work_df[geo_col].drop_nulls().unique().to_list()
             lat_map = {}
             lng_map = {}
@@ -1220,9 +1215,9 @@ class AnalyticsEngine:
 
         # ---- 1. Heat Points (raw scatter) ----
         heat_points = []
-        sample = work_df.head(min(top_n * 20, work_df.height))
+        sample_df = work_df.head(min(top_n * 20, work_df.height))
         select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
-        for row in sample.select(select_cols).iter_rows(named=True):
+        for row in sample_df.select(select_cols).iter_rows(named=True):
             heat_points.append({
                 "lat": round(float(row["_lat"]), 6),
                 "lng": round(float(row["_lng"]), 6),
@@ -1271,28 +1266,16 @@ class AnalyticsEngine:
                 for i in range(k):
                     mask = labels == i
                     cluster_vals = values[mask]
-                    if len(cluster_vals) > 0:
-                        density_clusters.append({
-                            "cluster_id": i,
-                            "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
-                            "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
-                            "point_count": int(mask.sum()),
-                            "total_value": round(float(cluster_vals.sum()), 2),
-                            "avg_value": round(float(cluster_vals.mean()), 2),
-                            "max_value": round(float(cluster_vals.max()), 2),
-                            "density_score": round(float(mask.sum()) / max(len(coords), 1) * 100, 2),
-                        })
-                    else:
-                        density_clusters.append({
-                            "cluster_id": i,
-                            "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
-                            "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
-                            "point_count": 0,
-                            "total_value": 0.0,
-                            "avg_value": 0.0,
-                            "max_value": 0.0,
-                            "density_score": 0.0,
-                        })
+                    density_clusters.append({
+                        "cluster_id": i,
+                        "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
+                        "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
+                        "point_count": int(mask.sum()),
+                        "total_value": round(float(cluster_vals.sum()), 2),
+                        "avg_value": round(float(cluster_vals.mean()), 2),
+                        "max_value": round(float(cluster_vals.max()), 2),
+                        "density_score": round(float(mask.sum()) / max(len(coords), 1) * 100, 2),
+                    })
                 density_clusters.sort(key=lambda c: c["total_value"], reverse=True)
         except Exception as e:
             logger.warning("Geo density clustering failed: %s", e)

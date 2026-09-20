@@ -85,7 +85,7 @@ class ResilientFileIngestor:
                 delimiter_counts[delim] = sum(counts)
 
         if delimiter_counts:
-            return max(delimiter_counts, key=delimiter_counts.get)  # type: ignore
+            return max(delimiter_counts, key=lambda k: delimiter_counts[k])
 
         return ","
 

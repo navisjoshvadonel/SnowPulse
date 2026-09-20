@@ -582,26 +582,20 @@ class DatasetProfiler:
             if sub.height < 3:
                 return None
 
-            # Bolt optimization: Vectorize correlation matrix computation
-            # Replaces O(N^2) Python loops with single C-optimized numpy call
-            matrix: list[list[float | None]] = []
-            arr = sub.to_numpy().astype(float).T
+            arr = sub.select(numeric_cols).to_numpy().astype(float)
             with np.errstate(invalid="ignore", divide="ignore"):
-                corr_mat = np.atleast_2d(np.corrcoef(arr))
+                corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
 
-            # Compute standard deviations in a vectorized way
-            stds = sub.select([pl.col(c).std() for c in numeric_cols]).to_numpy()[0]
+            std_arr = arr.std(axis=0)
 
-            for i in range(len(numeric_cols)):
+            matrix: list[list[float | None]] = []
+            for i, _ in enumerate(numeric_cols):
                 row: list[float | None] = []
-                std_a = stds[i]
-                for j in range(len(numeric_cols)):
-                    std_b = stds[j]
-                    # Note: pl.col().std() returns None if height < 2, or 0.0 if all values are same
-                    if std_a == 0 or std_b == 0 or std_a is None or std_b is None or np.isnan(std_a) or np.isnan(std_b):
+                for j, _ in enumerate(numeric_cols):
+                    if std_arr[i] == 0 or std_arr[j] == 0:
                         row.append(None)
                     else:
-                        val = corr_mat[i, j]
+                        val = corr_matrix[i, j]
                         row.append(None if np.isnan(val) else round(float(val), 4))
                 matrix.append(row)
 

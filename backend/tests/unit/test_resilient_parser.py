@@ -7,8 +7,8 @@ Tests:
 4. Clean value formats (currency symbols, percentages, negative parens)
 """
 
-import pytest
 import pandas as pd
+
 from backend.app.validation.resilient_parser import ResilientFileIngestor
 
 

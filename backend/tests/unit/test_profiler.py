@@ -1,4 +1,5 @@
 import warnings
+
 import polars as pl
 from app.analytics.profiler import DatasetProfiler
 
@@ -127,3 +128,57 @@ def test_profiler_high_cardinality_identifiers():
         assert "transaction_uuid" not in profile.correlation_matrix.columns
 
 
+def test_vectorized_correlation_matrix_accuracy():
+    """Verify vectorized correlation computation matches expected mathematical values."""
+    df = pl.DataFrame({
+        "x": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "y": [2.0, 4.0, 6.0, 8.0, 10.0],  # Perfect positive correlation (r=1.0)
+        "z": [10.0, 8.0, 6.0, 4.0, 2.0],  # Perfect negative correlation (r=-1.0)
+    })
+    profiles = DatasetProfiler._build_column_profiles(df, 5)
+    corr = DatasetProfiler._build_correlation_matrix(df, profiles)
+
+    assert corr is not None
+    assert corr.columns == ["x", "y", "z"]
+    matrix = corr.matrix
+    # Check diagonal is 1.0
+    assert matrix[0][0] == 1.0
+    assert matrix[1][1] == 1.0
+    assert matrix[2][2] == 1.0
+    # Check positive correlation
+    assert matrix[0][1] == 1.0
+    assert matrix[1][0] == 1.0
+    # Check negative correlation
+    assert matrix[0][2] == -1.0
+    assert matrix[2][0] == -1.0
+
+
+def test_vectorized_correlation_matrix_zero_variance_and_edge_cases():
+    """Verify zero variance columns produce None and don't raise divide-by-zero exceptions."""
+    # Zero variance (constant column c)
+    df = pl.DataFrame({
+        "a": [1.0, 2.0, 3.0, 4.0],
+        "b": [10.0, 20.0, 30.0, 40.0],
+        "c": [5.0, 5.0, 5.0, 5.0],  # std=0
+    })
+    profiles = DatasetProfiler._build_column_profiles(df, 4)
+    corr = DatasetProfiler._build_correlation_matrix(df, profiles)
+
+    assert corr is not None
+    assert corr.columns == ["a", "b", "c"]
+    # a and b should correlate
+    assert corr.matrix[0][1] == 1.0
+    # c (zero variance) should yield None
+    assert corr.matrix[0][2] is None
+    assert corr.matrix[2][0] is None
+    assert corr.matrix[2][2] is None
+
+    # Single column returns None
+    df_single = pl.DataFrame({"only_col": [1.0, 2.0, 3.0]})
+    prof_single = DatasetProfiler._build_column_profiles(df_single, 3)
+    assert DatasetProfiler._build_correlation_matrix(df_single, prof_single) is None
+
+    # Less than 3 rows returns None
+    df_short = pl.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
+    prof_short = DatasetProfiler._build_column_profiles(df_short, 2)
+    assert DatasetProfiler._build_correlation_matrix(df_short, prof_short) is None

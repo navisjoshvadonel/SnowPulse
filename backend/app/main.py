@@ -720,7 +720,12 @@ def delete_user_account(
         report_filenames = []
         for report in reports:
             meta = report.metadata_json or {}
-            obj_path = meta.get("object_path")
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+            obj_path = meta.get("object_path") if isinstance(meta, dict) else None
             if obj_path and obj_path.startswith("minio://reports/"):
                 report_filenames.append(obj_path.replace("minio://reports/", ""))
 

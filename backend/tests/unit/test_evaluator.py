@@ -1,6 +1,7 @@
-"""Tests for backend.app.ai.evaluation.evaluator — SQL security evaluation and overlap."""
-
 import os
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey")
@@ -46,7 +47,6 @@ class TestOverlapCoefficient:
         response = "the and for with this that from"
         context = "different words entirely here"
         score = AIEvaluator.calculate_overlap_coefficient(response, context)
-        # Stop words should be filtered; short words (< 3 chars) are also filtered
         assert score <= 1.0
 
 
@@ -69,3 +69,31 @@ class TestSQLSecurityEvaluation:
             assert "query" in detail
             assert "status" in detail
             assert "passed" in detail
+
+
+@pytest.mark.asyncio
+@patch("backend.app.ai.evaluation.evaluator.OllamaClient")
+async def test_evaluate_agent_routing(mock_ollama_class):
+    mock_client = AsyncMock()
+    mock_ollama_class.return_value = mock_client
+    mock_client.generate.return_value = '{"next_agent": "forecast_agent"}'
+
+    res = await AIEvaluator.evaluate_agent_routing()
+    assert "accuracy_percentage" in res
+    assert "passed_count" in res
+    assert res["total_cases"] == 6
+
+
+@pytest.mark.asyncio
+@patch("backend.app.ai.evaluation.evaluator.supervisor_graph")
+async def test_run_full_evaluation_suite(mock_graph, db):
+    mock_graph.ainvoke = AsyncMock(return_value={"final_response": "Data health check complete."})
+
+    with patch("backend.app.ai.evaluation.evaluator.OllamaClient") as mock_ollama_class:
+        mock_client = AsyncMock()
+        mock_ollama_class.return_value = mock_client
+        mock_client.generate.return_value = '{"next_agent": "forecast_agent"}'
+
+        suite_res = await AIEvaluator.run_full_evaluation_suite(db)
+        assert "metrics" in suite_res
+        assert suite_res["metrics"]["routing_accuracy"] >= 0.0

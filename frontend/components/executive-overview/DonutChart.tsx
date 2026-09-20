@@ -49,6 +49,10 @@ export default function DonutChart({
 
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
+      animation: true,
+      animationDuration: 1200,
+      animationEasing: "cubicOut",
+      animationDurationUpdate: 600,
       tooltip: {
         trigger: "item",
         backgroundColor: "#12151e",
@@ -57,7 +61,7 @@ export default function DonutChart({
         textStyle: { color: "#f3f4f6", fontFamily: "Inter, sans-serif", fontSize: 11 },
         formatter: (params: any) => {
           return `<div style="padding:2px 4px">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${params.color};margin-right:6px"></span>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${params.color};margin-right:6px;box-shadow:0 0 6px ${params.color}"></span>
             <strong>${params.name}</strong>: ${params.percent}%
           </div>`;
         },

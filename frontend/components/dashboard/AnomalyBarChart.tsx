@@ -50,11 +50,15 @@ export default function AnomalyBarChart({ anomalies, loading }: AnomalyBarChartP
 
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
+      animation: true,
+      animationDuration: 1000,
+      animationEasing: "cubicOut",
+      animationDurationUpdate: 600,
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
         backgroundColor: "#12151e",
-        borderColor: "rgba(255,255,255,0.08)",
+        borderColor: "rgba(239,68,68,0.3)",
         borderWidth: 1,
         textStyle: { color: "#f3f4f6", fontFamily: "Inter, sans-serif", fontSize: 11 },
         formatter: (params: any) => {
@@ -62,7 +66,7 @@ export default function AnomalyBarChart({ anomalies, loading }: AnomalyBarChartP
           params.forEach((p: any) => {
             if (p.value > 0) {
               html += `<div style="display:flex;align-items:center;gap:8px;margin-top:3px">
-                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};box-shadow:0 0 8px ${p.color}"></span>
                 <span style="color:rgba(255,255,255,0.7);font-size:11px">${p.seriesName}</span>
                 <span style="color:#fff;font-weight:bold;font-size:11px;margin-left:auto">${p.value}</span>
               </div>`;

@@ -1,4 +1,5 @@
 
+import polars as pl
 import pytest
 
 from backend.app.analytics.engine import AnalyticsEngine
@@ -89,3 +90,185 @@ def test_engine_context_summary(sample_csv):
     assert "Total aggregate value: 2,990.00" in summary
     assert "Electronics" in summary
     assert "North" in summary
+
+
+def test_engine_decomposition_tree(sample_csv):
+    engine = AnalyticsEngine(sample_csv)
+    tree_data = engine.get_decomposition_tree()
+    assert "root" in tree_data
+    assert tree_data["target_metric"] == "Revenue"
+    assert tree_data["total_value"] == 2990
+    root = tree_data["root"]
+    assert root["node_type"] == "root"
+    assert len(root["children"]) > 0
+    first_child = root["children"][0]
+    assert "impact_pct" in first_child
+    assert "delta_value" in first_child
+    assert "direction" in first_child
+    assert "summary_insight" in tree_data
+
+
+def test_engine_monte_carlo_simulation(sample_csv):
+    engine = AnalyticsEngine(sample_csv)
+    sim = engine.get_monte_carlo_simulation(
+        target_metric="Revenue",
+        steps=12,
+        iterations=1000,
+        price_delta=0.10,
+        cost_delta=0.02,
+        churn_delta=0.0,
+        volatility=0.15
+    )
+    assert sim["target_metric"] == "Revenue"
+    assert sim["iterations"] == 1000
+    assert sim["steps"] == 12
+    assert "percentiles" in sim
+    assert len(sim["percentiles"]["p10"]) == 13
+    assert len(sim["percentiles"]["p50"]) == 13
+    assert len(sim["percentiles"]["p90"]) == 13
+    assert sim["risk_metrics"]["final_p90"] >= sim["risk_metrics"]["final_p50"]
+    assert sim["risk_metrics"]["final_p50"] >= sim["risk_metrics"]["final_p10"]
+    assert "distribution_bins" in sim
+    assert len(sim["distribution_bins"]) > 0
+    assert "ai_risk_narrative" in sim
+
+
+def test_engine_evaluate_calculated_field():
+    dates = [f"2026-01-{i:02d}" for i in range(1, 21)]
+    revs = [100.0 + i * 10 for i in range(20)]
+    categories = ["North" if i % 2 == 0 else "South" for i in range(20)]
+    df = pl.DataFrame({"Date": dates, "Revenue": revs, "Region": categories})
+
+    eng = AnalyticsEngine(df)
+
+    # 1. Rolling average prompt
+    res_rolling = eng.evaluate_calculated_field("Calculate 7-day rolling average of revenue")
+    assert res_rolling["status"] == "success"
+    assert "RollingAvg" in res_rolling["field_name"]
+    assert res_rolling["calc_type"] == "rolling_window"
+    assert "dax_code" in res_rolling
+    assert "lod_code" in res_rolling
+    assert res_rolling["field_name"] in eng.df.columns
+
+    # 2. Percentage of total prompt
+    res_pct = eng.evaluate_calculated_field("Revenue % of total", field_name="Rev_Pct")
+    assert res_pct["status"] == "success"
+    assert res_pct["field_name"] == "Rev_Pct"
+    assert res_pct["calc_type"] == "percentage_of_total"
+    assert res_pct["stats"]["mean"] > 0
+
+    # 3. Z-score prompt
+    res_z = eng.evaluate_calculated_field("Z-score of revenue")
+    assert res_z["status"] == "success"
+    assert res_z["calc_type"] == "z_score"
+
+    # 4. Conditional Tier prompt
+    res_tier = eng.evaluate_calculated_field("Performance tier category based on revenue")
+    assert res_tier["status"] == "success"
+    assert res_tier["inferred_dtype"] == "categorical"
+    assert res_tier["field_name"] in eng.df.columns
+
+
+def test_engine_geo_spatial_analysis_geocoded():
+    """Test geo-spatial analysis with region-name geocoding (no lat/lng columns)."""
+    regions = ["North", "South", "East", "West", "North", "South", "East", "West",
+               "North", "South", "East", "West", "North", "South", "East", "West"]
+    revenues = [100.0, 200.0, 150.0, 250.0, 120.0, 180.0, 130.0, 220.0,
+                110.0, 190.0, 140.0, 240.0, 105.0, 210.0, 135.0, 230.0]
+    dates = [f"2026-01-{i+1:02d}" for i in range(16)]
+    df = pl.DataFrame({"Date": dates, "Revenue": revenues, "Region": regions})
+
+    eng = AnalyticsEngine(df)
+    result = eng.get_geo_spatial_analysis()
+
+    assert result["status"] == "success"
+    assert result["coordinate_mode"] == "geocoded"
+    assert len(result["heat_points"]) > 0
+    assert len(result["region_aggregates"]) == 4  # North, South, East, West
+    assert result["region_aggregates"][0]["pct_of_total"] > 0
+    assert len(result["density_clusters"]) > 0
+    assert len(result["arc_flows"]) > 0
+    assert len(result["choropleth_data"]) == 4
+    assert "weighted_centroid" in result["distribution_stats"]
+    assert "ai_narrative" in result
+
+
+def test_engine_geo_spatial_analysis_latlng():
+    """Test geo-spatial analysis with explicit lat/lng columns."""
+    lats = [40.7128, 34.0522, 41.8781, 29.7604, 33.4484, 39.9526, 37.7749, 47.6062]
+    lngs = [-74.006, -118.2437, -87.6298, -95.3698, -112.074, -75.1652, -122.4194, -122.3321]
+    revenues = [500, 400, 350, 300, 250, 200, 450, 280]
+    cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia", "San Francisco", "Seattle"]
+    df = pl.DataFrame({"City": cities, "Latitude": lats, "Longitude": lngs, "Revenue": revenues})
+
+    eng = AnalyticsEngine(df)
+    result = eng.get_geo_spatial_analysis(lat_column="Latitude", lng_column="Longitude")
+
+    assert result["status"] == "success"
+    assert result["coordinate_mode"] == "lat_lng"
+    assert len(result["heat_points"]) == 8
+    assert result["distribution_stats"]["total_geolocated_rows"] == 8
+    assert result["distribution_stats"]["unique_locations"] == 8
+    # Centroid should be somewhere in continental US
+    centroid = result["distribution_stats"]["weighted_centroid"]
+    assert 25 < centroid["lat"] < 50
+    assert -130 < centroid["lng"] < -70
+
+
+def test_engine_create_calculated_field_suite():
+    """Verify natural language calculated field synthesis patterns."""
+    dates = [f"2026-01-{i:02d}" for i in range(1, 15)]
+    sales = [100.0, 110.0, 105.0, 120.0, 130.0, 125.0, 140.0, 150.0, 145.0, 160.0, 170.0, 165.0, 180.0, 190.0]
+    categories = ["Tech", "Health"] * 7
+    df = pl.DataFrame({"order_date": dates, "revenue": sales, "category": categories})
+
+    eng = AnalyticsEngine(df)
+
+    # 1. Rolling average
+    res_roll = eng.evaluate_calculated_field("7-day rolling average of revenue")
+    assert res_roll["status"] == "success"
+    assert res_roll["calc_type"] == "rolling_window"
+    assert "dax_code" in res_roll
+    assert "lod_code" in res_roll
+
+    # 2. Percentage of total
+    res_share = eng.evaluate_calculated_field("percentage of total revenue")
+    assert res_share["status"] == "success"
+    assert res_share["calc_type"] == "percentage_of_total"
+
+    # 3. Z-Score standardization
+    res_z = eng.evaluate_calculated_field("z-score standardization of revenue")
+    assert res_z["status"] == "success"
+    assert res_z["calc_type"] == "z_score"
+
+    # 4. Log transform
+    res_log = eng.evaluate_calculated_field("log transform of revenue")
+    assert res_log["status"] == "success"
+    assert res_log["calc_type"] == "log_transform"
+
+    # 5. Conditional binning
+    res_tier = eng.evaluate_calculated_field("performance tier of revenue")
+    assert res_tier["status"] == "success"
+    assert res_tier["calc_type"] == "conditional_binning"
+
+    # 6. Linear scale
+    res_scale = eng.evaluate_calculated_field("scale revenue by 10")
+    assert res_scale["status"] == "success"
+    assert res_scale["calc_type"] == "linear_scale"
+
+
+def test_engine_decompose_root_cause_tree():
+    """Verify autonomous root cause decomposition tree generation."""
+    df = pl.DataFrame({
+        "region": ["EMEA", "EMEA", "APAC", "APAC", "US", "US"],
+        "channel": ["Online", "Retail", "Online", "Retail", "Online", "Retail"],
+        "revenue": [50.0, 100.0, 20.0, 30.0, 500.0, 450.0],
+    })
+    eng = AnalyticsEngine(df)
+    tree = eng.get_decomposition_tree(target_metric="revenue", dimensions=["region", "channel"])
+
+    assert "root" in tree
+    assert tree["target_metric"] == "revenue"
+    assert len(tree["decomposed_dimensions"]) >= 1
+    assert "primary_root_cause_path" in tree
+    assert "summary_insight" in tree

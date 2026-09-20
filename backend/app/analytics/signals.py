@@ -281,6 +281,8 @@ class SignalDetector:
             for j in range(i + 1, len(cols)):
                 c1_name, c2_name = cols[i], cols[j]
                 r_val = matrix[i][j]
+                if r_val is None:
+                    continue
 
                 c1 = col_map.get(c1_name)
                 c2 = col_map.get(c2_name)

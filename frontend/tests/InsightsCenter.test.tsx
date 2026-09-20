@@ -11,9 +11,15 @@ vi.mock('@/services/api', () => ({
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => {
-  const icons = ['Send', 'AlertTriangle', 'TrendingUp', 'Sparkles', 'MessageSquare', 'CheckSquare', 'BrainCircuit', 'RefreshCw', 'FileText']
-  const mockExports: any = {}
-  icons.forEach(i => mockExports[i] = (props: any) => React.createElement('div', { 'data-testid': `icon-${i.toLowerCase()}`, ...props }))
+  const icons = [
+    'Send', 'AlertTriangle', 'TrendingUp', 'Sparkles', 'MessageSquare',
+    'CheckSquare', 'BrainCircuit', 'RefreshCw', 'FileText', 'Mic', 'MicOff',
+    'Volume2', 'VolumeX', 'Bot', 'User', 'Copy', 'Check', 'Globe', 'Layers', 'Compass'
+  ]
+  const mockExports: any = { __esModule: true }
+  icons.forEach(i => {
+    mockExports[i] = (props: any) => <div data-testid={`icon-${i.toLowerCase()}`} {...props} />
+  })
   return mockExports
 })
 
@@ -41,17 +47,13 @@ test('renders Copilot tab by default and handles initial history', () => {
   expect(screen.getByText('Hi there')).toBeInTheDocument()
 })
 
-test('switches tabs correctly', () => {
+test('handles quick prompt actions and renders streamlined interface', () => {
   render(<InsightsCenter {...defaultProps} />)
   
-  // Click Forecast tab
-  fireEvent.click(screen.getByText('Forecast'))
-  expect(screen.getByText('Forecast Model Engine')).toBeInTheDocument()
+  // Verify header title
+  expect(screen.getByText('AI Copilot & Intelligence Engine')).toBeInTheDocument()
   
-  // Forecast tab check
-  expect(screen.getByText(/Model Horizon: Next 6 Months/i)).toBeInTheDocument()
-
-  // Click Actions tab
-  fireEvent.click(screen.getByText('Actions'))
-  expect(screen.getByText('Test recommendation 1')).toBeInTheDocument()
+  // Quick prompt pill present
+  const topSectorsBtn = screen.getByRole('button', { name: /Top Sectors/i })
+  expect(topSectorsBtn).toBeInTheDocument()
 })

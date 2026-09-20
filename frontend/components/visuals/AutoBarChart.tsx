@@ -27,6 +27,9 @@ export default function AutoBarChart({
   loading = false,
 }: AutoBarChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const activeCategoryValues = useFilterStore((state) => state.activeCategoryValues);
+  const selectedFilterVals = (categoryColumn && activeCategoryValues[categoryColumn]) || [];
+  const hasFilter = selectedFilterVals.length > 0;
 
   useEffect(() => {
     if (loading || !data || data.length === 0 || !chartRef.current) return;
@@ -37,8 +40,13 @@ export default function AutoBarChart({
     const categories = sorted.map((d) => d.name);
     const values = sorted.map((d) => d.value);
 
+    const formattedCategories = horizontal ? [...categories].reverse() : categories;
+    const formattedValues = horizontal ? [...values].reverse() : values;
+
     const option: echarts.EChartsOption = {
       backgroundColor: "transparent",
+      animationDuration: 350,
+      animationEasing: "cubicOut",
       grid: {
         top: 24,
         right: 20,
@@ -84,7 +92,7 @@ export default function AutoBarChart({
       yAxis: horizontal
         ? {
             type: "category",
-            data: [...categories].reverse(),
+            data: formattedCategories,
             axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
             axisTick: { show: false },
             axisLabel: {
@@ -104,21 +112,32 @@ export default function AutoBarChart({
         {
           name: metricColumn || "Value",
           type: "bar",
-          data: horizontal ? [...values].reverse() : values,
+          data: formattedValues.map((val, idx) => {
+            const catName = formattedCategories[idx];
+            const isSelected = selectedFilterVals.includes(catName);
+            return {
+              value: val,
+              itemStyle: {
+                opacity: !hasFilter || isSelected ? 1.0 : 0.2,
+                borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0],
+                color: isSelected
+                  ? "#06b6d4"
+                  : new echarts.graphic.LinearGradient(
+                      horizontal ? 0 : 0,
+                      horizontal ? 0 : 0,
+                      horizontal ? 1 : 0,
+                      horizontal ? 0 : 1,
+                      [
+                        { offset: 0, color: "#4f46e5" },
+                        { offset: 1, color: "#06b6d4" },
+                      ]
+                    ),
+                shadowBlur: isSelected ? 10 : 0,
+                shadowColor: isSelected ? "#06b6d4" : undefined,
+              },
+            };
+          }),
           barWidth: horizontal ? "55%" : "40%",
-          itemStyle: {
-            borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0],
-            color: new echarts.graphic.LinearGradient(
-              horizontal ? 0 : 0,
-              horizontal ? 0 : 0,
-              horizontal ? 1 : 0,
-              horizontal ? 0 : 1,
-              [
-                { offset: 0, color: "#4f46e5" },
-                { offset: 1, color: "#06b6d4" },
-              ]
-            ),
-          },
           emphasis: {
             itemStyle: {
               color: new echarts.graphic.LinearGradient(
@@ -157,7 +176,7 @@ export default function AutoBarChart({
       chart.dispose();
       window.removeEventListener("resize", handleResize);
     };
-  }, [data, loading, title, horizontal, metricColumn, categoryColumn]);
+  }, [data, loading, title, horizontal, metricColumn, categoryColumn, selectedFilterVals, hasFilter]);
 
   return (
     <div

@@ -274,11 +274,11 @@ class DynamicQueryEngine:
                     pl.col(primary_metric).sum().alias("value"),
                     pl.len().alias("count")
                 ]).sort("value", descending=True)
-                for r in g_df.to_dicts():
+                for row_item in g_df.to_dicts():
                     geo_data.append({
-                        "region": str(r[geo_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0,
-                        "count": int(r["count"])
+                        "region": str(row_item[geo_cols[0]]),
+                        "value": float(row_item["value"]) if row_item["value"] is not None else 0.0,
+                        "count": int(row_item["count"])
                     })
 
             correlations_dict = None
@@ -294,10 +294,10 @@ class DynamicQueryEngine:
             trends = []
             if date_cols and date_cols[0] in df.columns and filtered_rows > 0 and primary_metric in df.columns:
                 t_df = df.group_by(date_cols[0]).agg(pl.col(primary_metric).sum().alias("value")).sort(date_cols[0])
-                for r in t_df.to_dicts():
+                for row_item in t_df.to_dicts():
                     trends.append({
-                        "date": str(r[date_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0
+                        "date": str(row_item[date_cols[0]]),
+                        "value": float(row_item["value"]) if row_item["value"] is not None else 0.0
                     })
 
             return {

@@ -72,7 +72,27 @@ vi.mock('@react-oauth/google', () => ({
 
 // Mock canvas elements / echarts for JSDOM
 vi.mock('echarts-for-react', () => ({
-  default: () => <div data-testid="echarts-mock">ECharts Visualization</div>
+  default: React.forwardRef((props: any, ref: any) => {
+    React.useImperativeHandle(ref, () => ({
+      getEchartsInstance: () => ({
+        on: vi.fn(),
+        off: vi.fn(),
+        setOption: vi.fn(),
+        resize: vi.fn(),
+        dispose: vi.fn(),
+      }),
+    }));
+    return <div data-testid="echarts-mock">ECharts Visualization</div>;
+  }),
+}))
+
+vi.mock('echarts', () => ({
+  registerMap: vi.fn(),
+  getMap: vi.fn().mockReturnValue(true),
+  init: vi.fn().mockReturnValue({ setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn(), on: vi.fn(), off: vi.fn() }),
+  graphic: {
+    LinearGradient: vi.fn(),
+  },
 }))
 
 beforeEach(() => {

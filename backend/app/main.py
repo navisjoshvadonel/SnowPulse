@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import os
 import time
 import uuid
@@ -475,6 +476,160 @@ def get_dataset_schema(
         "primary_category": eng.category_col,
         "columns": columns,
     }
+
+
+@app.get("/api/datasets/{dataset_id}/decomposition-tree")
+def get_decomposition_tree_endpoint(
+    dataset_id: int,
+    target_metric: str | None = None,
+    max_depth: int = 3,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Computes Autonomous SHAP/Variance Root-Cause Decomposition Tree for a dataset.
+    Returns nested node architecture with impact percentages, variance deltas, and bottleneck path highlighting.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        return eng.get_decomposition_tree(target_metric=target_metric, max_depth=max_depth)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not compute decomposition tree: {e}")
+
+
+@app.get("/api/datasets/{dataset_id}/monte-carlo")
+def get_monte_carlo_endpoint(
+    dataset_id: int,
+    target_metric: str | None = None,
+    steps: int = 12,
+    iterations: int = 1000,
+    price_delta: float = 0.0,
+    cost_delta: float = 0.0,
+    churn_delta: float = 0.0,
+    volatility: float = 0.15,
+    target_threshold: float | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Executes 1,000 to 10,000 run Monte Carlo stochastic risk simulation using Geometric Brownian Motion.
+    Returns P10, P25, P50, P75, P90 confidence bands, VaR 95%, CVaR 95%, loss probability, and outcome distribution.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        return eng.get_monte_carlo_simulation(
+            target_metric=target_metric,
+            steps=steps,
+            iterations=iterations,
+            price_delta=price_delta,
+            cost_delta=cost_delta,
+            churn_delta=churn_delta,
+            volatility=volatility,
+            target_threshold=target_threshold,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not run Monte Carlo simulation: {e}")
+
+
+class CalculatedFieldRequest(BaseModel):
+    prompt: str
+    field_name: str | None = None
+
+
+@app.post("/api/datasets/{dataset_id}/calculated-fields")
+def create_calculated_field_endpoint(
+    dataset_id: int,
+    req: CalculatedFieldRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Translates natural language prompts into Polars/Pandas expressions, DAX formulas, and Tableau LODs.
+    Appends the computed vector as a virtual schema column and returns summary statistics and preview rows.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        res = eng.evaluate_calculated_field(prompt=req.prompt, field_name=req.field_name)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not calculate field: {e}")
+
+
+@app.get("/api/datasets/{dataset_id}/geo-spatial")
+def get_geo_spatial_endpoint(
+    dataset_id: int,
+    target_metric: str | None = None,
+    geo_column: str | None = None,
+    lat_column: str | None = None,
+    lng_column: str | None = None,
+    cluster_count: int = 8,
+    top_n: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    3D Spatial Geo-Heatmap & Arc-Flow analysis.
+    Returns heat_points, region_aggregates, density_clusters, arc_flows,
+    choropleth_data, distribution_stats, and AI narrative for geographic visualization.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    profile = None
+    if dataset.profile_json:
+        try:
+            profile = DatasetProfile.model_validate(dataset.profile_json)
+        except Exception:
+            profile = None
+
+    try:
+        eng = AnalyticsEngine(dataset.file_path, profile=profile)
+        return eng.get_geo_spatial_analysis(
+            target_metric=target_metric,
+            geo_column=geo_column,
+            lat_column=lat_column,
+            lng_column=lng_column,
+            cluster_count=cluster_count,
+            top_n=top_n,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Geo-spatial analysis failed: {e}")
 
 
 @app.delete("/api/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1143,7 +1298,6 @@ def run_generalized_forecast(
     metric_col = payload.get("metric_column")
     if not metric_col and dataset and dataset.profile_json:
         try:
-            import json
             prof = json.loads(dataset.profile_json) if isinstance(dataset.profile_json, str) else dataset.profile_json
             cols = prof.get("columns", [])
             primary_col = next((c.get("name") for c in cols if c.get("is_primary_metric")), None)
@@ -1402,6 +1556,13 @@ def unified_search(
         )
 
 
+def _get_dataset_for_user(db: Session, dataset_id: int, current_user: User) -> Dataset | None:
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
+    if not dataset:
+        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    return dataset
+
+
 # --- TIME-SERIES FORECASTING API ---
 
 @app.post("/api/forecast/train/{dataset_id}")
@@ -1415,9 +1576,7 @@ async def trigger_forecast_training(
     """
     Trigger time-series forecast model training for a dataset as a background task.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1443,9 +1602,7 @@ def get_forecast_predictions(
     """
     Retrieve future forecast projections and explanations using the best trained model.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1479,9 +1636,7 @@ def get_ml_target_candidates(
     Returns ranked auto-suggested target candidates using dataset profile interestingness scores.
     Excludes ID-like and high-missingness columns.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1507,9 +1662,7 @@ def trigger_ml_training(
     Triggers universal AutoML training for any dataset with complex feature extraction,
     auto task detection, model tournament selection, and explainability metrics.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1538,9 +1691,7 @@ def run_ml_inference(
     """
     Serve predictions using the latest trained model registered for a task type.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1570,9 +1721,7 @@ def get_ml_training_history(
     silhouette score, etc., whichever apply to task_type) for a dataset's
     ML models. Powers the score panel on Future Prediction.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    dataset = _get_dataset_for_user(db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

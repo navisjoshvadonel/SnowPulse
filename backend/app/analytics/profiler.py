@@ -581,24 +581,24 @@ class DatasetProfiler:
             sub = df.select(numeric_cols).drop_nulls()
             if sub.height < 3:
                 return None
-            # ⚡ Bolt Optimization: Replace O(N^2) Python nested loops with fully vectorized np.corrcoef
-            # Reduces computation time from ~1.5s down to ~0.03s for 100 columns.
-            arr = sub.to_numpy().astype(float)
-            stds = arr.std(axis=0)
 
+            arr = sub.select(numeric_cols).to_numpy().astype(float)
             with np.errstate(invalid="ignore", divide="ignore"):
                 corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
 
+            std_arr = arr.std(axis=0)
+
             matrix: list[list[float | None]] = []
-            for i in range(len(numeric_cols)):
+            for i, _ in enumerate(numeric_cols):
                 row: list[float | None] = []
-                for j in range(len(numeric_cols)):
-                    if stds[i] == 0 or stds[j] == 0:
+                for j, _ in enumerate(numeric_cols):
+                    if std_arr[i] == 0 or std_arr[j] == 0:
                         row.append(None)
                     else:
-                        corr = corr_matrix[i, j]
-                        row.append(None if np.isnan(corr) else round(float(corr), 4))
+                        val = corr_matrix[i, j]
+                        row.append(None if np.isnan(val) else round(float(val), 4))
                 matrix.append(row)
+
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:
             logger.warning("Correlation matrix failed: %s", exc)

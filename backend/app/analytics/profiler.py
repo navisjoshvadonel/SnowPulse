@@ -646,7 +646,7 @@ class DatasetProfiler:
             corr_matrix = np.round(corr_matrix, 4)
 
             # Convert to nested list with None for NaNs to match CorrelationMatrix type expectations
-            matrix_list = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()
+            matrix_list = [[None if np.isnan(val) else val for val in row] for row in corr_matrix.tolist()]
 
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix_list)
         except Exception as exc:

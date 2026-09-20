@@ -202,9 +202,9 @@ class DynamicQueryEngine:
                     df = df.filter(pl.col(col).is_in(values))
 
             # 5. Apply active_numeric_ranges filter map
-            for col, r in payload.active_numeric_ranges.items():
-                if col in df.columns and isinstance(r, list | tuple) and len(r) == 2:
-                    df = df.filter((pl.col(col) >= r[0]) & (pl.col(col) <= r[1]))
+            for col, num_range in payload.active_numeric_ranges.items():
+                if col in df.columns and num_range is not None and len(num_range) == 2:
+                    df = df.filter((pl.col(col) >= num_range[0]) & (pl.col(col) <= num_range[1]))
 
             # 6. Apply date_range filter
             d_range = payload.date_range or payload.dateRange
@@ -215,10 +215,11 @@ class DynamicQueryEngine:
                     df = df.filter((pl.col(d_col) >= d_range['start']) & (pl.col(d_col) <= d_range['end']))
 
             # 7. Apply brushedRange filter
-            if payload.brushedRange and len(payload.brushedRange) == 2:
+            if payload.brushedRange is not None and len(payload.brushedRange) == 2:
+                b_range = payload.brushedRange
                 num_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32)]
                 if num_cols:
-                    df = df.filter((pl.col(num_cols[0]) >= payload.brushedRange[0]) & (pl.col(num_cols[0]) <= payload.brushedRange[1]))
+                    df = df.filter((pl.col(num_cols[0]) >= b_range[0]) & (pl.col(num_cols[0]) <= b_range[1]))
 
             filtered_rows = len(df)
 
@@ -274,11 +275,11 @@ class DynamicQueryEngine:
                     pl.col(primary_metric).sum().alias("value"),
                     pl.len().alias("count")
                 ]).sort("value", descending=True)
-                for r in g_df.to_dicts():
+                for g_row in g_df.to_dicts():
                     geo_data.append({
-                        "region": str(r[geo_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0,
-                        "count": int(r["count"])
+                        "region": str(g_row[geo_cols[0]]),
+                        "value": float(g_row["value"]) if g_row["value"] is not None else 0.0,
+                        "count": int(g_row["count"])
                     })
 
             correlations_dict = None
@@ -294,10 +295,10 @@ class DynamicQueryEngine:
             trends = []
             if date_cols and date_cols[0] in df.columns and filtered_rows > 0 and primary_metric in df.columns:
                 t_df = df.group_by(date_cols[0]).agg(pl.col(primary_metric).sum().alias("value")).sort(date_cols[0])
-                for r in t_df.to_dicts():
+                for t_row in t_df.to_dicts():
                     trends.append({
-                        "date": str(r[date_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0
+                        "date": str(t_row[date_cols[0]]),
+                        "value": float(t_row["value"]) if t_row["value"] is not None else 0.0
                     })
 
             return {

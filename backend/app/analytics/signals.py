@@ -136,7 +136,7 @@ class SignalDetector:
                         )
 
                 # Check if high skew for IsolationForest multivariate run
-                skew = col.numeric_stats.get("skewness")
+                skew = col.numeric_stats.get("skew")
                 if skew is not None and abs(skew) > 1.0:
                     skewed_cols.append(col_name)
 
@@ -281,6 +281,8 @@ class SignalDetector:
             for j in range(i + 1, len(cols)):
                 c1_name, c2_name = cols[i], cols[j]
                 r_val = matrix[i][j]
+                if r_val is None:
+                    continue
 
                 c1 = col_map.get(c1_name)
                 c2 = col_map.get(c2_name)
@@ -469,14 +471,14 @@ class SignalDetector:
         - Reasonable missingness (<30%): +0.1
         - Base: 0.4
         """
-        score = 0.4
+        score: float = 0.4
         if col.is_primary_metric or col.is_primary_category or col.is_primary_date or col.is_primary_geo:
             score += 0.3
         if col.inferred_role != "identifier" and col.dtype_category != "id_like":
             score += 0.2
         if col.null_percentage < 30.0:
             score += 0.1
-        return min(1.0, score)
+        return float(min(1.0, score))
 
     @classmethod
     def _deduplicate_signals(cls, signals: list[DetectedSignal]) -> list[DetectedSignal]:

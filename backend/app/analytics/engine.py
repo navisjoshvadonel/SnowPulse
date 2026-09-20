@@ -421,13 +421,17 @@ class AnalyticsEngine:
         geo  = self.get_geo_metrics()
         anomalies = self.get_anomalies()
 
+        tot_val = float(kpis.get("total_value", 0.0) or 0.0)
+        mean_val = float(kpis.get("mean_value", 0.0) or 0.0)
+        growth_val = float(kpis.get("growth_rate", 0.0) or 0.0)
+
         summary: list[str] = [
             f"Dataset summary of file: {os.path.basename(self.file_path)}",
             f"Primary target metric: {self.metric_col}",
             f"Total rows: {self.num_rows}",
-            f"Total aggregate value: {kpis.get('total_value', 0):,.2f}",
-            f"Mean value: {kpis.get('mean_value', 0):,.2f}",
-            f"Growth Rate (Period-over-Period): {kpis.get('growth_rate', 0):.1f}%",
+            f"Total aggregate value: {tot_val:,.2f}",
+            f"Mean value: {mean_val:,.2f}",
+            f"Growth Rate (Period-over-Period): {growth_val:.1f}%",
         ]
 
         if self.category_col:
@@ -578,12 +582,12 @@ class AnalyticsEngine:
 
             # Highlight bottleneck (worst negative delta) & top driver (highest positive delta)
             if results:
-                min_node = min(results, key=lambda x: x["delta_value"])
-                max_node = max(results, key=lambda x: x["delta_value"])
-                if min_node["delta_value"] < 0:
+                min_node = min(results, key=lambda x: float(x.get("delta_value", 0.0)))
+                max_node = max(results, key=lambda x: float(x.get("delta_value", 0.0)))
+                if float(min_node.get("delta_value", 0.0)) < 0:
                     min_node["is_bottleneck"] = True
                     min_node["bottleneck_reason"] = f"Primary Drop Factor: {min_node['delta_value']:,.0f} below expected mean"
-                if max_node["delta_value"] > 0:
+                if float(max_node.get("delta_value", 0.0)) > 0:
                     max_node["is_top_driver"] = True
 
             return results
@@ -593,10 +597,11 @@ class AnalyticsEngine:
         # Highlight primary root cause path throughout the tree
         primary_bottleneck_path = []
         curr = root_node
-        while curr and curr.get("children"):
-            b_child = next((c for c in curr["children"] if c.get("is_bottleneck")), None)
-            if not b_child and curr["children"]:
-                b_child = min(curr["children"], key=lambda x: x.get("delta_value", 0))
+        while curr and isinstance(curr.get("children"), list) and curr["children"]:
+            children_list: list[dict[str, Any]] = curr["children"]
+            b_child = next((c for c in children_list if c.get("is_bottleneck")), None)
+            if not b_child and children_list:
+                b_child = min(children_list, key=lambda x: float(x.get("delta_value", 0.0)))
             if b_child:
                 b_child["is_primary_root_cause_path"] = True
                 primary_bottleneck_path.append(f"{b_child['dimension']}: {b_child['value']}")
@@ -711,7 +716,7 @@ class AnalyticsEngine:
 
         # Final Outcome Frequency Histogram (15 Bins)
         counts, bin_edges = np.histogram(final_vals, bins=12)
-        distribution_bins = []
+        distribution_bins: list[dict[str, Any]] = []
         for i in range(len(counts)):
             b_min = float(bin_edges[i])
             b_max = float(bin_edges[i + 1])
@@ -724,14 +729,14 @@ class AnalyticsEngine:
             elif b_min >= final_p90:
                 tier = "Optimistic (P90)"
 
-            distribution_bins.append({
-                "bin_min": round(b_min, 2),
-                "bin_max": round(b_max, 2),
-                "label": f"{b_min:,.0f} - {b_max:,.0f}",
-                "count": b_count,
-                "percentage": pct,
-                "tier": tier
-            })
+            bin_item: dict[str, Any] = {}
+            bin_item["bin_min"] = round(b_min, 2)
+            bin_item["bin_max"] = round(b_max, 2)
+            bin_item["label"] = f"{b_min:,.0f} - {b_max:,.0f}"
+            bin_item["count"] = b_count
+            bin_item["percentage"] = pct
+            bin_item["tier"] = tier
+            distribution_bins.append(bin_item)
 
         # Synthesis Narrative
         impact_dir = "favorable" if net_param_impact >= 0 else "adverse"
@@ -742,39 +747,44 @@ class AnalyticsEngine:
             f"Tail-risk analysis indicates a {prob_of_loss}% downside risk of loss, with a 95% Value-at-Risk (VaR) of {var_95:,.2f}."
         )
 
-        return {
-            "target_metric": metric,
+        assert metric is not None
+        params_dict: dict[str, Any] = {
+            "price_delta": price_delta,
+            "cost_delta": cost_delta,
+            "churn_delta": churn_delta,
+            "volatility": vol,
+            "net_impact_pct": round(net_param_impact * 100, 1),
+        }
+        percentiles_dict: dict[str, Any] = {
+            "p10": [round(x, 2) for x in p10.tolist()],
+            "p25": [round(x, 2) for x in p25.tolist()],
+            "p50": [round(x, 2) for x in p50.tolist()],
+            "p75": [round(x, 2) for x in p75.tolist()],
+            "p90": [round(x, 2) for x in p90.tolist()],
+        }
+        risk_dict: dict[str, Any] = {
+            "final_p10": round(final_p10, 2),
+            "final_p50": round(final_p50, 2),
+            "final_p90": round(final_p90, 2),
+            "var_95": round(var_95, 2),
+            "cvar_95": round(cvar_95, 2),
+            "prob_of_loss": prob_of_loss,
+            "prob_of_target": prob_of_target,
+            "target_threshold": round(threshold, 2),
+        }
+        mc_res: dict[str, Any] = {
+            "target_metric": str(metric),
             "base_value": round(base_val, 2),
             "iterations": iterations,
             "steps": steps,
-            "parameters": {
-                "price_delta": price_delta,
-                "cost_delta": cost_delta,
-                "churn_delta": churn_delta,
-                "volatility": vol,
-                "net_impact_pct": round(net_param_impact * 100, 1),
-            },
+            "parameters": params_dict,
             "step_labels": step_labels,
-            "percentiles": {
-                "p10": [round(x, 2) for x in p10.tolist()],
-                "p25": [round(x, 2) for x in p25.tolist()],
-                "p50": [round(x, 2) for x in p50.tolist()],
-                "p75": [round(x, 2) for x in p75.tolist()],
-                "p90": [round(x, 2) for x in p90.tolist()],
-            },
-            "risk_metrics": {
-                "final_p10": round(final_p10, 2),
-                "final_p50": round(final_p50, 2),
-                "final_p90": round(final_p90, 2),
-                "var_95": round(var_95, 2),
-                "cvar_95": round(cvar_95, 2),
-                "prob_of_loss": prob_of_loss,
-                "prob_of_target": prob_of_target,
-                "target_threshold": round(threshold, 2),
-            },
+            "percentiles": percentiles_dict,
+            "risk_metrics": risk_dict,
             "distribution_bins": distribution_bins,
             "ai_risk_narrative": ai_narrative,
         }
+        return mc_res
 
     # ------------------------------------------------------------------
     # AI-Powered Natural Language Calculated Fields Engine
@@ -955,22 +965,18 @@ class AnalyticsEngine:
                 self.categorical_cols.append(final_col_name)
 
         # Compute stats
-        stats = {}
+        stats: dict[str, Any] = {}
         if inferred_dtype == "numeric":
             valid_series = computed_series.drop_nans().drop_nulls()
-            stats = {
-                "min": round(float(valid_series.min() or 0), 4),
-                "max": round(float(valid_series.max() or 0), 4),
-                "mean": round(float(valid_series.mean() or 0), 4),
-                "std": round(float(valid_series.std() or 0), 4),
-                "null_count": int(computed_series.null_count()),
-            }
+            stats["min"] = round(float(valid_series.min() or 0), 4)
+            stats["max"] = round(float(valid_series.max() or 0), 4)
+            stats["mean"] = round(float(valid_series.mean() or 0), 4)
+            stats["std"] = round(float(valid_series.std() or 0), 4)
+            stats["null_count"] = int(computed_series.null_count())
         else:
-            stats = {
-                "unique_count": int(computed_series.n_unique()),
-                "top_value": str(computed_series.mode()[0]) if len(computed_series.mode()) > 0 else "N/A",
-                "null_count": int(computed_series.null_count()),
-            }
+            stats["unique_count"] = int(computed_series.n_unique())
+            stats["top_value"] = str(computed_series.mode()[0]) if len(computed_series.mode()) > 0 else "N/A"
+            stats["null_count"] = int(computed_series.null_count())
 
         # Build 5 sample preview rows with surrounding context
         context_cols = [c for c in [target_date, target_category, target_metric] if c and c in self.df.columns]
@@ -1178,6 +1184,7 @@ class AnalyticsEngine:
                 label_col = "_geo_label"
         else:
             # Geocode from region names
+            assert geo_col is not None
             geo_values = work_df[geo_col].drop_nulls().unique().to_list()
             lat_map = {}
             lng_map = {}
@@ -1211,9 +1218,9 @@ class AnalyticsEngine:
 
         # ---- 1. Heat Points (raw scatter) ----
         heat_points = []
-        sample = work_df.head(min(top_n * 20, work_df.height))
+        sample_df = work_df.head(min(top_n * 20, work_df.height))
         select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
-        for row in sample.select(select_cols).iter_rows(named=True):
+        for row in sample_df.select(select_cols).iter_rows(named=True):
             heat_points.append({
                 "lat": round(float(row["_lat"]), 6),
                 "lng": round(float(row["_lng"]), 6),
@@ -1341,7 +1348,7 @@ class AnalyticsEngine:
             (lats.max() - lats.min()) * (lngs.max() - lngs.min())
         ) if len(lats) > 1 else 0
 
-        distribution_stats = {
+        distribution_stats: dict[str, Any] = {
             "weighted_centroid": {"lat": round(centroid_lat, 6), "lng": round(centroid_lng, 6)},
             "geographic_dispersion": round(dispersion, 4),
             "coverage_area_deg2": round(coverage_area_approx, 2),

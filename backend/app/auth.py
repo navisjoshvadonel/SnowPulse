@@ -14,14 +14,16 @@ from fastapi import Response
 from jose import jwt
 
 
-def _require_secret(env_name: str, dev_default: str) -> str:
+def _require_secret(env_name: str) -> str:
     value = os.getenv(env_name)
     if not value or len(value) < 32:
-        return dev_default
+        raise RuntimeError(
+            f"Environment variable '{env_name}' must be set and at least 32 characters long."
+        )
     return value
 
-JWT_SECRET_KEY = _require_secret("JWT_SECRET_KEY", "snowpulse-development-jwt-secret-key-32chars-min")
-JWT_REFRESH_SECRET_KEY = _require_secret("JWT_REFRESH_SECRET_KEY", "snowpulse-development-jwt-refresh-key-32chars")
+JWT_SECRET_KEY = _require_secret("JWT_SECRET_KEY")
+JWT_REFRESH_SECRET_KEY = _require_secret("JWT_REFRESH_SECRET_KEY")
 ALGORITHM = "HS256"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 15

@@ -10,6 +10,8 @@ os.environ.setdefault("ENV", "testing")
 
 from unittest.mock import MagicMock
 
+# --- _require_secret ---
+import pytest
 from jose import jwt
 
 from backend.app.auth import (
@@ -25,25 +27,24 @@ from backend.app.auth import (
     verify_password,
 )
 
-# --- _require_secret ---
 
 def test_require_secret_returns_env_value():
     os.environ["__TEST_SECRET"] = "a" * 40
-    result = _require_secret("__TEST_SECRET", "dev-default")
+    result = _require_secret("__TEST_SECRET")
     assert result == "a" * 40
     del os.environ["__TEST_SECRET"]
 
 
-def test_require_secret_returns_dev_default_when_too_short():
+def test_require_secret_raises_when_too_short():
     os.environ["__TEST_SECRET_SHORT"] = "short"
-    result = _require_secret("__TEST_SECRET_SHORT", "dev-default-value")
-    assert result == "dev-default-value"
+    with pytest.raises(RuntimeError, match="must be set and at least 32 characters long"):
+        _require_secret("__TEST_SECRET_SHORT")
     del os.environ["__TEST_SECRET_SHORT"]
 
 
-def test_require_secret_returns_dev_default_when_missing():
-    result = _require_secret("__NONEXISTENT_SECRET_KEY__", "fallback-dev")
-    assert result == "fallback-dev"
+def test_require_secret_raises_when_missing():
+    with pytest.raises(RuntimeError, match="must be set and at least 32 characters long"):
+        _require_secret("__NONEXISTENT_SECRET_KEY__")
 
 
 # --- Password hashing ---

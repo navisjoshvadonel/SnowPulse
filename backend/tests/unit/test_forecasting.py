@@ -1,16 +1,18 @@
 """Tests for backend.app.forecasting.predictor — ForecastingPredictor."""
 
 import os
+from unittest.mock import patch
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey")
 os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefreshsecretkey")
 os.environ.setdefault("ENV", "testing")
 
-
+import pandas as pd
 import pytest
 
 from backend.app.forecasting.predictor import ForecastingPredictor
+from backend.app.forecasting.trainer import ForecastingTrainer
 
 
 class TestForecastingPredictor:
@@ -55,3 +57,25 @@ class TestForecastingPredictor:
         predictor.target_col = "X"
         explanation = predictor.generate_explanation([], steps=0)
         assert explanation == "No forecast generated."
+
+
+class TestForecastingTrainer:
+    def test_trainer_init_error(self):
+        with pytest.raises(ValueError, match="Either db"):
+            ForecastingTrainer()
+
+    def test_trainer_train_and_evaluate(self):
+        with patch("backend.app.forecasting.trainer.storage_service.upload_file") as mock_upload:
+            mock_upload.return_value = None
+            dates = [f"2026-01-{i:02d}" for i in range(1, 25)]
+            sales = [100.0 + i * 2.0 for i in range(1, 25)]
+            df = pd.DataFrame({"Date": dates, "Revenue": sales})
+
+            trainer = ForecastingTrainer(dataset_id=1, df=df)
+            result = trainer.train_and_evaluate(target_col="Revenue", steps=5)
+
+            assert result["dataset_id"] == 1
+            assert result["best_model"] in ("ARIMA", "SARIMA", "ETS")
+            assert "all_metrics" in result
+            assert mock_upload.called
+

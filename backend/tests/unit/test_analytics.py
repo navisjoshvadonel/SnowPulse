@@ -213,3 +213,65 @@ def test_engine_geo_spatial_analysis_latlng():
     centroid = result["distribution_stats"]["weighted_centroid"]
     assert 25 < centroid["lat"] < 50
     assert -130 < centroid["lng"] < -70
+
+
+def test_engine_create_calculated_field_suite():
+    """Verify natural language calculated field synthesis patterns."""
+    dates = [f"2026-01-{i:02d}" for i in range(1, 15)]
+    sales = [100.0, 110.0, 105.0, 120.0, 130.0, 125.0, 140.0, 150.0, 145.0, 160.0, 170.0, 165.0, 180.0, 190.0]
+    categories = ["Tech", "Health"] * 7
+    df = pl.DataFrame({"order_date": dates, "revenue": sales, "category": categories})
+
+    eng = AnalyticsEngine(df)
+
+    # 1. Rolling average
+    res_roll = eng.evaluate_calculated_field("7-day rolling average of revenue")
+    assert res_roll["status"] == "success"
+    assert res_roll["calc_type"] == "rolling_window"
+    assert "dax_code" in res_roll
+    assert "lod_code" in res_roll
+
+    # 2. Percentage of total
+    res_share = eng.evaluate_calculated_field("percentage of total revenue")
+    assert res_share["status"] == "success"
+    assert res_share["calc_type"] == "percentage_of_total"
+
+    # 3. Z-Score standardization
+    res_z = eng.evaluate_calculated_field("z-score standardization of revenue")
+    assert res_z["status"] == "success"
+    assert res_z["calc_type"] == "z_score"
+
+    # 4. Log transform
+    res_log = eng.evaluate_calculated_field("log transform of revenue")
+    assert res_log["status"] == "success"
+    assert res_log["calc_type"] == "log_transform"
+
+    # 5. Conditional binning
+    res_tier = eng.evaluate_calculated_field("performance tier of revenue")
+    assert res_tier["status"] == "success"
+    assert res_tier["calc_type"] == "conditional_binning"
+
+    # 6. Linear scale
+    res_scale = eng.evaluate_calculated_field("scale revenue by 10")
+    assert res_scale["status"] == "success"
+    assert res_scale["calc_type"] == "linear_scale"
+
+
+def test_engine_decompose_root_cause_tree():
+    """Verify autonomous root cause decomposition tree generation."""
+    df = pl.DataFrame({
+        "region": ["EMEA", "EMEA", "APAC", "APAC", "US", "US"],
+        "channel": ["Online", "Retail", "Online", "Retail", "Online", "Retail"],
+        "revenue": [50.0, 100.0, 20.0, 30.0, 500.0, 450.0],
+    })
+    eng = AnalyticsEngine(df)
+    tree = eng.get_decomposition_tree(target_metric="revenue", dimensions=["region", "channel"])
+
+    assert "root" in tree
+    assert tree["target_metric"] == "revenue"
+    assert len(tree["decomposed_dimensions"]) >= 1
+    assert "primary_root_cause_path" in tree
+    assert "summary_insight" in tree
+
+
+

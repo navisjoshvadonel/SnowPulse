@@ -1,6 +1,7 @@
-"""Tests for backend.app.forecasting.predictor — ForecastingPredictor."""
+"""Tests for backend.app.forecasting.predictor & trainer — ForecastingPredictor & ForecastingTrainer."""
 
 import os
+from unittest.mock import patch
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "testsecretkeytestsecretkeytestsecretkey")
@@ -8,9 +9,11 @@ os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefresh
 os.environ.setdefault("ENV", "testing")
 
 
+import pandas as pd
 import pytest
 
-from backend.app.forecasting.predictor import ForecastingPredictor
+from app.forecasting.predictor import ForecastingPredictor
+from app.forecasting.trainer import ForecastingTrainer
 
 
 class TestForecastingPredictor:
@@ -55,3 +58,32 @@ class TestForecastingPredictor:
         predictor.target_col = "X"
         explanation = predictor.generate_explanation([], steps=0)
         assert explanation == "No forecast generated."
+
+
+class TestForecastingTrainer:
+    def test_init_raises_without_args(self):
+        with pytest.raises(ValueError, match=r"Either db \+ dataset_id, df, or file_path must be provided"):
+            ForecastingTrainer()
+
+    def test_prepare_time_series(self):
+        df = pd.DataFrame({
+            "date": pd.date_range("2024-01-01", periods=10, freq="D"),
+            "value": [10, 12, 15, 14, 18, 20, 22, 25, 28, 30]
+        })
+        trainer = ForecastingTrainer(df=df)
+        series = trainer._prepare_time_series("value")
+        assert len(series) == 10
+
+    @patch("app.forecasting.trainer.storage_service.upload_file")
+    def test_train_and_evaluate(self, mock_upload):
+        df = pd.DataFrame({
+            "date": pd.date_range("2024-01-01", periods=15, freq="D"),
+            "value": [10, 12, 15, 14, 18, 20, 22, 25, 28, 30, 32, 35, 38, 40, 42]
+        })
+        trainer = ForecastingTrainer(df=df, dataset_id=123)
+        res = trainer.train_and_evaluate("value", steps=5)
+
+        assert res["dataset_id"] == 123
+        assert "best_model" in res
+        assert "best_mape" in res
+        assert mock_upload.called

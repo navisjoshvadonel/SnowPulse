@@ -189,7 +189,6 @@ class AnalyticsEngine:
         if not self.metric_col:
             return {"error": "No numeric metric column found in dataset profile"}
 
-        df_sorted = self.df
         if self.date_col:
             if self.df.schema[self.date_col] == pl.Utf8:
                 df_sorted = self.df.with_columns(
@@ -828,7 +827,6 @@ class AnalyticsEngine:
             if target_date and target_date in self.df.columns:
                 # Sort by date for proper windowing
                 try:
-                    df_sorted = self.df.sort(target_date)
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)

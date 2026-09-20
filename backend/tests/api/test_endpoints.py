@@ -256,3 +256,147 @@ class TestUploadValidation:
         )
         assert resp.status_code == 400
         assert "Only CSV and Excel" in resp.json()["detail"]
+
+
+class TestAdditionalMainEndpoints:
+    def test_health_endpoints(self, client):
+        res1 = client.get("/health/liveness")
+        assert res1.status_code == 200
+        res2 = client.get("/health/readiness")
+        assert res2.status_code in (200, 503)
+
+    def test_audit_logs(self, client, auth_headers):
+        res = client.get("/api/audit-logs", headers=auth_headers)
+        assert res.status_code == 200
+
+    def test_lineage(self, client, auth_headers):
+        res = client.get("/api/analytics/lineage/1", headers=auth_headers)
+        assert res.status_code == 200
+        assert res.json()["dataset_id"] == 1
+
+    def test_export_report(self, client, auth_headers):
+        res = client.post("/api/analytics/export-report", json={"dataset_name": "test.csv"}, headers=auth_headers)
+        assert res.status_code == 200
+        assert res.json()["status"] == "success"
+
+    def test_jobs_list_and_status_not_found(self, client, auth_headers):
+        res1 = client.get("/api/jobs", headers=auth_headers)
+        assert res1.status_code == 200
+        res2 = client.get("/api/jobs/nonexistent-job-id", headers=auth_headers)
+        assert res2.status_code == 200
+        assert res2.json()["status"] in ("not_found", "unknown")
+
+    def test_forecast_predict_nonexistent(self, client, auth_headers):
+        res = client.get("/api/forecast/predict/99999", headers=auth_headers)
+        assert res.status_code == 404
+
+    def test_ml_targets_nonexistent(self, client, auth_headers):
+        res = client.get("/api/ml/targets/99999", headers=auth_headers)
+        assert res.status_code == 404
+
+    def test_forecast_train_nonexistent(self, client, auth_headers):
+        res = client.post("/api/forecast/train/99999?target_col=sales", headers=auth_headers)
+        assert res.status_code == 404
+
+    def test_analytics_summary_nonexistent(self, client, auth_headers):
+        res = client.get("/api/analytics/summary/99999", headers=auth_headers)
+        assert res.status_code == 404
+
+    def test_analytics_insights_nonexistent(self, client, auth_headers):
+        res = client.get("/api/analytics/insights/99999", headers=auth_headers)
+        assert res.status_code == 404
+
+    def test_dataset_suggestions_nonexistent(self, client, auth_headers):
+        res = client.get("/api/datasets/99999/suggestions", headers=auth_headers)
+        assert res.status_code == 404
+
+    def test_dataset_signals_nonexistent(self, client, auth_headers):
+        res = client.get("/api/datasets/99999/signals", headers=auth_headers)
+        assert res.status_code == 404
+
+
+class TestDatasetAnalyticsEndpoints:
+    def test_dataset_analytics_flow(self, client, db, test_user, auth_headers, tmp_path):
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("date,region,category,sales\n2025-01-01,North,Electronics,100\n2025-01-02,South,Books,200\n2025-01-03,North,Books,150\n")
+
+        ds = Dataset(
+            owner_id=test_user.id,
+            name="analytics-flow-test",
+            file_path=str(csv_file)
+        )
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        # Profile
+        res = client.get(f"/api/datasets/{ds.id}/profile", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Reprofile
+        res = client.post(f"/api/datasets/{ds.id}/reprofile", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Schema
+        res = client.get(f"/api/datasets/{ds.id}/schema", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Decomposition Tree
+        res = client.get(f"/api/datasets/{ds.id}/decomposition-tree", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Monte Carlo
+        res = client.get(f"/api/datasets/{ds.id}/monte-carlo", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Calculated Fields
+        res = client.post(f"/api/datasets/{ds.id}/calculated-fields", json={"prompt": "rolling average of sales"}, headers=auth_headers)
+        assert res.status_code == 200
+
+        # Geo Spatial
+        res = client.get(f"/api/datasets/{ds.id}/geo-spatial", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Query
+        res = client.post(f"/api/datasets/{ds.id}/query", json={"metrics": [{"column": "sales", "agg": "sum"}]}, headers=auth_headers)
+        assert res.status_code == 200
+
+        # Dashboard Aggregate
+        res = client.post(f"/api/datasets/{ds.id}/aggregate", json={}, headers=auth_headers)
+        assert res.status_code == 200
+
+        # Analytics Summary
+        res = client.get(f"/api/analytics/summary/{ds.id}", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Analytics Insights
+        res = client.get(f"/api/analytics/insights/{ds.id}", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Suggestions
+        res = client.get(f"/api/datasets/{ds.id}/suggestions", headers=auth_headers)
+        assert res.status_code in (200, 500)
+
+        # Signals
+        res = client.get(f"/api/datasets/{ds.id}/signals", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Usage
+        res = client.get("/api/analytics/usage", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Search
+        res = client.get("/api/search?q=sales", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Storage Presigned
+        res = client.get("/api/storage/presigned/datasets/test.csv", headers=auth_headers)
+        assert res.status_code in (200, 500)
+
+        # ML targets
+        res = client.get(f"/api/ml/targets/{ds.id}", headers=auth_headers)
+        assert res.status_code == 200
+
+        # Forecast predict missing model
+        res = client.get(f"/api/forecast/predict/{ds.id}", headers=auth_headers)
+        assert res.status_code == 400

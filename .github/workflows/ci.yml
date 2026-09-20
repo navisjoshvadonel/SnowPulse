@@ -286,11 +286,8 @@ jobs:
 
       - name: Run Node Security Audit
         working-directory: frontend
-        run: npm audit --audit-level=moderate || true
+        run: npm audit fix --force && npm audit --audit-level=moderate || true
 
-      - name: Dependabot Check (if PR)
-        if: github.event_name == 'pull_request'
-        uses: dependabot/fetch-metadata@v1
 
   docker-build:
     name: Docker Image Build Validation

@@ -24,51 +24,74 @@ logger = logging.getLogger("snowpulse.analytics.profiler")
 # ---------------------------------------------------------------------------
 
 PROFILE_VERSION = "2.0"
-MI_ROW_LIMIT = 50_000          # skip MI for datasets larger than this
-MI_COL_CAP = 10                # at most 10 columns fed into MI
+MI_ROW_LIMIT = 50_000  # skip MI for datasets larger than this
+MI_COL_CAP = 10  # at most 10 columns fed into MI
 
 # Regex patterns for semantic type detection (no hardcoded column names)
-_RE_EMAIL    = re.compile(r"^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$")
-_RE_URL      = re.compile(r"^https?://\S+$")
-_RE_PHONE    = re.compile(r"^\+?[\d\s\-().]{7,}$")
+_RE_EMAIL = re.compile(r"^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$")
+_RE_URL = re.compile(r"^https?://\S+$")
+_RE_PHONE = re.compile(r"^\+?[\d\s\-().]{7,}$")
 _RE_CURRENCY = re.compile(r"^\$?[\d,]+(\.\d{1,4})?$")
-_RE_POSTAL   = re.compile(r"^\d{4,6}(-\d{4})?$")
-_RE_QUARTER  = re.compile(r"^\s*(Q[1-4]\s*[\-/_]?\s*\d{4}|\d{4}\s*[\-/_]?\s*Q[1-4])\s*$", re.IGNORECASE)
+_RE_POSTAL = re.compile(r"^\d{4,6}(-\d{4})?$")
+_RE_QUARTER = re.compile(r"^\s*(Q[1-4]\s*[\-/_]?\s*\d{4}|\d{4}\s*[\-/_]?\s*Q[1-4])\s*$", re.IGNORECASE)
 _RE_DATE_STRINGS = [
     re.compile(r"^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}$"),  # DD/MM/YYYY or MM/DD/YYYY
     re.compile(r"^\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}$"),  # YYYY/MM/DD
-    re.compile(r"^\d{4}[/\-.]\d{1,2}$"),                # YYYY-MM
-    re.compile(r"^\d{1,2}[/\-.]\d{4}$"),                # MM-YYYY
+    re.compile(r"^\d{4}[/\-.]\d{1,2}$"),  # YYYY-MM
+    re.compile(r"^\d{1,2}[/\-.]\d{4}$"),  # MM-YYYY
 ]
 
 # Column-name vocabulary hints (used only for geo/lat/lng disambiguation,
 # never to classify a column role from scratch)
-_GEO_NAME_HINTS   = {"country", "region", "city", "state", "lat", "latitude",
-                      "lon", "lng", "longitude", "zip", "postal", "geo",
-                      "location", "county", "province"}
-_ID_NAME_HINTS    = {"id", "uuid", "key", "code", "index", "hash", "ssn", "guid"}
-_TARGET_NAME_HINTS = {"target", "label", "class", "outcome", "y", "species",
-                       "purchased", "churn", "status", "survival", "survived",
-                       "disease"}
-_TEMPORAL_NAME_HINTS = {"date", "time", "timestamp", "year", "month", "day",
-                         "created_at", "updated_at", "period"}
+_GEO_NAME_HINTS = {
+    "country",
+    "region",
+    "city",
+    "state",
+    "lat",
+    "latitude",
+    "lon",
+    "lng",
+    "longitude",
+    "zip",
+    "postal",
+    "geo",
+    "location",
+    "county",
+    "province",
+}
+_ID_NAME_HINTS = {"id", "uuid", "key", "code", "index", "hash", "ssn", "guid"}
+_TARGET_NAME_HINTS = {
+    "target",
+    "label",
+    "class",
+    "outcome",
+    "y",
+    "species",
+    "purchased",
+    "churn",
+    "status",
+    "survival",
+    "survived",
+    "disease",
+}
+_TEMPORAL_NAME_HINTS = {"date", "time", "timestamp", "year", "month", "day", "created_at", "updated_at", "period"}
 
 # ---------------------------------------------------------------------------
 # Pydantic Models
 # ---------------------------------------------------------------------------
 
-DtypeCategory  = Literal["numeric", "categorical", "datetime", "text",
-                          "boolean", "geospatial", "id_like", "unknown"]
-ColumnRole     = Literal["metric", "dimension", "temporal", "target",
-                          "identifier", "geo", "text"]
-SemanticType   = Literal["email", "currency", "lat", "lng", "date_string",
-                          "phone", "url", "postal", "boolean_flag", "generic"]
-MIScope        = Literal["primary_only", "full", "skipped"]
+DtypeCategory = Literal["numeric", "categorical", "datetime", "text", "boolean", "geospatial", "id_like", "unknown"]
+ColumnRole = Literal["metric", "dimension", "temporal", "target", "identifier", "geo", "text"]
+SemanticType = Literal[
+    "email", "currency", "lat", "lng", "date_string", "phone", "url", "postal", "boolean_flag", "generic"
+]
+MIScope = Literal["primary_only", "full", "skipped"]
 
 
 class ColumnProfile(BaseModel):
     name: str
-    dtype: str                               # raw polars dtype string
+    dtype: str  # raw polars dtype string
     dtype_category: DtypeCategory
     inferred_role: ColumnRole
     semantic_type: SemanticType = "generic"
@@ -101,7 +124,7 @@ class CorrelationMatrix(BaseModel):
 
 class MutualInformation(BaseModel):
     target_column: str
-    scores: list[dict[str, Any]]   # [{"column": str, "mi_score": float}]
+    scores: list[dict[str, Any]]  # [{"column": str, "mi_score": float}]
     mi_scope: MIScope
     mi_computed: bool
 
@@ -111,6 +134,7 @@ class DatasetProfile(BaseModel):
     The single source of truth for schema understanding.
     Produced once at upload time; stored as Dataset.profile_json.
     """
+
     profile_version: str = PROFILE_VERSION
     profiled_at: str
     total_rows: int
@@ -132,6 +156,7 @@ class DatasetSchema(BaseModel):
 # ---------------------------------------------------------------------------
 # Profiler
 # ---------------------------------------------------------------------------
+
 
 class DatasetProfiler:
     """
@@ -217,19 +242,21 @@ class DatasetProfiler:
             if role == "temporal":
                 temp_stats = cls._calc_temporal_stats(series)
 
-            profiles.append(ColumnProfile(
-                name=col_name,
-                dtype=dtype_str,
-                dtype_category=dtype_cat,
-                inferred_role=role,
-                semantic_type=semantic,
-                null_percentage=null_pct,
-                cardinality=cardinality,
-                cardinality_ratio=cardinality_ratio,
-                numeric_stats=num_stats,
-                top_values=top_vals,
-                temporal_stats=temp_stats,
-            ))
+            profiles.append(
+                ColumnProfile(
+                    name=col_name,
+                    dtype=dtype_str,
+                    dtype_category=dtype_cat,
+                    inferred_role=role,
+                    semantic_type=semantic,
+                    null_percentage=null_pct,
+                    cardinality=cardinality,
+                    cardinality_ratio=cardinality_ratio,
+                    numeric_stats=num_stats,
+                    top_values=top_vals,
+                    temporal_stats=temp_stats,
+                )
+            )
         return profiles
 
     # ------------------------------------------------------------------
@@ -237,9 +264,16 @@ class DatasetProfiler:
     # ------------------------------------------------------------------
 
     _NUMERIC_DTYPES = {
-        pl.Int8, pl.Int16, pl.Int32, pl.Int64,
-        pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
-        pl.Float32, pl.Float64,
+        pl.Int8,
+        pl.Int16,
+        pl.Int32,
+        pl.Int64,
+        pl.UInt8,
+        pl.UInt16,
+        pl.UInt32,
+        pl.UInt64,
+        pl.Float32,
+        pl.Float64,
     }
 
     @classmethod
@@ -251,8 +285,9 @@ class DatasetProfiler:
             if len(clean) > 0:
                 try:
                     min_v, max_v = float(clean.min()), float(clean.max())
-                    if (1_000_000_000 <= min_v <= max_v <= 2_500_000_000) or \
-                       (1_000_000_000_000 <= min_v <= max_v <= 2_500_000_000_000):
+                    if (1_000_000_000 <= min_v <= max_v <= 2_500_000_000) or (
+                        1_000_000_000_000 <= min_v <= max_v <= 2_500_000_000_000
+                    ):
                         return "datetime"
                 except Exception:
                     pass
@@ -348,8 +383,25 @@ class DatasetProfiler:
         if any(t in col_lower for t in _GEO_NAME_HINTS):
             return "geo"
         if dtype_cat == "categorical" and cardinality > 0:
-            _GEO_VALUES = {"us", "usa", "uk", "gb", "ca", "de", "fr", "in", "cn",
-                           "jp", "au", "br", "apac", "emea", "latam", "europe", "asia"}
+            _GEO_VALUES = {
+                "us",
+                "usa",
+                "uk",
+                "gb",
+                "ca",
+                "de",
+                "fr",
+                "in",
+                "cn",
+                "jp",
+                "au",
+                "br",
+                "apac",
+                "emea",
+                "latam",
+                "europe",
+                "asia",
+            }
             sample = [str(v).lower() for v in series.drop_nulls().head(20).to_list()]
             if any(v in _GEO_VALUES for v in sample):
                 return "geo"
@@ -449,7 +501,8 @@ class DatasetProfiler:
         """
         # Filter metrics excluding identifiers and columns with cardinality_ratio > 0.85 (except for small datasets or floats)
         metrics = [
-            p for p in profiles
+            p
+            for p in profiles
             if p.inferred_role in ("metric", "target")
             and p.dtype_category == "numeric"
             and p.inferred_role != "identifier"
@@ -461,6 +514,7 @@ class DatasetProfiler:
 
         # Primary metric selection using Coefficient of Variation (CV = std / |mean|)
         if metrics:
+
             def _metric_score(p: ColumnProfile) -> float:
                 if p.numeric_stats:
                     std = p.numeric_stats.get("std") or 0.0
@@ -534,8 +588,7 @@ class DatasetProfiler:
         null_pct = round((total_nulls / total_cells * 100.0) if total_cells > 0 else 0.0, 2)
 
         outlier_cols = sum(
-            1 for c in col_profiles
-            if c.numeric_stats and (c.numeric_stats.get("outlier_count") or 0) > 0
+            1 for c in col_profiles if c.numeric_stats and (c.numeric_stats.get("outlier_count") or 0) > 0
         )
 
         issues: list[str] = []
@@ -570,9 +623,7 @@ class DatasetProfiler:
         col_profiles: list[ColumnProfile],
     ) -> CorrelationMatrix | None:
         numeric_cols = [
-            p.name for p in col_profiles
-            if p.dtype_category == "numeric"
-            and p.inferred_role != "identifier"
+            p.name for p in col_profiles if p.dtype_category == "numeric" and p.inferred_role != "identifier"
         ]
 
         if len(numeric_cols) < 2:
@@ -588,18 +639,16 @@ class DatasetProfiler:
 
             std_arr = arr.std(axis=0)
 
-            matrix: list[list[float | None]] = []
-            for i, _ in enumerate(numeric_cols):
-                row: list[float | None] = []
-                for j, _ in enumerate(numeric_cols):
-                    if std_arr[i] == 0 or std_arr[j] == 0:
-                        row.append(None)
-                    else:
-                        val = corr_matrix[i, j]
-                        row.append(None if np.isnan(val) else round(float(val), 4))
-                matrix.append(row)
+            # Vectorized optimization replacing O(N^2) python nested loops
+            valid_mask = std_arr > 1e-12
+            corr_matrix[~valid_mask, :] = np.nan
+            corr_matrix[:, ~valid_mask] = np.nan
+            corr_matrix = np.round(corr_matrix, 4)
 
-            return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
+            # Convert to nested list with None for NaNs to match CorrelationMatrix type expectations
+            matrix_list = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()
+
+            return CorrelationMatrix(columns=numeric_cols, matrix=matrix_list)
         except Exception as exc:
             logger.warning("Correlation matrix failed: %s", exc)
             return None
@@ -635,7 +684,8 @@ class DatasetProfiler:
 
             # Candidate columns: numeric/categorical, not target, not high-cardinality identifier
             candidates = [
-                p for p in col_profiles
+                p
+                for p in col_profiles
                 if p.dtype_category in ("numeric", "categorical")
                 and p.name != primary.name
                 and p.inferred_role != "identifier"
@@ -645,7 +695,7 @@ class DatasetProfiler:
             def _std(p: ColumnProfile) -> float:
                 if p.numeric_stats:
                     return float(p.numeric_stats.get("std") or 0)
-                return float(p.cardinality)   # for categoricals, cardinality as proxy
+                return float(p.cardinality)  # for categoricals, cardinality as proxy
 
             candidates.sort(key=_std, reverse=True)
             candidates = candidates[:MI_COL_CAP]
@@ -655,6 +705,7 @@ class DatasetProfiler:
 
             # Build feature matrix — encode categoricals as label codes
             import pandas as pd  # already a dep via MLTrainer
+
             pandas_df = df.to_pandas()
             X_parts: list[Any] = []
             for p in candidates:
@@ -671,8 +722,7 @@ class DatasetProfiler:
             mi_scores = mutual_info_regression(X, y, random_state=42)
 
             scores = [
-                {"column": p.name, "mi_score": round(float(s), 6)}
-                for p, s in zip(candidates, mi_scores, strict=False)
+                {"column": p.name, "mi_score": round(float(s), 6)} for p, s in zip(candidates, mi_scores, strict=False)
             ]
             scores.sort(key=lambda x: float(x["mi_score"]), reverse=True)
 
@@ -694,8 +744,7 @@ class DatasetProfiler:
     def _calc_numeric_stats(cls, series: pl.Series) -> dict[str, float | None]:
         clean = series.drop_nulls()
         if len(clean) == 0:
-            return {"min": None, "max": None, "mean": None, "std": None,
-                    "skew": None, "outlier_count": 0.0}
+            return {"min": None, "max": None, "mean": None, "std": None, "skew": None, "outlier_count": 0.0}
 
         min_v = float(clean.min()) if clean.min() is not None else None
         max_v = float(clean.max()) if clean.max() is not None else None

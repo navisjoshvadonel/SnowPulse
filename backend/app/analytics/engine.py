@@ -26,7 +26,7 @@ def _load_df(file_path: str | pl.DataFrame) -> pl.DataFrame:
     """Read a polars DataFrame from MinIO, local disk, or direct DataFrame object."""
     if isinstance(file_path, pl.DataFrame):
         return file_path
-    if hasattr(file_path, "to_numpy"): # pandas DataFrame
+    if hasattr(file_path, "to_numpy"):  # pandas DataFrame
         return pl.from_pandas(file_path)
 
     if isinstance(file_path, str):
@@ -72,39 +72,27 @@ class AnalyticsEngine:
             self._profile = DatasetProfiler.profile_full(self.df)
 
         # Extract canonical column references from profile flags
-        metric_cand = next((c.name for c in self._profile.columns if c.is_primary_metric and c.dtype_category == "numeric"), None)
+        metric_cand = next(
+            (c.name for c in self._profile.columns if c.is_primary_metric and c.dtype_category == "numeric"), None
+        )
         if not metric_cand:
             metric_cand = next((c.name for c in self._profile.columns if c.is_primary_metric), None)
         if not metric_cand:
             metric_cand = next((c.name for c in self._profile.columns if c.dtype_category == "numeric"), None)
         self.metric_col: str | None = metric_cand
-        self.date_col: str | None = next(
-            (c.name for c in self._profile.columns if c.is_primary_date), None
-        )
-        self.category_col: str | None = next(
-            (c.name for c in self._profile.columns if c.is_primary_category), None
-        )
-        self.geo_col: str | None = next(
-            (c.name for c in self._profile.columns if c.is_primary_geo), None
-        )
+        self.date_col: str | None = next((c.name for c in self._profile.columns if c.is_primary_date), None)
+        self.category_col: str | None = next((c.name for c in self._profile.columns if c.is_primary_category), None)
+        self.geo_col: str | None = next((c.name for c in self._profile.columns if c.is_primary_geo), None)
 
         # All numeric / categorical column lists (for downstream consumers)
-        self.numeric_cols: list[str] = [
-            c.name for c in self._profile.columns if c.dtype_category == "numeric"
-        ]
-        self.categorical_cols: list[str] = [
-            c.name for c in self._profile.columns if c.dtype_category == "categorical"
-        ]
+        self.numeric_cols: list[str] = [c.name for c in self._profile.columns if c.dtype_category == "numeric"]
+        self.categorical_cols: list[str] = [c.name for c in self._profile.columns if c.dtype_category == "categorical"]
         self.date_cols: list[str] = [
             c.name for c in self._profile.columns if c.dtype_category == "datetime" or c.inferred_role == "temporal"
         ]
-        self.geo_cols: list[str] = [
-            c.name for c in self._profile.columns if c.inferred_role == "geo"
-        ]
+        self.geo_cols: list[str] = [c.name for c in self._profile.columns if c.inferred_role == "geo"]
         self.categorical_unique_values: dict[str, list[str]] = {
-            c.name: [v["value"] for v in (c.top_values or [])]
-            for c in self._profile.columns
-            if c.top_values
+            c.name: [v["value"] for v in (c.top_values or [])] for c in self._profile.columns if c.top_values
         }
 
         # Automatically construct and register a Semantic Model
@@ -116,30 +104,30 @@ class AnalyticsEngine:
         for c in self._profile.columns:
             clean_name = c.name.replace(" ", "_").lower()
             if c.dtype_category in ("categorical", "datetime") or c.inferred_role in ("geo", "temporal", "category"):
-                dimensions.append(DimensionDef(
-                    name=clean_name,
-                    description=f"{c.semantic_type or c.inferred_role or 'general'} dimension",
-                    column=c.name
-                ))
+                dimensions.append(
+                    DimensionDef(
+                        name=clean_name,
+                        description=f"{c.semantic_type or c.inferred_role or 'general'} dimension",
+                        column=c.name,
+                    )
+                )
             elif c.dtype_category == "numeric":
-                metrics.append(MetricDef(
-                    name=f"total_{clean_name}",
-                    description=f"Total sum of {c.name}",
-                    column=c.name,
-                    agg="sum"
-                ))
-                metrics.append(MetricDef(
-                    name=f"average_{clean_name}",
-                    description=f"Average of {c.name}",
-                    column=c.name,
-                    agg="avg"
-                ))
+                metrics.append(
+                    MetricDef(
+                        name=f"total_{clean_name}", description=f"Total sum of {c.name}", column=c.name, agg="sum"
+                    )
+                )
+                metrics.append(
+                    MetricDef(
+                        name=f"average_{clean_name}", description=f"Average of {c.name}", column=c.name, agg="avg"
+                    )
+                )
 
         sm = SemanticModel(
             name=self.semantic_model_name,
             description=f"Auto-generated semantic model for {os.path.basename(str_path)}",
             dimensions=dimensions,
-            metrics=metrics
+            metrics=metrics,
         )
         semantic_layer.register_model(sm)
 
@@ -152,19 +140,19 @@ class AnalyticsEngine:
             return {"error": "No numeric metric column found in dataset profile"}
 
         total_value = float(self.df[self.metric_col].sum())
-        mean_value  = float(self.df[self.metric_col].mean() or 0)
-        std_dev     = float(self.df[self.metric_col].std() or 0)
+        mean_value = float(self.df[self.metric_col].mean() or 0)
+        std_dev = float(self.df[self.metric_col].std() or 0)
 
         growth_rate = 0.0
         if self.df.height > 1:
             half = self.df.height // 2
-            first_half  = float(self.df.head(half)[self.metric_col].sum() or 0)
+            first_half = float(self.df.head(half)[self.metric_col].sum() or 0)
             second_half = float(self.df.tail(self.df.height - half)[self.metric_col].sum() or 0)
             if first_half > 0:
                 growth_rate = ((second_half - first_half) / first_half) * 100
 
         unique_segments = self.df[self.category_col].n_unique() if self.category_col else 0
-        unique_regions  = self.df[self.geo_col].n_unique() if self.geo_col else 0
+        unique_regions = self.df[self.geo_col].n_unique() if self.geo_col else 0
 
         null_pct = self.df.null_count().sum().row(0)[0] / (self.df.height * len(self.headers) or 1)
         quality_score = max(50, int(100 - (null_pct * 100)))
@@ -196,20 +184,17 @@ class AnalyticsEngine:
                     pl.col(self.date_col).str.to_datetime(strict=False).alias("_parsed_date")
                 )
             else:
-                df_sorted = self.df.with_columns(
-                    pl.col(self.date_col).alias("_parsed_date")
-                )
+                df_sorted = self.df.with_columns(pl.col(self.date_col).alias("_parsed_date"))
             df_sorted = df_sorted.sort("_parsed_date")
             grouped = (
-                df_sorted
-                .group_by("_parsed_date")
+                df_sorted.group_by("_parsed_date")
                 .agg(pl.col(self.metric_col).sum().alias("value"))
                 .sort("_parsed_date")
             )
-            dates  = [str(d) for d in grouped["_parsed_date"].to_list()]
+            dates = [str(d) for d in grouped["_parsed_date"].to_list()]
             values = grouped["value"].to_list()
         else:
-            dates  = [f"Period {i + 1}" for i in range(self.df.height)]
+            dates = [f"Period {i + 1}" for i in range(self.df.height)]
             values = self.df[self.metric_col].to_list()
 
         values_np = np.array(values, dtype=float)
@@ -248,9 +233,9 @@ class AnalyticsEngine:
                 "metric": self.metric_col,
                 "dates": dates,
                 "values": values,
-                "moving_average": trend_line, # Keep key for frontend compat
+                "moving_average": trend_line,  # Keep key for frontend compat
                 "forecast_dates": future_dates,
-                "forecast_values": forecast_preds
+                "forecast_values": forecast_preds,
             }
         else:
             window = max(2, len(values_np) // 5)
@@ -267,15 +252,13 @@ class AnalyticsEngine:
             return []
 
         grouped = (
-            self.df
-            .group_by(active_geo)
+            self.df.group_by(active_geo)
             .agg([pl.col(self.metric_col).sum().alias("value"), pl.len().alias("count")])
             .sort("value", descending=True)
         )
 
         return [
-            {"region": row[0], "value": float(row[1] or 0), "count": int(row[2] or 0)}
-            for row in grouped.iter_rows()
+            {"region": row[0], "value": float(row[1] or 0), "count": int(row[2] or 0)} for row in grouped.iter_rows()
         ]
 
     # ------------------------------------------------------------------
@@ -300,7 +283,7 @@ class AnalyticsEngine:
         X = vals.reshape(-1, 1)
         iso_forest = IsolationForest(contamination="auto", random_state=42)
         preds = iso_forest.fit_predict(X)
-        anomaly_scores = iso_forest.decision_function(X) # lower is more anomalous
+        anomaly_scores = iso_forest.decision_function(X)  # lower is more anomalous
 
         # Robust Z-Score (Median Absolute Deviation) calculation for heavy-tailed skew resilience
         med_val = float(np.median(vals))
@@ -313,7 +296,8 @@ class AnalyticsEngine:
 
         # Precompute means and stds of all other numeric columns for causal analysis
         other_numeric_cols = [
-            c for c in self.numeric_cols
+            c
+            for c in self.numeric_cols
             if c != self.metric_col and c in self.headers and (self.df[c].std() or 0) > 1e-12
         ]
         col_means = {col: self.df[col].mean() for col in other_numeric_cols}
@@ -321,13 +305,13 @@ class AnalyticsEngine:
 
         anomalies: list[dict[str, Any]] = []
         for i, (pred, score, val, rz) in enumerate(zip(preds, anomaly_scores, vals, robust_z_scores, strict=False)):
-            if pred == -1 or abs(rz) >= 3.0: # Anomaly detected by Isolation Forest or MAD Robust Z-Score
+            if pred == -1 or abs(rz) >= 3.0:  # Anomaly detected by Isolation Forest or MAD Robust Z-Score
                 severity = "Critical" if (score <= score_percentile_5 or abs(rz) >= 4.0) else "High"
 
                 row_dict = self.df.row(i, named=True)
-                date_str     = str(row_dict.get(self.date_col, f"Row {i + 1}"))
+                date_str = str(row_dict.get(self.date_col, f"Row {i + 1}"))
                 category_str = str(row_dict.get(self.category_col, "General"))
-                region_str   = str(row_dict.get(self.geo_col, "Global"))
+                region_str = str(row_dict.get(self.geo_col, "Global"))
 
                 # ------------------------------------------------------------------
                 # DYNAMIC LEARNING: Causal Inference (Root Cause Analysis)
@@ -342,7 +326,7 @@ class AnalyticsEngine:
                         cell_val = row_dict.get(col, col_means[col])
                         if cell_val is not None:
                             z_dev = abs(float(cell_val) - float(col_means[col])) / float(col_stds[col])
-                            if z_dev > max_deviation_z and z_dev > 1.5: # At least 1.5 sigma deviation
+                            if z_dev > max_deviation_z and z_dev > 1.5:  # At least 1.5 sigma deviation
                                 max_deviation_z = z_dev
                                 primary_driver = col
 
@@ -352,17 +336,19 @@ class AnalyticsEngine:
                     direction = "spiked" if driver_val > driver_mean else "dropped"
                     root_cause = f"Likely driven by {primary_driver}, which {direction} to {driver_val:.1f} (avg: {driver_mean:.1f})."
 
-                anomalies.append({
-                    "row_index": i + 1,
-                    "date": date_str,
-                    "category": category_str,
-                    "region": region_str,
-                    "value": float(val),
-                    "z_score": float(round(rz, 2)),
-                    "deviation_pct": float(((val - mean_val) / (mean_val or 1.0)) * 100),
-                    "severity": severity,
-                    "root_cause": root_cause
-                })
+                anomalies.append(
+                    {
+                        "row_index": i + 1,
+                        "date": date_str,
+                        "category": category_str,
+                        "region": region_str,
+                        "value": float(val),
+                        "z_score": float(round(rz, 2)),
+                        "deviation_pct": float(((val - mean_val) / (mean_val or 1.0)) * 100),
+                        "severity": severity,
+                        "root_cause": root_cause,
+                    }
+                )
 
         # Sort anomalies by severity (highest absolute robust Z-score first)
         anomalies.sort(key=lambda x: abs(x["z_score"]), reverse=True)
@@ -376,15 +362,13 @@ class AnalyticsEngine:
         if self._profile.correlation_matrix:
             cm = self._profile.correlation_matrix
             valid_indices = [
-                i for i, col in enumerate(cm.columns)
+                i
+                for i, col in enumerate(cm.columns)
                 if any(v is not None for j, v in enumerate(cm.matrix[i]) if i != j)
             ]
             if len(valid_indices) >= 2:
                 filtered_cols = [cm.columns[i] for i in valid_indices]
-                filtered_matrix = [
-                    [cm.matrix[i][j] for j in valid_indices]
-                    for i in valid_indices
-                ]
+                filtered_matrix = [[cm.matrix[i][j] for j in valid_indices] for i in valid_indices]
                 return {"columns": filtered_cols, "matrix": filtered_matrix}
             return {"columns": cm.columns, "matrix": cm.matrix}
 
@@ -403,18 +387,14 @@ class AnalyticsEngine:
         with np.errstate(invalid="ignore", divide="ignore"):
             corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
 
-        matrix: list[list[float]] = []
-        for i in range(len(all_numeric)):
-            row_corrs: list[float] = []
-            std_a = stds[i]
-            for j in range(len(all_numeric)):
-                std_b = stds[j]
-                if std_a <= 1e-12 or std_b <= 1e-12:
-                    row_corrs.append(0.0)
-                else:
-                    corr = float(corr_matrix[i, j])
-                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
-            matrix.append(row_corrs)
+        # Vectorized optimization replacing O(N^2) python nested loops
+        valid_mask = stds > 1e-12
+        corr_matrix[~valid_mask, :] = 0.0
+        corr_matrix[:, ~valid_mask] = 0.0
+        corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+        corr_matrix = np.round(corr_matrix, 4)
+
+        matrix = corr_matrix.tolist()
 
         return {"columns": all_numeric, "matrix": matrix}
 
@@ -424,7 +404,7 @@ class AnalyticsEngine:
 
     def generate_statistical_context_summary(self) -> str:
         kpis = self.get_kpis()
-        geo  = self.get_geo_metrics()
+        geo = self.get_geo_metrics()
         anomalies = self.get_anomalies()
 
         summary: list[str] = [
@@ -471,6 +451,7 @@ class AnalyticsEngine:
         """
         try:
             from .signals import SignalDetector
+
             signals = SignalDetector.detect_signals(self.df, self._profile)
             return [s.model_dump() for s in signals]
         except Exception as e:
@@ -482,10 +463,7 @@ class AnalyticsEngine:
     # ------------------------------------------------------------------
 
     def get_decomposition_tree(
-        self,
-        target_metric: str | None = None,
-        dimensions: list[str] | None = None,
-        max_depth: int = 3
+        self, target_metric: str | None = None, dimensions: list[str] | None = None, max_depth: int = 3
     ) -> dict[str, Any]:
         """
         SHAP / Variance-based Autonomous Root-Cause Decomposition Tree.
@@ -527,7 +505,7 @@ class AnalyticsEngine:
             "direction": "neutral",
             "node_type": "root",
             "record_count": total_rows,
-            "children": []
+            "children": [],
         }
 
         def build_branch(sub_df: pl.DataFrame, current_dim_idx: int, parent_val: float) -> list[dict[str, Any]]:
@@ -536,13 +514,14 @@ class AnalyticsEngine:
 
             dim = valid_dims[current_dim_idx]
             grouped = (
-                sub_df
-                .group_by(dim)
-                .agg([
-                    pl.col(metric).sum().alias("sum_val"),
-                    pl.col(metric).mean().alias("mean_val"),
-                    pl.len().alias("count")
-                ])
+                sub_df.group_by(dim)
+                .agg(
+                    [
+                        pl.col(metric).sum().alias("sum_val"),
+                        pl.col(metric).mean().alias("mean_val"),
+                        pl.len().alias("count"),
+                    ]
+                )
                 .sort("sum_val", descending=True)
             )
 
@@ -578,7 +557,7 @@ class AnalyticsEngine:
                     "direction": direction,
                     "record_count": count_v,
                     "node_type": "branch",
-                    "children": next_children
+                    "children": next_children,
                 }
                 results.append(node)
 
@@ -588,7 +567,9 @@ class AnalyticsEngine:
                 max_node = max(results, key=lambda x: float(x.get("delta_value", 0.0)))
                 if float(min_node.get("delta_value", 0.0)) < 0:
                     min_node["is_bottleneck"] = True
-                    min_node["bottleneck_reason"] = f"Primary Drop Factor: {min_node['delta_value']:,.0f} below expected mean"
+                    min_node["bottleneck_reason"] = (
+                        f"Primary Drop Factor: {min_node['delta_value']:,.0f} below expected mean"
+                    )
                 if float(max_node.get("delta_value", 0.0)) > 0:
                     max_node["is_top_driver"] = True
 
@@ -603,7 +584,9 @@ class AnalyticsEngine:
             children = curr.get("children")
             if not isinstance(children, list) or not children:
                 break
-            b_child: dict[str, Any] | None = next((c for c in children if isinstance(c, dict) and c.get("is_bottleneck")), None)
+            b_child: dict[str, Any] | None = next(
+                (c for c in children if isinstance(c, dict) and c.get("is_bottleneck")), None
+            )
             if not b_child and children:
                 b_child = min(children, key=lambda x: float(x.get("delta_value", 0.0)) if isinstance(x, dict) else 0.0)
             if b_child and isinstance(b_child, dict):
@@ -619,7 +602,7 @@ class AnalyticsEngine:
             "decomposed_dimensions": valid_dims,
             "total_value": total_value,
             "primary_root_cause_path": primary_bottleneck_path,
-            "summary_insight": f"Decomposition of '{metric}' across [{', '.join(valid_dims)}] identified key bottleneck path: {' ➔ '.join(primary_bottleneck_path) if primary_bottleneck_path else 'Balanced performance across dimensions'}."
+            "summary_insight": f"Decomposition of '{metric}' across [{', '.join(valid_dims)}] identified key bottleneck path: {' ➔ '.join(primary_bottleneck_path) if primary_bottleneck_path else 'Balanced performance across dimensions'}.",
         }
 
     # ------------------------------------------------------------------
@@ -635,7 +618,7 @@ class AnalyticsEngine:
         cost_delta: float = 0.0,
         churn_delta: float = 0.0,
         volatility: float = 0.15,
-        target_threshold: float | None = None
+        target_threshold: float | None = None,
     ) -> dict[str, Any]:
         """
         Executes a 1,000-run (or N-run) stochastic Monte Carlo simulation using Geometric Brownian Motion
@@ -679,7 +662,7 @@ class AnalyticsEngine:
         # S_{t+1} = S_t * exp((mu - 0.5 * sigma^2)*dt + sigma * sqrt(dt) * Z_t)
         np.random.seed(42)  # Deterministic seed for reproducible analytical runs
         shocks = np.random.normal(0, 1, size=(iterations, steps))
-        drift = (mu_eff - 0.5 * (vol ** 2)) * dt
+        drift = (mu_eff - 0.5 * (vol**2)) * dt
         diffusion = vol * np.sqrt(dt) * shocks
 
         multipliers = np.exp(drift + diffusion)
@@ -733,14 +716,16 @@ class AnalyticsEngine:
             elif b_min >= final_p90:
                 tier = "Optimistic (P90)"
 
-            distribution_bins.append({
-                "bin_min": round(b_min, 2),
-                "bin_max": round(b_max, 2),
-                "label": f"{b_min:,.0f} - {b_max:,.0f}",
-                "count": b_count,
-                "percentage": pct,
-                "tier": tier
-            })
+            distribution_bins.append(
+                {
+                    "bin_min": round(b_min, 2),
+                    "bin_max": round(b_max, 2),
+                    "label": f"{b_min:,.0f} - {b_max:,.0f}",
+                    "count": b_count,
+                    "percentage": pct,
+                    "tier": tier,
+                }
+            )
 
         # Synthesis Narrative
         impact_dir = "favorable" if net_param_impact >= 0 else "adverse"
@@ -789,9 +774,7 @@ class AnalyticsEngine:
     # AI-Powered Natural Language Calculated Fields Engine
     # ------------------------------------------------------------------
 
-    def evaluate_calculated_field(
-        self, prompt: str, field_name: str | None = None
-    ) -> dict[str, Any]:
+    def evaluate_calculated_field(self, prompt: str, field_name: str | None = None) -> dict[str, Any]:
         """
         Translates a natural language calculation prompt (e.g. '7-day rolling average of revenue',
         'Profit margin ratio', 'Z-score of Sales', 'Percentage of Total') into safe Polars/Pandas
@@ -830,6 +813,7 @@ class AnalyticsEngine:
         if "rolling" in prompt_lower or "moving" in prompt_lower or "trend average" in prompt_lower:
             window_size = 7
             import re
+
             match = re.search(r"(\d+)\s*[-_\s]*(day|m|month|period|step|row)", prompt_lower)
             if match:
                 window_size = int(match.group(1))
@@ -852,17 +836,32 @@ class AnalyticsEngine:
             explanation = f"Computes a trailing {window_size}-period moving average of '{target_metric}' to smooth out volatility and isolate trends."
 
         # Pattern 2: Percentage of Total / Share
-        elif "percent of total" in prompt_lower or "percentage of total" in prompt_lower or "% of total" in prompt_lower or "share" in prompt_lower or "ratio of total" in prompt_lower:
+        elif (
+            "percent of total" in prompt_lower
+            or "percentage of total" in prompt_lower
+            or "% of total" in prompt_lower
+            or "share" in prompt_lower
+            or "ratio of total" in prompt_lower
+        ):
             expr = (pl.col(target_metric) / (pl.col(target_metric).sum() + 1e-9) * 100.0).fill_nan(0.0).fill_null(0.0)
             calc_type = "percentage_of_total"
             default_name = f"{target_metric}_Pct_Of_Total"
             formula_code = f"(pl.col('{target_metric}') / pl.col('{target_metric}').sum()) * 100.0"
             dax_code = f"DIVIDE(SUM('{table_name}'[{target_metric}]), CALCULATE(SUM('{table_name}'[{target_metric}]), ALL()), 0) * 100"
-            lod_code = f"SUM([{target_metric}]) / SUM({{ EXCLUDE [{target_category or 'All'}] : SUM([{target_metric}]) }})"
-            explanation = f"Calculates each row's relative percentage contribution of '{target_metric}' against the grand total."
+            lod_code = (
+                f"SUM([{target_metric}]) / SUM({{ EXCLUDE [{target_category or 'All'}] : SUM([{target_metric}]) }})"
+            )
+            explanation = (
+                f"Calculates each row's relative percentage contribution of '{target_metric}' against the grand total."
+            )
 
         # Pattern 3: Z-Score / Standardization
-        elif "z-score" in prompt_lower or "z score" in prompt_lower or "standardiz" in prompt_lower or "normaliz" in prompt_lower:
+        elif (
+            "z-score" in prompt_lower
+            or "z score" in prompt_lower
+            or "standardiz" in prompt_lower
+            or "normaliz" in prompt_lower
+        ):
             mean_val = float(self.df[target_metric].mean() or 0)
             std_val = float(self.df[target_metric].std() or 1.0)
             if std_val == 0:
@@ -872,17 +871,25 @@ class AnalyticsEngine:
             default_name = f"{target_metric}_ZScore"
             formula_code = f"(pl.col('{target_metric}') - {mean_val:.2f}) / {std_val:.2f}"
             dax_code = f"DIVIDE('{table_name}'[{target_metric}] - AVERAGE('{table_name}'[{target_metric}]), STDEV.P('{table_name}'[{target_metric}]), 0)"
-            lod_code = f"([{target_metric}] - WINDOW_AVG(AVG([{target_metric}]))) / WINDOW_STDEV(AVG([{target_metric}]))"
-            explanation = f"Standardizes '{target_metric}' into standard deviation units (Z-scores) where 0 is the dataset mean."
+            lod_code = (
+                f"([{target_metric}] - WINDOW_AVG(AVG([{target_metric}]))) / WINDOW_STDEV(AVG([{target_metric}]))"
+            )
+            explanation = (
+                f"Standardizes '{target_metric}' into standard deviation units (Z-scores) where 0 is the dataset mean."
+            )
 
         # Pattern 4: Margin / Difference Ratio
-        elif ("margin" in prompt_lower or "diff" in prompt_lower or "minus" in prompt_lower or "subtr" in prompt_lower) and len(matched_num_cols) >= 2:
+        elif (
+            "margin" in prompt_lower or "diff" in prompt_lower or "minus" in prompt_lower or "subtr" in prompt_lower
+        ) and len(matched_num_cols) >= 2:
             c1, c2 = matched_num_cols[0], matched_num_cols[1]
             if "pct" in prompt_lower or "%" in prompt_lower or "margin" in prompt_lower:
                 expr = (((pl.col(c1) - pl.col(c2)) / (pl.col(c1) + 1e-9)) * 100.0).fill_nan(0.0).fill_null(0.0)
                 default_name = f"{c1}_{c2}_Margin_Pct"
                 formula_code = f"((pl.col('{c1}') - pl.col('{c2}')) / pl.col('{c1}')) * 100.0"
-                dax_code = f"DIVIDE(SUM('{table_name}'[{c1}]) - SUM('{table_name}'[{c2}]), SUM('{table_name}'[{c1}]), 0)"
+                dax_code = (
+                    f"DIVIDE(SUM('{table_name}'[{c1}]) - SUM('{table_name}'[{c2}]), SUM('{table_name}'[{c1}]), 0)"
+                )
                 lod_code = f"(SUM([{c1}]) - SUM([{c2}])) / SUM([{c1}])"
                 explanation = f"Calculates percentage margin between '{c1}' and '{c2}'."
             else:
@@ -896,7 +903,9 @@ class AnalyticsEngine:
 
         # Pattern 5: Logarithmic Transformation
         elif "log" in prompt_lower or "logarithm" in prompt_lower:
-            expr = (pl.col(target_metric).map_elements(lambda x: np.log1p(max(0, float(x or 0))), return_dtype=pl.Float64)).fill_nan(0.0)
+            expr = (
+                pl.col(target_metric).map_elements(lambda x: np.log1p(max(0, float(x or 0))), return_dtype=pl.Float64)
+            ).fill_nan(0.0)
             calc_type = "log_transform"
             default_name = f"{target_metric}_Log1p"
             formula_code = f"pl.col('{target_metric}').log(1p)"
@@ -905,7 +914,13 @@ class AnalyticsEngine:
             explanation = f"Applies log1p transformation to '{target_metric}' to compress skewed distribution tails."
 
         # Pattern 6: Conditional Tiering / Binning
-        elif "if" in prompt_lower or "tier" in prompt_lower or "bin" in prompt_lower or "category" in prompt_lower or "level" in prompt_lower:
+        elif (
+            "if" in prompt_lower
+            or "tier" in prompt_lower
+            or "bin" in prompt_lower
+            or "category" in prompt_lower
+            or "level" in prompt_lower
+        ):
             mean_val = float(self.df[target_metric].mean() or 0)
             expr = (
                 pl.when(pl.col(target_metric) >= mean_val * 1.25)
@@ -916,8 +931,10 @@ class AnalyticsEngine:
             )
             calc_type = "conditional_binning"
             default_name = f"{target_metric}_Performance_Tier"
-            formula_code = f"pl.when(pl.col('{target_metric}') >= {mean_val*1.25:.1f}).then('High Tier').otherwise('Low Tier')"
-            dax_code = f"IF('{table_name}'[{target_metric}] >= {mean_val*1.25:.1f}, \"High Tier\", \"Low Tier\")"
+            formula_code = (
+                f"pl.when(pl.col('{target_metric}') >= {mean_val*1.25:.1f}).then('High Tier').otherwise('Low Tier')"
+            )
+            dax_code = f'IF(\'{table_name}\'[{target_metric}] >= {mean_val*1.25:.1f}, "High Tier", "Low Tier")'
             lod_code = f"IF SUM([{target_metric}]) >= {mean_val*1.25:.1f} THEN 'High Tier' ELSE 'Low Tier' END"
             explanation = f"Categorizes rows into Performance Tiers based on threshold multiples of '{target_metric}'."
             inferred_dtype = "categorical"
@@ -926,6 +943,7 @@ class AnalyticsEngine:
         else:
             scale_factor = 1.0
             import re
+
             match = re.search(r"(\d+(\.\d+)?)", prompt)
             if match:
                 scale_factor = float(match.group(1))
@@ -1009,90 +1027,203 @@ class AnalyticsEngine:
     # Embedded geocoder: maps common region/country/city names to lat/lng
     _GEOCODE_DB: dict[str, tuple[float, float]] = {
         # Countries
-        "united states": (39.8283, -98.5795), "usa": (39.8283, -98.5795), "us": (39.8283, -98.5795),
-        "united kingdom": (55.3781, -3.436), "uk": (55.3781, -3.436), "gb": (55.3781, -3.436),
-        "canada": (56.1304, -106.3468), "ca": (56.1304, -106.3468),
-        "germany": (51.1657, 10.4515), "de": (51.1657, 10.4515),
-        "france": (46.2276, 2.2137), "fr": (46.2276, 2.2137),
-        "india": (20.5937, 78.9629), "in": (20.5937, 78.9629),
-        "china": (35.8617, 104.1954), "cn": (35.8617, 104.1954),
-        "japan": (36.2048, 138.2529), "jp": (36.2048, 138.2529),
-        "australia": (25.2744, 133.7751), "au": (25.2744, 133.7751),
-        "brazil": (-14.235, -51.9253), "br": (-14.235, -51.9253),
-        "mexico": (23.6345, -102.5528), "mx": (23.6345, -102.5528),
-        "south korea": (35.9078, 127.7669), "kr": (35.9078, 127.7669),
-        "italy": (41.8719, 12.5674), "it": (41.8719, 12.5674),
-        "spain": (40.4637, -3.7492), "es": (40.4637, -3.7492),
-        "russia": (61.524, 105.3188), "ru": (61.524, 105.3188),
-        "south africa": (-30.5595, 22.9375), "za": (-30.5595, 22.9375),
-        "nigeria": (9.082, 8.6753), "ng": (9.082, 8.6753),
-        "indonesia": (-0.7893, 113.9213), "id": (-0.7893, 113.9213),
-        "turkey": (38.9637, 35.2433), "tr": (38.9637, 35.2433),
-        "saudi arabia": (23.8859, 45.0792), "sa": (23.8859, 45.0792),
-        "argentina": (-38.4161, -63.6167), "ar": (-38.4161, -63.6167),
-        "egypt": (26.8206, 30.8025), "eg": (26.8206, 30.8025),
-        "singapore": (1.3521, 103.8198), "sg": (1.3521, 103.8198),
-        "thailand": (15.87, 100.9925), "th": (15.87, 100.9925),
-        "netherlands": (52.1326, 5.2913), "nl": (52.1326, 5.2913),
-        "sweden": (60.1282, 18.6435), "se": (60.1282, 18.6435),
-        "switzerland": (46.8182, 8.2275), "ch": (46.8182, 8.2275),
-        "poland": (51.9194, 19.1451), "pl_country": (51.9194, 19.1451),
-        "colombia": (4.5709, -74.2973), "co": (4.5709, -74.2973),
-        "chile": (-35.6751, -71.543), "cl": (-35.6751, -71.543),
-        "uae": (23.4241, 53.8478), "ae": (23.4241, 53.8478),
-        "malaysia": (4.2105, 101.9758), "my": (4.2105, 101.9758),
-        "philippines": (12.8797, 121.774), "ph": (12.8797, 121.774),
-        "pakistan": (30.3753, 69.3451), "pk": (30.3753, 69.3451),
-        "vietnam": (14.0583, 108.2772), "vn": (14.0583, 108.2772),
-        "new zealand": (-40.9006, 174.886), "nz": (-40.9006, 174.886),
-        "ireland": (53.1424, -7.6921), "ie": (53.1424, -7.6921),
-        "portugal": (39.3999, -8.2245), "pt": (39.3999, -8.2245),
-        "greece": (39.0742, 21.8243), "gr": (39.0742, 21.8243),
-        "norway": (60.472, 8.4689), "no": (60.472, 8.4689),
-        "denmark": (56.2639, 9.5018), "dk": (56.2639, 9.5018),
-        "finland": (61.9241, 25.7482), "fi": (61.9241, 25.7482),
-        "israel": (31.0461, 34.8516), "il": (31.0461, 34.8516),
-        "kenya": (-0.0236, 37.9062), "ke": (-0.0236, 37.9062),
-        "bangladesh": (23.685, 90.3563), "bd": (23.685, 90.3563),
+        "united states": (39.8283, -98.5795),
+        "usa": (39.8283, -98.5795),
+        "us": (39.8283, -98.5795),
+        "united kingdom": (55.3781, -3.436),
+        "uk": (55.3781, -3.436),
+        "gb": (55.3781, -3.436),
+        "canada": (56.1304, -106.3468),
+        "ca": (56.1304, -106.3468),
+        "germany": (51.1657, 10.4515),
+        "de": (51.1657, 10.4515),
+        "france": (46.2276, 2.2137),
+        "fr": (46.2276, 2.2137),
+        "india": (20.5937, 78.9629),
+        "in": (20.5937, 78.9629),
+        "china": (35.8617, 104.1954),
+        "cn": (35.8617, 104.1954),
+        "japan": (36.2048, 138.2529),
+        "jp": (36.2048, 138.2529),
+        "australia": (25.2744, 133.7751),
+        "au": (25.2744, 133.7751),
+        "brazil": (-14.235, -51.9253),
+        "br": (-14.235, -51.9253),
+        "mexico": (23.6345, -102.5528),
+        "mx": (23.6345, -102.5528),
+        "south korea": (35.9078, 127.7669),
+        "kr": (35.9078, 127.7669),
+        "italy": (41.8719, 12.5674),
+        "it": (41.8719, 12.5674),
+        "spain": (40.4637, -3.7492),
+        "es": (40.4637, -3.7492),
+        "russia": (61.524, 105.3188),
+        "ru": (61.524, 105.3188),
+        "south africa": (-30.5595, 22.9375),
+        "za": (-30.5595, 22.9375),
+        "nigeria": (9.082, 8.6753),
+        "ng": (9.082, 8.6753),
+        "indonesia": (-0.7893, 113.9213),
+        "id": (-0.7893, 113.9213),
+        "turkey": (38.9637, 35.2433),
+        "tr": (38.9637, 35.2433),
+        "saudi arabia": (23.8859, 45.0792),
+        "sa": (23.8859, 45.0792),
+        "argentina": (-38.4161, -63.6167),
+        "ar": (-38.4161, -63.6167),
+        "egypt": (26.8206, 30.8025),
+        "eg": (26.8206, 30.8025),
+        "singapore": (1.3521, 103.8198),
+        "sg": (1.3521, 103.8198),
+        "thailand": (15.87, 100.9925),
+        "th": (15.87, 100.9925),
+        "netherlands": (52.1326, 5.2913),
+        "nl": (52.1326, 5.2913),
+        "sweden": (60.1282, 18.6435),
+        "se": (60.1282, 18.6435),
+        "switzerland": (46.8182, 8.2275),
+        "ch": (46.8182, 8.2275),
+        "poland": (51.9194, 19.1451),
+        "pl_country": (51.9194, 19.1451),
+        "colombia": (4.5709, -74.2973),
+        "co": (4.5709, -74.2973),
+        "chile": (-35.6751, -71.543),
+        "cl": (-35.6751, -71.543),
+        "uae": (23.4241, 53.8478),
+        "ae": (23.4241, 53.8478),
+        "malaysia": (4.2105, 101.9758),
+        "my": (4.2105, 101.9758),
+        "philippines": (12.8797, 121.774),
+        "ph": (12.8797, 121.774),
+        "pakistan": (30.3753, 69.3451),
+        "pk": (30.3753, 69.3451),
+        "vietnam": (14.0583, 108.2772),
+        "vn": (14.0583, 108.2772),
+        "new zealand": (-40.9006, 174.886),
+        "nz": (-40.9006, 174.886),
+        "ireland": (53.1424, -7.6921),
+        "ie": (53.1424, -7.6921),
+        "portugal": (39.3999, -8.2245),
+        "pt": (39.3999, -8.2245),
+        "greece": (39.0742, 21.8243),
+        "gr": (39.0742, 21.8243),
+        "norway": (60.472, 8.4689),
+        "no": (60.472, 8.4689),
+        "denmark": (56.2639, 9.5018),
+        "dk": (56.2639, 9.5018),
+        "finland": (61.9241, 25.7482),
+        "fi": (61.9241, 25.7482),
+        "israel": (31.0461, 34.8516),
+        "il": (31.0461, 34.8516),
+        "kenya": (-0.0236, 37.9062),
+        "ke": (-0.0236, 37.9062),
+        "bangladesh": (23.685, 90.3563),
+        "bd": (23.685, 90.3563),
         # Regions
-        "north": (42.0, -95.0), "south": (33.0, -90.0), "east": (40.0, -75.0), "west": (38.0, -118.0),
-        "northeast": (43.0, -73.0), "northwest": (47.0, -122.0), "southeast": (33.5, -83.0), "southwest": (34.0, -112.0),
-        "midwest": (41.0, -89.0), "central": (39.0, -98.0),
-        "apac": (10.0, 115.0), "emea": (48.0, 10.0), "latam": (-15.0, -60.0),
-        "europe": (50.0, 10.0), "asia": (30.0, 100.0), "africa": (0.0, 25.0),
-        "north america": (45.0, -100.0), "south america": (-15.0, -60.0), "oceania": (-25.0, 140.0),
+        "north": (42.0, -95.0),
+        "south": (33.0, -90.0),
+        "east": (40.0, -75.0),
+        "west": (38.0, -118.0),
+        "northeast": (43.0, -73.0),
+        "northwest": (47.0, -122.0),
+        "southeast": (33.5, -83.0),
+        "southwest": (34.0, -112.0),
+        "midwest": (41.0, -89.0),
+        "central": (39.0, -98.0),
+        "apac": (10.0, 115.0),
+        "emea": (48.0, 10.0),
+        "latam": (-15.0, -60.0),
+        "europe": (50.0, 10.0),
+        "asia": (30.0, 100.0),
+        "africa": (0.0, 25.0),
+        "north america": (45.0, -100.0),
+        "south america": (-15.0, -60.0),
+        "oceania": (-25.0, 140.0),
         # Major US Cities
-        "new york": (40.7128, -74.006), "los angeles": (34.0522, -118.2437), "chicago": (41.8781, -87.6298),
-        "houston": (29.7604, -95.3698), "phoenix": (33.4484, -112.074), "philadelphia": (39.9526, -75.1652),
-        "san antonio": (29.4241, -98.4936), "san diego": (32.7157, -117.1611), "dallas": (32.7767, -96.797),
-        "san francisco": (37.7749, -122.4194), "seattle": (47.6062, -122.3321), "denver": (39.7392, -104.9903),
-        "boston": (42.3601, -71.0589), "miami": (25.7617, -80.1918), "atlanta": (33.749, -84.388),
-        "austin": (30.2672, -97.7431), "portland": (45.5155, -122.6789), "nashville": (36.1627, -86.7816),
-        "las vegas": (36.1699, -115.1398), "detroit": (42.3314, -83.0458), "minneapolis": (44.9778, -93.265),
+        "new york": (40.7128, -74.006),
+        "los angeles": (34.0522, -118.2437),
+        "chicago": (41.8781, -87.6298),
+        "houston": (29.7604, -95.3698),
+        "phoenix": (33.4484, -112.074),
+        "philadelphia": (39.9526, -75.1652),
+        "san antonio": (29.4241, -98.4936),
+        "san diego": (32.7157, -117.1611),
+        "dallas": (32.7767, -96.797),
+        "san francisco": (37.7749, -122.4194),
+        "seattle": (47.6062, -122.3321),
+        "denver": (39.7392, -104.9903),
+        "boston": (42.3601, -71.0589),
+        "miami": (25.7617, -80.1918),
+        "atlanta": (33.749, -84.388),
+        "austin": (30.2672, -97.7431),
+        "portland": (45.5155, -122.6789),
+        "nashville": (36.1627, -86.7816),
+        "las vegas": (36.1699, -115.1398),
+        "detroit": (42.3314, -83.0458),
+        "minneapolis": (44.9778, -93.265),
         # Major World Cities
-        "london": (51.5074, -0.1278), "paris": (48.8566, 2.3522), "berlin": (52.52, 13.405),
-        "tokyo": (35.6762, 139.6503), "beijing": (39.9042, 116.4074), "shanghai": (31.2304, 121.4737),
-        "mumbai": (19.076, 72.8777), "delhi": (28.7041, 77.1025), "bangalore": (12.9716, 77.5946),
-        "dubai": (25.2048, 55.2708), "sydney": (-33.8688, 151.2093), "melbourne": (-37.8136, 144.9631),
-        "toronto": (43.6532, -79.3832), "vancouver": (49.2827, -123.1207), "montreal": (45.5017, -73.5673),
-        "sao paulo": (-23.5505, -46.6333), "rio de janeiro": (-22.9068, -43.1729),
-        "mexico city": (19.4326, -99.1332), "buenos aires": (-34.6037, -58.3816),
-        "cairo": (30.0444, 31.2357), "lagos": (6.5244, 3.3792), "nairobi": (-1.2921, 36.8219),
-        "cape town": (-33.9249, 18.4241), "johannesburg": (-26.2041, 28.0473),
-        "moscow": (55.7558, 37.6173), "istanbul": (41.0082, 28.9784),
-        "seoul": (37.5665, 126.978), "bangkok": (13.7563, 100.5018), "jakarta": (-6.2088, 106.8456),
-        "taipei": (25.033, 121.5654), "hong kong": (22.3193, 114.1694), "kuala lumpur": (3.139, 101.6869),
-        "manila": (14.5995, 120.9842), "ho chi minh city": (10.8231, 106.6297),
+        "london": (51.5074, -0.1278),
+        "paris": (48.8566, 2.3522),
+        "berlin": (52.52, 13.405),
+        "tokyo": (35.6762, 139.6503),
+        "beijing": (39.9042, 116.4074),
+        "shanghai": (31.2304, 121.4737),
+        "mumbai": (19.076, 72.8777),
+        "delhi": (28.7041, 77.1025),
+        "bangalore": (12.9716, 77.5946),
+        "dubai": (25.2048, 55.2708),
+        "sydney": (-33.8688, 151.2093),
+        "melbourne": (-37.8136, 144.9631),
+        "toronto": (43.6532, -79.3832),
+        "vancouver": (49.2827, -123.1207),
+        "montreal": (45.5017, -73.5673),
+        "sao paulo": (-23.5505, -46.6333),
+        "rio de janeiro": (-22.9068, -43.1729),
+        "mexico city": (19.4326, -99.1332),
+        "buenos aires": (-34.6037, -58.3816),
+        "cairo": (30.0444, 31.2357),
+        "lagos": (6.5244, 3.3792),
+        "nairobi": (-1.2921, 36.8219),
+        "cape town": (-33.9249, 18.4241),
+        "johannesburg": (-26.2041, 28.0473),
+        "moscow": (55.7558, 37.6173),
+        "istanbul": (41.0082, 28.9784),
+        "seoul": (37.5665, 126.978),
+        "bangkok": (13.7563, 100.5018),
+        "jakarta": (-6.2088, 106.8456),
+        "taipei": (25.033, 121.5654),
+        "hong kong": (22.3193, 114.1694),
+        "kuala lumpur": (3.139, 101.6869),
+        "manila": (14.5995, 120.9842),
+        "ho chi minh city": (10.8231, 106.6297),
         # US States
-        "california": (36.7783, -119.4179), "texas": (31.9686, -99.9018), "florida": (27.6648, -81.5158),
-        "new york state": (43.2994, -74.2179), "illinois": (40.6331, -89.3985), "pennsylvania": (41.2033, -77.1945),
-        "ohio": (40.4173, -82.9071), "georgia": (32.1656, -82.9001), "north carolina": (35.7596, -79.0193),
-        "michigan": (44.3148, -85.6024), "washington": (47.7511, -120.7401), "colorado": (39.5501, -105.7821),
-        "massachusetts": (42.4072, -71.3824), "virginia": (37.4316, -78.6569), "arizona": (34.0489, -111.0937),
-        "tennessee": (35.5175, -86.5804), "maryland": (39.0458, -76.6413), "oregon": (43.8041, -120.5542),
-        "wisconsin": (43.7844, -88.7879), "minnesota": (46.7296, -94.6859), "connecticut": (41.6032, -73.0877),
-        "nevada": (38.8026, -116.4194), "utah": (39.321, -111.0937), "iowa": (41.878, -93.0977),
-        "indiana": (40.2672, -86.1349), "missouri": (37.9643, -91.8318), "alabama": (32.3182, -86.9023),
+        "california": (36.7783, -119.4179),
+        "texas": (31.9686, -99.9018),
+        "florida": (27.6648, -81.5158),
+        "new york state": (43.2994, -74.2179),
+        "illinois": (40.6331, -89.3985),
+        "pennsylvania": (41.2033, -77.1945),
+        "ohio": (40.4173, -82.9071),
+        "georgia": (32.1656, -82.9001),
+        "north carolina": (35.7596, -79.0193),
+        "michigan": (44.3148, -85.6024),
+        "washington": (47.7511, -120.7401),
+        "colorado": (39.5501, -105.7821),
+        "massachusetts": (42.4072, -71.3824),
+        "virginia": (37.4316, -78.6569),
+        "arizona": (34.0489, -111.0937),
+        "tennessee": (35.5175, -86.5804),
+        "maryland": (39.0458, -76.6413),
+        "oregon": (43.8041, -120.5542),
+        "wisconsin": (43.7844, -88.7879),
+        "minnesota": (46.7296, -94.6859),
+        "connecticut": (41.6032, -73.0877),
+        "nevada": (38.8026, -116.4194),
+        "utah": (39.321, -111.0937),
+        "iowa": (41.878, -93.0977),
+        "indiana": (40.2672, -86.1349),
+        "missouri": (37.9643, -91.8318),
+        "alabama": (32.3182, -86.9023),
     }
 
     def get_geo_spatial_analysis(
@@ -1138,8 +1269,7 @@ class AnalyticsEngine:
                 elif cp.semantic_type == "lng" and not lng_col:
                     lng_col = cp.name
 
-        has_coords = (lat_col and lat_col in self.df.columns and
-                      lng_col and lng_col in self.df.columns)
+        has_coords = lat_col and lat_col in self.df.columns and lng_col and lng_col in self.df.columns
 
         # Resolve geo column for name-based geocoding
         if not geo_col:
@@ -1166,23 +1296,23 @@ class AnalyticsEngine:
 
         if has_coords:
             # Use raw lat/lng
-            work_df = work_df.filter(
-                pl.col(lat_col).is_not_null() & pl.col(lng_col).is_not_null()
+            work_df = work_df.filter(pl.col(lat_col).is_not_null() & pl.col(lng_col).is_not_null())
+            work_df = work_df.with_columns(
+                [
+                    pl.col(lat_col).cast(pl.Float64).alias("_lat"),
+                    pl.col(lng_col).cast(pl.Float64).alias("_lng"),
+                ]
             )
-            work_df = work_df.with_columns([
-                pl.col(lat_col).cast(pl.Float64).alias("_lat"),
-                pl.col(lng_col).cast(pl.Float64).alias("_lng"),
-            ])
             # Filter invalid coordinates
-            work_df = work_df.filter(
-                (pl.col("_lat").abs() <= 90) & (pl.col("_lng").abs() <= 180)
-            )
+            work_df = work_df.filter((pl.col("_lat").abs() <= 90) & (pl.col("_lng").abs() <= 180))
             if geo_col and geo_col in work_df.columns:
                 label_col = geo_col
             else:
                 # Synthesize a label from lat/lng so we don't clash with _lat/_lng aliases
                 work_df = work_df.with_columns(
-                    (pl.col("_lat").round(2).cast(pl.Utf8) + pl.lit(", ") + pl.col("_lng").round(2).cast(pl.Utf8)).alias("_geo_label")
+                    (
+                        pl.col("_lat").round(2).cast(pl.Utf8) + pl.lit(", ") + pl.col("_lng").round(2).cast(pl.Utf8)
+                    ).alias("_geo_label")
                 )
                 label_col = "_geo_label"
         else:
@@ -1205,14 +1335,18 @@ class AnalyticsEngine:
                 )
 
             work_df = work_df.filter(pl.col(geo_col).is_not_null())
-            work_df = work_df.with_columns([
-                pl.col(geo_col).cast(pl.Utf8).map_elements(
-                    lambda v: lat_map.get(str(v), None), return_dtype=pl.Float64
-                ).alias("_lat"),
-                pl.col(geo_col).cast(pl.Utf8).map_elements(
-                    lambda v: lng_map.get(str(v), None), return_dtype=pl.Float64
-                ).alias("_lng"),
-            ])
+            work_df = work_df.with_columns(
+                [
+                    pl.col(geo_col)
+                    .cast(pl.Utf8)
+                    .map_elements(lambda v: lat_map.get(str(v), None), return_dtype=pl.Float64)
+                    .alias("_lat"),
+                    pl.col(geo_col)
+                    .cast(pl.Utf8)
+                    .map_elements(lambda v: lng_map.get(str(v), None), return_dtype=pl.Float64)
+                    .alias("_lng"),
+                ]
+            )
             work_df = work_df.filter(pl.col("_lat").is_not_null() & pl.col("_lng").is_not_null())
             label_col = geo_col
 
@@ -1224,45 +1358,57 @@ class AnalyticsEngine:
         sample_df = work_df.head(min(top_n * 20, work_df.height))
         select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
         for row in sample_df.select(select_cols).iter_rows(named=True):
-            heat_points.append({
-                "lat": round(float(row["_lat"]), 6),
-                "lng": round(float(row["_lng"]), 6),
-                "value": float(row[metric]) if row[metric] is not None else 0.0,
-                "label": str(row[label_col]) if row[label_col] is not None else "Unknown",
-            })
+            heat_points.append(
+                {
+                    "lat": round(float(row["_lat"]), 6),
+                    "lng": round(float(row["_lng"]), 6),
+                    "value": float(row[metric]) if row[metric] is not None else 0.0,
+                    "label": str(row[label_col]) if row[label_col] is not None else "Unknown",
+                }
+            )
 
         # ---- 2. Region Aggregates (grouped) ----
         region_aggregates = []
         if label_col and label_col in work_df.columns:
-            agg_df = work_df.group_by(label_col).agg([
-                pl.col(metric).sum().alias("total"),
-                pl.col(metric).mean().alias("avg"),
-                pl.col(metric).count().alias("count"),
-                pl.col("_lat").mean().alias("centroid_lat"),
-                pl.col("_lng").mean().alias("centroid_lng"),
-                pl.col(metric).std().alias("std"),
-                pl.col(metric).max().alias("max_val"),
-            ]).sort("total", descending=True).head(top_n)
+            agg_df = (
+                work_df.group_by(label_col)
+                .agg(
+                    [
+                        pl.col(metric).sum().alias("total"),
+                        pl.col(metric).mean().alias("avg"),
+                        pl.col(metric).count().alias("count"),
+                        pl.col("_lat").mean().alias("centroid_lat"),
+                        pl.col("_lng").mean().alias("centroid_lng"),
+                        pl.col(metric).std().alias("std"),
+                        pl.col(metric).max().alias("max_val"),
+                    ]
+                )
+                .sort("total", descending=True)
+                .head(top_n)
+            )
 
             grand_total = float(work_df[metric].sum() or 1)
             for row in agg_df.iter_rows(named=True):
                 total_val = float(row["total"]) if row["total"] is not None else 0
-                region_aggregates.append({
-                    "region": str(row[label_col]),
-                    "total": round(total_val, 2),
-                    "avg": round(float(row["avg"] or 0), 2),
-                    "count": int(row["count"]),
-                    "std": round(float(row["std"] or 0), 2),
-                    "max_val": round(float(row["max_val"] or 0), 2),
-                    "pct_of_total": round((total_val / grand_total) * 100, 2) if grand_total > 0 else 0,
-                    "lat": round(float(row["centroid_lat"] or 0), 6),
-                    "lng": round(float(row["centroid_lng"] or 0), 6),
-                })
+                region_aggregates.append(
+                    {
+                        "region": str(row[label_col]),
+                        "total": round(total_val, 2),
+                        "avg": round(float(row["avg"] or 0), 2),
+                        "count": int(row["count"]),
+                        "std": round(float(row["std"] or 0), 2),
+                        "max_val": round(float(row["max_val"] or 0), 2),
+                        "pct_of_total": round((total_val / grand_total) * 100, 2) if grand_total > 0 else 0,
+                        "lat": round(float(row["centroid_lat"] or 0), 6),
+                        "lng": round(float(row["centroid_lng"] or 0), 6),
+                    }
+                )
 
         # ---- 3. Density Clusters (K-Means) ----
         density_clusters = []
         try:
             from sklearn.cluster import KMeans
+
             coords = work_df.select(["_lat", "_lng"]).to_numpy()
             values = work_df[metric].fill_null(0).to_numpy()
             k = min(cluster_count, len(coords))
@@ -1272,16 +1418,18 @@ class AnalyticsEngine:
                 for i in range(k):
                     mask = labels == i
                     cluster_vals = values[mask]
-                    density_clusters.append({
-                        "cluster_id": i,
-                        "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
-                        "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
-                        "point_count": int(mask.sum()),
-                        "total_value": round(float(cluster_vals.sum()), 2),
-                        "avg_value": round(float(cluster_vals.mean()), 2),
-                        "max_value": round(float(cluster_vals.max()), 2),
-                        "density_score": round(float(mask.sum()) / max(len(coords), 1) * 100, 2),
-                    })
+                    density_clusters.append(
+                        {
+                            "cluster_id": i,
+                            "centroid_lat": round(float(km.cluster_centers_[i][0]), 6),
+                            "centroid_lng": round(float(km.cluster_centers_[i][1]), 6),
+                            "point_count": int(mask.sum()),
+                            "total_value": round(float(cluster_vals.sum()), 2),
+                            "avg_value": round(float(cluster_vals.mean()), 2),
+                            "max_value": round(float(cluster_vals.max()), 2),
+                            "density_score": round(float(mask.sum()) / max(len(coords), 1) * 100, 2),
+                        }
+                    )
                 density_clusters.sort(key=lambda c: c["total_value"], reverse=True)
         except Exception as e:
             logger.warning("Geo density clustering failed: %s", e)
@@ -1301,22 +1449,32 @@ class AnalyticsEngine:
                 target_col = all_geo_like[1]
             elif label_col and len(region_aggregates) >= 3:
                 # Generate synthetic flows between top regions
-                for i, src in enumerate(region_aggregates[:min(6, len(region_aggregates))]):
-                    for tgt in region_aggregates[i+1:min(i+4, len(region_aggregates))]:
+                for i, src in enumerate(region_aggregates[: min(6, len(region_aggregates))]):
+                    for tgt in region_aggregates[i + 1 : min(i + 4, len(region_aggregates))]:
                         flow_value = abs(src["total"] - tgt["total"]) * 0.3
                         if flow_value > 0:
-                            arc_flows.append({
-                                "source": {"lat": src["lat"], "lng": src["lng"], "label": src["region"]},
-                                "target": {"lat": tgt["lat"], "lng": tgt["lng"], "label": tgt["region"]},
-                                "value": round(flow_value, 2),
-                            })
+                            arc_flows.append(
+                                {
+                                    "source": {"lat": src["lat"], "lng": src["lng"], "label": src["region"]},
+                                    "target": {"lat": tgt["lat"], "lng": tgt["lng"], "label": tgt["region"]},
+                                    "value": round(flow_value, 2),
+                                }
+                            )
 
-        if source_col and target_col and source_col in self.df.columns and target_col in self.df.columns and not arc_flows:
-            flow_df = self.df.filter(
-                pl.col(source_col).is_not_null() & pl.col(target_col).is_not_null()
-            ).group_by([source_col, target_col]).agg(
-                pl.col(metric).sum().alias("flow_value")
-            ).sort("flow_value", descending=True).head(top_n)
+        if (
+            source_col
+            and target_col
+            and source_col in self.df.columns
+            and target_col in self.df.columns
+            and not arc_flows
+        ):
+            flow_df = (
+                self.df.filter(pl.col(source_col).is_not_null() & pl.col(target_col).is_not_null())
+                .group_by([source_col, target_col])
+                .agg(pl.col(metric).sum().alias("flow_value"))
+                .sort("flow_value", descending=True)
+                .head(top_n)
+            )
 
             for row in flow_df.iter_rows(named=True):
                 src_key = str(row[source_col]).lower().strip()
@@ -1324,17 +1482,16 @@ class AnalyticsEngine:
                 src_coords = self._GEOCODE_DB.get(src_key)
                 tgt_coords = self._GEOCODE_DB.get(tgt_key)
                 if src_coords and tgt_coords:
-                    arc_flows.append({
-                        "source": {"lat": src_coords[0], "lng": src_coords[1], "label": str(row[source_col])},
-                        "target": {"lat": tgt_coords[0], "lng": tgt_coords[1], "label": str(row[target_col])},
-                        "value": round(float(row["flow_value"] or 0), 2),
-                    })
+                    arc_flows.append(
+                        {
+                            "source": {"lat": src_coords[0], "lng": src_coords[1], "label": str(row[source_col])},
+                            "target": {"lat": tgt_coords[0], "lng": tgt_coords[1], "label": str(row[target_col])},
+                            "value": round(float(row["flow_value"] or 0), 2),
+                        }
+                    )
 
         # ---- 5. Choropleth Data ----
-        choropleth_data = [
-            {"name": r["region"], "value": r["total"]}
-            for r in region_aggregates
-        ]
+        choropleth_data = [{"name": r["region"], "value": r["total"]} for r in region_aggregates]
 
         # ---- 6. Distribution Statistics ----
         lats = work_df["_lat"].to_numpy()
@@ -1345,11 +1502,9 @@ class AnalyticsEngine:
         centroid_lng = float(np.average(lngs, weights=np.abs(vals) + 1e-9))
 
         # Geographic dispersion (weighted std of distances from centroid)
-        dist_from_centroid = np.sqrt((lats - centroid_lat)**2 + (lngs - centroid_lng)**2)
+        dist_from_centroid = np.sqrt((lats - centroid_lat) ** 2 + (lngs - centroid_lng) ** 2)
         dispersion = float(np.std(dist_from_centroid))
-        coverage_area_approx = float(
-            (lats.max() - lats.min()) * (lngs.max() - lngs.min())
-        ) if len(lats) > 1 else 0
+        coverage_area_approx = float((lats.max() - lats.min()) * (lngs.max() - lngs.min())) if len(lats) > 1 else 0
 
         distribution_stats = {
             "weighted_centroid": {"lat": round(centroid_lat, 6), "lng": round(centroid_lng, 6)},
@@ -1359,7 +1514,9 @@ class AnalyticsEngine:
             "unique_locations": int(work_df.select(["_lat", "_lng"]).unique().height),
             "lat_range": {"min": round(float(lats.min()), 4), "max": round(float(lats.max()), 4)},
             "lng_range": {"min": round(float(lngs.min()), 4), "max": round(float(lngs.max()), 4)},
-            "metric_geo_correlation": round(float(np.corrcoef(lats, vals)[0, 1]) if len(lats) > 2 and np.std(vals) > 0 else 0.0, 4),
+            "metric_geo_correlation": round(
+                float(np.corrcoef(lats, vals)[0, 1]) if len(lats) > 2 and np.std(vals) > 0 else 0.0, 4
+            ),
         }
 
         # ---- Build AI narrative ----
@@ -1380,7 +1537,7 @@ class AnalyticsEngine:
             "target_metric": metric,
             "geo_column": geo_col or (lat_col + " / " + lng_col if lat_col and lng_col else "auto"),
             "coordinate_mode": "lat_lng" if has_coords else "geocoded",
-            "heat_points": heat_points[:top_n * 10],
+            "heat_points": heat_points[: top_n * 10],
             "region_aggregates": region_aggregates,
             "density_clusters": density_clusters,
             "arc_flows": arc_flows,

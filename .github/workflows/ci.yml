@@ -84,7 +84,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:testpass@localhost:5432/snowpulse
           REDIS_URL: redis://localhost:6379/0
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          JWT_SECRET_KEY: test-secret-key
+          JWT_SECRET_KEY: test-secret-key-32-chars-minimum-length
+          JWT_REFRESH_SECRET_KEY: test-refresh-secret-key-32-chars-min
           MINIO_ENDPOINT: localhost:9000
           MINIO_ACCESS_KEY: test
           MINIO_SECRET_KEY: test
@@ -179,7 +180,8 @@ jobs:
           ENV: testing
           DATABASE_URL: postgresql://postgres:testpass@localhost:5432/snowpulse
           REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET_KEY: test-secret-key
+          JWT_SECRET_KEY: test-secret-key-32-chars-minimum-length
+          JWT_REFRESH_SECRET_KEY: test-refresh-secret-key-32-chars-min
           GEMINI_API_KEY: mock
           MINIO_ENDPOINT: localhost:9000
           MINIO_ACCESS_KEY: test
@@ -289,7 +291,7 @@ jobs:
         run: npm audit --audit-level=moderate || true
 
       - name: Dependabot Check (if PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
         uses: dependabot/fetch-metadata@v1
 
   docker-build:
@@ -340,7 +342,8 @@ jobs:
           GEMINI_API_KEY: mock
           DB_PASSWORD: testpass123
           REDIS_PASSWORD: testpass123
-          JWT_SECRET_KEY: test-secret-key
+          JWT_SECRET_KEY: test-secret-key-32-chars-minimum-length
+          JWT_REFRESH_SECRET_KEY: test-refresh-secret-key-32-chars-min
           MINIO_ROOT_PASSWORD: testpass123
           MEILI_MASTER_KEY: testpass1234567890
         run: |

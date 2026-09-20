@@ -1,3 +1,4 @@
+import io
 import logging
 from typing import Any
 
@@ -5,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pandera as pa
 
-from ..schemas.dataset_schema import get_dynamic_schema
+from ..schemas.dataset_schema import get_dynamic_schema, sales_transaction_schema
 
 logger = logging.getLogger("snowpulse.validation.quality")
 

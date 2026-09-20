@@ -288,8 +288,8 @@ jobs:
         working-directory: frontend
         run: npm audit --audit-level=moderate || true
 
-      - name: Dependabot Check (if PR)
-        if: github.event_name == 'pull_request'
+      - name: Dependabot Check (if PR and actor is dependabot)
+        if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
         uses: dependabot/fetch-metadata@v1
 
   docker-build:

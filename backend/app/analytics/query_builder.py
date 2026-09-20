@@ -204,7 +204,8 @@ class DynamicQueryEngine:
             # 5. Apply active_numeric_ranges filter map
             for col, r in payload.active_numeric_ranges.items():
                 if col in df.columns and isinstance(r, list | tuple) and len(r) == 2:
-                    df = df.filter((pl.col(col) >= r[0]) & (pl.col(col) <= r[1]))
+                    r_bounds = list(r)
+                    df = df.filter((pl.col(col) >= r_bounds[0]) & (pl.col(col) <= r_bounds[1]))
 
             # 6. Apply date_range filter
             d_range = payload.date_range or payload.dateRange
@@ -216,9 +217,10 @@ class DynamicQueryEngine:
 
             # 7. Apply brushedRange filter
             if payload.brushedRange and len(payload.brushedRange) == 2:
+                br_bounds = list(payload.brushedRange)
                 num_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32)]
                 if num_cols:
-                    df = df.filter((pl.col(num_cols[0]) >= payload.brushedRange[0]) & (pl.col(num_cols[0]) <= payload.brushedRange[1]))
+                    df = df.filter((pl.col(num_cols[0]) >= br_bounds[0]) & (pl.col(num_cols[0]) <= br_bounds[1]))
 
             filtered_rows = len(df)
 
@@ -241,10 +243,12 @@ class DynamicQueryEngine:
             # Growth rate calculation if time column present
             if filtered_rows >= 2 and date_cols and primary_metric in df.columns:
                 try:
-                    sorted_df = df.sort(date_cols[0])
+                    sorted_df: pl.DataFrame = df.sort(date_cols[0])
                     mid = filtered_rows // 2
-                    h1 = sorted_df.slice(0, mid)[primary_metric].sum()
-                    h2 = sorted_df.slice(mid)[primary_metric].sum()
+                    s_slice1: pl.DataFrame = sorted_df.slice(0, mid)
+                    s_slice2: pl.DataFrame = sorted_df.slice(mid)
+                    h1 = s_slice1[primary_metric].sum()
+                    h2 = s_slice2[primary_metric].sum()
                     if h1 and float(h1) != 0:
                         kpis_summary["growth_rate"] = round(((float(h2) - float(h1)) / float(h1)) * 100, 1)
                 except Exception:
@@ -270,15 +274,16 @@ class DynamicQueryEngine:
 
             geo_data = []
             if geo_cols and geo_cols[0] in df.columns and filtered_rows > 0 and primary_metric in df.columns:
-                g_df = df.group_by(geo_cols[0]).agg([
+                g_df: pl.DataFrame = df.group_by(geo_cols[0]).agg([
                     pl.col(primary_metric).sum().alias("value"),
                     pl.len().alias("count")
                 ]).sort("value", descending=True)
-                for r in g_df.to_dicts():
+                g_rows: list[dict[str, Any]] = g_df.to_dicts()
+                for r_dict in g_rows:
                     geo_data.append({
-                        "region": str(r[geo_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0,
-                        "count": int(r["count"])
+                        "region": str(r_dict.get(geo_cols[0], "")),
+                        "value": float(r_dict.get("value", 0.0) or 0.0),
+                        "count": int(r_dict.get("count", 0) or 0)
                     })
 
             correlations_dict = None
@@ -293,11 +298,12 @@ class DynamicQueryEngine:
 
             trends = []
             if date_cols and date_cols[0] in df.columns and filtered_rows > 0 and primary_metric in df.columns:
-                t_df = df.group_by(date_cols[0]).agg(pl.col(primary_metric).sum().alias("value")).sort(date_cols[0])
-                for r in t_df.to_dicts():
+                t_df: pl.DataFrame = df.group_by(date_cols[0]).agg(pl.col(primary_metric).sum().alias("value")).sort(date_cols[0])
+                t_rows: list[dict[str, Any]] = t_df.to_dicts()
+                for r_dict in t_rows:
                     trends.append({
-                        "date": str(r[date_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0
+                        "date": str(r_dict.get(date_cols[0], "")),
+                        "value": float(r_dict.get("value", 0.0) or 0.0)
                     })
 
             return {

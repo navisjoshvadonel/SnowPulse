@@ -578,12 +578,12 @@ class AnalyticsEngine:
 
             # Highlight bottleneck (worst negative delta) & top driver (highest positive delta)
             if results:
-                min_node = min(results, key=lambda x: x["delta_value"])
-                max_node = max(results, key=lambda x: x["delta_value"])
-                if min_node["delta_value"] < 0:
+                min_node = min(results, key=lambda x: float(x["delta_value"]))
+                max_node = max(results, key=lambda x: float(x["delta_value"]))
+                if float(min_node["delta_value"]) < 0:
                     min_node["is_bottleneck"] = True
                     min_node["bottleneck_reason"] = f"Primary Drop Factor: {min_node['delta_value']:,.0f} below expected mean"
-                if max_node["delta_value"] > 0:
+                if float(max_node["delta_value"]) > 0:
                     max_node["is_top_driver"] = True
 
             return results
@@ -593,10 +593,11 @@ class AnalyticsEngine:
         # Highlight primary root cause path throughout the tree
         primary_bottleneck_path = []
         curr = root_node
-        while curr and curr.get("children"):
-            b_child = next((c for c in curr["children"] if c.get("is_bottleneck")), None)
-            if not b_child and curr["children"]:
-                b_child = min(curr["children"], key=lambda x: x.get("delta_value", 0))
+        while curr and isinstance(curr.get("children"), list) and curr["children"]:
+            children_list: list[dict[str, Any]] = curr["children"]
+            b_child = next((c for c in children_list if c.get("is_bottleneck")), None)
+            if not b_child and children_list:
+                b_child = min(children_list, key=lambda x: float(x.get("delta_value", 0)))
             if b_child:
                 b_child["is_primary_root_cause_path"] = True
                 primary_bottleneck_path.append(f"{b_child['dimension']}: {b_child['value']}")
@@ -954,7 +955,7 @@ class AnalyticsEngine:
                 self.categorical_cols.append(final_col_name)
 
         # Compute stats
-        stats = {}
+        stats: dict[str, Any] = {}
         if inferred_dtype == "numeric":
             valid_series = computed_series.drop_nans().drop_nulls()
             stats = {
@@ -1140,8 +1141,8 @@ class AnalyticsEngine:
             if not geo_col:
                 # Fallback: search categorical cols for geo-like content
                 for cc in self.categorical_cols:
-                    sample = [str(v).lower().strip() for v in self.df[cc].drop_nulls().head(20).to_list()]
-                    if any(v in self._GEOCODE_DB for v in sample):
+                    geo_sample = [str(v).lower().strip() for v in self.df[cc].drop_nulls().head(20).to_list()]
+                    if any(v in self._GEOCODE_DB for v in geo_sample):
                         geo_col = cc
                         break
 
@@ -1152,7 +1153,7 @@ class AnalyticsEngine:
             )
 
         # ---- Build coordinate-resolved DataFrame ----
-        work_df = self.df.clone()
+        work_df: pl.DataFrame = self.df.clone()
 
         if has_coords:
             # Use raw lat/lng
@@ -1177,6 +1178,8 @@ class AnalyticsEngine:
                 label_col = "_geo_label"
         else:
             # Geocode from region names
+            if not geo_col:
+                raise ValueError("No valid geo column found for geocoding.")
             geo_values = work_df[geo_col].drop_nulls().unique().to_list()
             lat_map = {}
             lng_map = {}
@@ -1210,9 +1213,9 @@ class AnalyticsEngine:
 
         # ---- 1. Heat Points (raw scatter) ----
         heat_points = []
-        sample = work_df.head(min(top_n * 20, work_df.height))
+        sample: pl.DataFrame = work_df.head(min(top_n * 20, work_df.height))
         select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
-        for row in sample.select(select_cols).iter_rows(named=True):
+        for row in sample.select(*select_cols).iter_rows(named=True):
             heat_points.append({
                 "lat": round(float(row["_lat"]), 6),
                 "lng": round(float(row["_lng"]), 6),
@@ -1222,8 +1225,9 @@ class AnalyticsEngine:
 
         # ---- 2. Region Aggregates (grouped) ----
         region_aggregates = []
-        if label_col and label_col in work_df.columns:
-            agg_df = work_df.group_by(label_col).agg([
+        if label_col is not None and label_col in work_df.columns:
+            l_name: str = label_col
+            agg_df = work_df.group_by(l_name).agg([
                 pl.col(metric).sum().alias("total"),
                 pl.col(metric).mean().alias("avg"),
                 pl.col(metric).count().alias("count"),
@@ -1237,7 +1241,7 @@ class AnalyticsEngine:
             for row in agg_df.iter_rows(named=True):
                 total_val = float(row["total"]) if row["total"] is not None else 0
                 region_aggregates.append({
-                    "region": str(row[label_col]),
+                    "region": str(row[l_name]),
                     "total": round(total_val, 2),
                     "avg": round(float(row["avg"] or 0), 2),
                     "count": int(row["count"]),
@@ -1345,7 +1349,7 @@ class AnalyticsEngine:
             "geographic_dispersion": round(dispersion, 4),
             "coverage_area_deg2": round(coverage_area_approx, 2),
             "total_geolocated_rows": work_df.height,
-            "unique_locations": int(work_df.select(["_lat", "_lng"]).unique().height),
+            "unique_locations": int(work_df.select("_lat", "_lng").unique().height),
             "lat_range": {"min": round(float(lats.min()), 4), "max": round(float(lats.max()), 4)},
             "lng_range": {"min": round(float(lngs.min()), 4), "max": round(float(lngs.max()), 4)},
             "metric_geo_correlation": round(float(np.corrcoef(lats, vals)[0, 1]) if len(lats) > 2 and np.std(vals) > 0 else 0.0, 4),

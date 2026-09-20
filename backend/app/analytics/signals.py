@@ -289,6 +289,9 @@ class SignalDetector:
 
                 biz_rel = (cls._calc_business_relevance(c1, profile) + cls._calc_business_relevance(c2, profile)) / 2.0
 
+                if r_val is None:
+                    continue
+
                 if r_val >= 0.80:
                     stat_sig = min(1.0, r_val)
                     sev_score = min(1.0, stat_sig * biz_rel)
@@ -381,8 +384,8 @@ class SignalDetector:
                         c_a = col_map[name_a]
                         c_b = col_map[name_b]
                         biz_rel = (cls._calc_business_relevance(c_a, profile) + cls._calc_business_relevance(c_b, profile)) / 2.0
-                        stat_sig = min(1.0, co_occur_ratio)
-                        sev_score = min(1.0, stat_sig * biz_rel)
+                        stat_sig = float(co_occur_ratio) if co_occur_ratio < 1.0 else 1.0
+                        sev_score = float(stat_sig * biz_rel) if (stat_sig * biz_rel) < 1.0 else 1.0
 
                         signals.append(
                             DetectedSignal(

@@ -1,6 +1,5 @@
 import pandas as pd
 import polars as pl
-
 from app.analytics.engine import AnalyticsEngine
 from app.analytics.profiler import DatasetProfiler
 from app.forecasting.generalized_forecaster import GeneralizedForecaster

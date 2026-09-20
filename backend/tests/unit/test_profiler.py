@@ -1,7 +1,6 @@
 import warnings
 
 import polars as pl
-
 from app.analytics.profiler import DatasetProfiler
 
 

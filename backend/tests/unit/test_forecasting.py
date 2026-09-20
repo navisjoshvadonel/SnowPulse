@@ -11,7 +11,6 @@ os.environ.setdefault("ENV", "testing")
 
 import pandas as pd
 import pytest
-
 from app.forecasting.predictor import ForecastingPredictor
 from app.forecasting.trainer import ForecastingTrainer
 

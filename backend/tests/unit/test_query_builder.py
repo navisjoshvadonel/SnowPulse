@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import polars as pl
-
 from app.analytics.query_builder import (
     DashboardAggregatePayload,
     DynamicQueryEngine,

@@ -31,5 +31,6 @@ coverage.xml
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+backend/local_storage/
 
 

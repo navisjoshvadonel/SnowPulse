@@ -17,11 +17,13 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "False").lower() in ("true", "1", "t")
 
+
 class StorageService:
     """
     Service layer wrapping the MinIO client for secure S3-compliant object storage,
     with local disk fallback when MinIO is unreachable.
     """
+
     def __init__(self):
         self.local_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "local_storage"))
         os.makedirs(self.local_dir, exist_ok=True)
@@ -36,7 +38,7 @@ class StorageService:
                 access_key=MINIO_ACCESS_KEY,
                 secret_key=MINIO_SECRET_KEY,
                 secure=MINIO_SECURE,
-                http_client=http_client
+                http_client=http_client,
             )
             self.enabled = True
             if os.getenv("ENV") != "testing":
@@ -72,7 +74,7 @@ class StorageService:
         data: BinaryIO | bytes,
         length: int = -1,
         content_type: str = "application/octet-stream",
-        metadata: dict[str, str] | None = None
+        metadata: dict[str, str] | None = None,
     ) -> str:
         """
         Uploads an object to MinIO or saves to local storage directory.
@@ -96,7 +98,7 @@ class StorageService:
                     data=data_stream,
                     length=len(data_bytes),
                     content_type=content_type,
-                    metadata=custom_metadata
+                    metadata=custom_metadata,
                 )
                 logger.info(f"Successfully uploaded {object_name} to bucket {bucket_name}")
                 return f"minio://{bucket_name}/{object_name}"
@@ -149,9 +151,7 @@ class StorageService:
 
         try:
             return self.client.presigned_get_object(
-                bucket_name,
-                object_name,
-                expires=timedelta(seconds=expires_in_seconds)
+                bucket_name, object_name, expires=timedelta(seconds=expires_in_seconds)
             )
         except S3Error as e:
             logger.error(f"Failed to generate presigned URL: {e}")
@@ -162,6 +162,11 @@ class StorageService:
         Deletes an object from the specified bucket.
         """
         if not self.enabled or not self.client:
+            file_path = os.path.join(self.local_dir, bucket_name, object_name)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                logger.info(f"Deleted local file {file_path}")
+                return
             raise RuntimeError("Storage service is offline.")
 
         try:
@@ -170,6 +175,40 @@ class StorageService:
         except S3Error as e:
             logger.error(f"MinIO delete error for {bucket_name}/{object_name}: {e}")
             raise RuntimeError(f"Storage deletion failed: {str(e)}")
+
+    def delete_files(self, bucket_name: str, object_names: list[str]) -> None:
+        """
+        Deletes multiple objects from the specified bucket in a single batch operation.
+        """
+        if not object_names:
+            return
+
+        if self.enabled and self.client:
+            try:
+                from minio.deleteobjects import DeleteObject
+
+                delete_object_list = [DeleteObject(obj) for obj in object_names]
+                errors = self.client.remove_objects(bucket_name, delete_object_list)
+                error_list = list(errors)
+                if error_list:
+                    for err in error_list:
+                        logger.error(f"MinIO batch delete error for {bucket_name}/{err.name}: {err.message}")
+                else:
+                    logger.info(f"Batch deleted {len(object_names)} objects from bucket {bucket_name}")
+                return
+            except Exception as e:
+                logger.warning(f"MinIO batch delete error, falling back to disk: {e}")
+
+        # Local storage fallback
+        for obj in object_names:
+            file_path = os.path.join(self.local_dir, bucket_name, obj)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Deleted local file {file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete local file {file_path}: {e}")
+
 
 # Global storage service instance
 storage_service = StorageService()

@@ -161,7 +161,7 @@ class DynamicQueryEngine:
             if region_val:
                 geo_cols = [c for c in df.columns if any(k in c.lower() for k in ['region', 'country', 'geo', 'location', 'zone', 'state'])]
                 if not geo_cols:
-                    geo_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Utf8, pl.Categorical)]
+                    geo_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Utf8, pl.Categorical)]
                 for g_col in geo_cols:
                     if g_col in df.columns:
                         unique_vals = df[g_col].unique().to_list()
@@ -172,7 +172,7 @@ class DynamicQueryEngine:
             # 2. Selected Category filter
             cat_val = payload.selectedCategory
             if cat_val:
-                cat_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Utf8, pl.Categorical)]
+                cat_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Utf8, pl.Categorical)]
                 for c_col in cat_cols:
                     if c_col in df.columns:
                         unique_vals = df[c_col].unique().to_list()
@@ -216,15 +216,15 @@ class DynamicQueryEngine:
 
             # 7. Apply brushedRange filter
             if payload.brushedRange and len(payload.brushedRange) == 2:
-                num_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32)]
+                num_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32)]
                 if num_cols:
                     df = df.filter((pl.col(num_cols[0]) >= payload.brushedRange[0]) & (pl.col(num_cols[0]) <= payload.brushedRange[1]))
 
             filtered_rows = len(df)
 
             # Column classification
-            numeric_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8)]
-            cat_cols = [c for c, dtype in zip(df.columns, df.dtypes) if dtype in (pl.Utf8, pl.Categorical, pl.Boolean)]
+            numeric_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8)]
+            cat_cols = [c for c, dtype in zip(df.columns, df.dtypes, strict=False) if dtype in (pl.Utf8, pl.Categorical, pl.Boolean)]
             date_cols = [c for c in df.columns if 'date' in c.lower() or 'time' in c.lower()]
             geo_cols = [c for c in df.columns if any(k in c.lower() for k in ['region', 'country', 'geo', 'location', 'zone', 'state'])]
 
@@ -274,11 +274,12 @@ class DynamicQueryEngine:
                     pl.col(primary_metric).sum().alias("value"),
                     pl.len().alias("count")
                 ]).sort("value", descending=True)
-                for r in g_df.to_dicts():
+                for row_item in g_df.to_dicts():
+                    r_dict: dict[str, Any] = row_item
                     geo_data.append({
-                        "region": str(r[geo_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0,
-                        "count": int(r["count"])
+                        "region": str(r_dict.get(geo_cols[0], "")),
+                        "value": float(r_dict.get("value") or 0.0),
+                        "count": int(r_dict.get("count") or 0)
                     })
 
             correlations_dict = None
@@ -294,10 +295,11 @@ class DynamicQueryEngine:
             trends = []
             if date_cols and date_cols[0] in df.columns and filtered_rows > 0 and primary_metric in df.columns:
                 t_df = df.group_by(date_cols[0]).agg(pl.col(primary_metric).sum().alias("value")).sort(date_cols[0])
-                for r in t_df.to_dicts():
+                for row_item in t_df.to_dicts():
+                    r_dict_trend: dict[str, Any] = row_item
                     trends.append({
-                        "date": str(r[date_cols[0]]),
-                        "value": float(r["value"]) if r["value"] is not None else 0.0
+                        "date": str(r_dict_trend.get(date_cols[0], "")),
+                        "value": float(r_dict_trend.get("value") or 0.0)
                     })
 
             return {

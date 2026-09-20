@@ -31,5 +31,7 @@ coverage.xml
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+*.joblib
+backend/local_storage/
 
 

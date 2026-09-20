@@ -9,6 +9,8 @@ os.environ.setdefault("JWT_REFRESH_SECRET_KEY", "testrefreshsecretkeytestrefresh
 os.environ.setdefault("ENV", "testing")
 
 
+from unittest.mock import AsyncMock, patch
+
 from backend.app.models import Dataset, Insight
 
 # --- Registration ---
@@ -217,6 +219,32 @@ class TestMLHistory:
 
 
 # --- Upload Dataset validation ---
+
+# --- Time-Series Forecast Training ---
+
+class TestForecastTraining:
+    def test_trigger_forecast_training_success(self, client, db, test_user, auth_headers):
+        ds = Dataset(
+            owner_id=test_user.id,
+            name="forecast-ds",
+            file_path="test_sales_data.csv"
+        )
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        with patch("backend.app.main.JobManager.submit_job", new_callable=AsyncMock) as mock_submit:
+            mock_submit.return_value = "mocked-job-id-123"
+            resp = client.post(
+                f"/api/forecast/train/{ds.id}?target_col=sales&steps=30",
+                headers=auth_headers
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["job_id"] == "mocked-job-id-123"
+            assert data["status"] == "queued"
+            assert "Forecasting model training initiated." in data["message"]
+
 
 class TestUploadValidation:
     def test_upload_unsupported_extension(self, client, auth_headers):

@@ -207,6 +207,33 @@ class TestInsights:
         resp = client.get("/api/insights/dataset/99999", headers=auth_headers)
         assert resp.status_code == 404
 
+    def test_trigger_insights_generation_nonexistent(self, client, auth_headers):
+        resp = client.post("/api/insights/trigger/99999", headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_trigger_insights_generation_success(self, client, db, test_user, auth_headers, monkeypatch):
+        from backend.app.jobs.manager import JobManager
+
+        async def dummy_submit_job(task_name: str, *args, **kwargs):
+            return "dummy-job-id-123"
+
+        monkeypatch.setattr(JobManager, "submit_job", dummy_submit_job)
+
+        ds = Dataset(
+            owner_id=test_user.id,
+            name="insights-trigger-test",
+            file_path="test_sales_data.csv"
+        )
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        resp = client.post(f"/api/insights/trigger/{ds.id}", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["job_id"] == "dummy-job-id-123"
+        assert data["status"] == "queued"
+
 
 # --- ML History ---
 

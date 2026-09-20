@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import os
 import time
 import uuid
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from .ai.gemini_service import GeminiService
 from .analytics.engine import AnalyticsEngine
@@ -1760,9 +1762,12 @@ async def trigger_insights_generation(
     """
     Manually enqueue a background job to run analytical insight scans and recommendations.
     """
-    dataset = db.query(Dataset).filter(
-        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
-    ).first()
+    def _fetch_dataset():
+        return db.query(Dataset).filter(
+            Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+        ).first()
+
+    dataset = await run_in_threadpool(_fetch_dataset)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

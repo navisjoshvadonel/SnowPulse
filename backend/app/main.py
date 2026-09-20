@@ -1,11 +1,13 @@
 import asyncio
 import datetime
+import json
 import os
 import time
 import uuid
 from typing import Any
 
 from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -1575,7 +1577,8 @@ async def trigger_forecast_training(
     """
     Trigger time-series forecast model training for a dataset as a background task.
     """
-    dataset = _get_dataset_for_user(db, dataset_id, current_user)
+    # Offload synchronous blocking DB call to threadpool to avoid blocking asyncio event loop
+    dataset = await run_in_threadpool(_get_dataset_for_user, db, dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

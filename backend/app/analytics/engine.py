@@ -403,18 +403,12 @@ class AnalyticsEngine:
         with np.errstate(invalid="ignore", divide="ignore"):
             corr_matrix = np.atleast_2d(np.corrcoef(arr, rowvar=False))
 
-        matrix: list[list[float]] = []
-        for i in range(len(all_numeric)):
-            row_corrs: list[float] = []
-            std_a = stds[i]
-            for j in range(len(all_numeric)):
-                std_b = stds[j]
-                if std_a <= 1e-12 or std_b <= 1e-12:
-                    row_corrs.append(0.0)
-                else:
-                    corr = float(corr_matrix[i, j])
-                    row_corrs.append(0.0 if np.isnan(corr) else round(corr, 4))
-            matrix.append(row_corrs)
+        # Vectorized correlation matrix generation
+        std_mask = (stds[:, None] <= 1e-12) | (stds[None, :] <= 1e-12)
+        corr_matrix[std_mask] = 0.0
+        corr_matrix = np.round(corr_matrix, 4)
+        corr_matrix[np.isnan(corr_matrix)] = 0.0
+        matrix: list[list[float]] = corr_matrix.tolist()
 
         return {"columns": all_numeric, "matrix": matrix}
 

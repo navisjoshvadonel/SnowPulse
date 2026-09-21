@@ -1,3 +1,4 @@
+import ast
 from typing import Any
 
 import polars as pl
@@ -39,15 +40,41 @@ class PolarsCodeExecutor:
     }
 
     @classmethod
+    def _validate_ast(cls, code_snippet: str) -> None:
+        """
+        Parses code_snippet AST and verifies there are no unsafe imports,
+        dunder attribute access (e.g. __class__, __subclasses__), or prohibited call names.
+        """
+        try:
+            tree = ast.parse(code_snippet)
+        except Exception as e:
+            raise PolarsCodeExecutionError(f"Syntax error in Python code snippet: {str(e)}")
+
+        forbidden_calls = {"exec", "eval", "open", "__import__", "compile", "globals", "locals"}
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import | ast.ImportFrom):
+                raise PolarsCodeExecutionError("Security alert: Import statements are forbidden in user code.")
+            if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                raise PolarsCodeExecutionError(f"Security alert: Access to internal attribute '{node.attr}' is forbidden.")
+            if isinstance(node, ast.Name) and node.id.startswith("__"):
+                raise PolarsCodeExecutionError(f"Security alert: Use of internal identifier '{node.id}' is forbidden.")
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name) and node.func.id in forbidden_calls:
+                    raise PolarsCodeExecutionError(f"Security alert: Call to restricted function '{node.func.id}' is forbidden.")
+
+    @classmethod
     def execute_cleaning_code(
         cls,
         df: pl.DataFrame,
         code_snippet: str
     ) -> tuple[pl.DataFrame, dict[str, Any]]:
         """
-        Converts df to a LazyFrame (ldf), executes code_snippet in a sandboxed environment,
-        and calls .collect() to optimize and materialize the final DataFrame.
+        Converts df to a LazyFrame (ldf), validates AST safety, executes code_snippet in a
+        sandboxed environment, and calls .collect() to optimize and materialize the final DataFrame.
         """
+        cls._validate_ast(code_snippet)
+
         if not isinstance(df, pl.DataFrame):
             if isinstance(df, pl.LazyFrame):
                 ldf = df

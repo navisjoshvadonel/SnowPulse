@@ -177,6 +177,7 @@ export default function Sidebar({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             title="Upload Dataset"
+            aria-label="Upload Dataset"
             className="w-full flex items-center justify-center p-2.5 rounded-xl bg-gradient-to-br from-indigo-950/80 via-sky-950/70 to-emerald-950/80 border border-cyan-400/30 text-cyan-300 hover:text-white hover:border-cyan-300 transition-all cursor-pointer"
           >
             {uploading ? (
@@ -322,6 +323,8 @@ export default function Sidebar({
 
         <button
           onClick={onToggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
           className={`sidebar-nav-item mt-1 ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
         >
           {collapsed ? (

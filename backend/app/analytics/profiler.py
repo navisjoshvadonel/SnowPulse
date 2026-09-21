@@ -592,7 +592,7 @@ class DatasetProfiler:
             std_mask = (std_arr[:, None] == 0) | (std_arr[None, :] == 0)
             corr_matrix[std_mask] = np.nan
             corr_matrix = np.round(corr_matrix, 4)
-            matrix = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()
+            matrix = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()  # type: ignore
 
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:

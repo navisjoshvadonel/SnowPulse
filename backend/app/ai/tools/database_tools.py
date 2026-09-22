@@ -1,3 +1,4 @@
+import ast
 import os
 import re
 from typing import Any
@@ -25,6 +26,38 @@ SENSITIVE_TABLES = re.compile(
 
 class SecurityAlertException(Exception):
     pass
+
+
+FORBIDDEN_NAMES = {
+    "__subclasses__",
+    "__bases__",
+    "__mro__",
+    "__globals__",
+    "__builtins__",
+    "__import__",
+    "eval",
+    "exec",
+    "open",
+    "os",
+    "subprocess",
+    "sys",
+}
+
+
+def validate_python_code_ast(python_code: str) -> None:
+    """Validates python execution code AST to prevent sandbox escapes."""
+    try:
+        tree = ast.parse(python_code)
+    except SyntaxError as e:
+        raise SecurityAlertException(f"Syntax error in Python script: {e}") from e
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            raise SecurityAlertException("Access Denied: Import statements are forbidden in Python forecast scripts.")
+        if isinstance(node, ast.Name) and node.id in FORBIDDEN_NAMES:
+            raise SecurityAlertException(f"Access Denied: Use of unsafe identifier '{node.id}' is forbidden.")
+        if isinstance(node, ast.Attribute) and node.attr in FORBIDDEN_NAMES:
+            raise SecurityAlertException(f"Access Denied: Use of unsafe attribute '{node.attr}' is forbidden.")
 
 def sanitize_and_validate_sql(sql_query: str) -> str:
     """
@@ -151,6 +184,8 @@ class DatabaseTools:
             else:
                 df = pd.read_csv(dataset_path)
 
+            validate_python_code_ast(python_code)
+
             # Restrict harmful builtins
             safe_globals = {
                 "pd": pd,
@@ -173,6 +208,9 @@ class DatabaseTools:
                 "success": True,
                 "result": result
             }
+        except SecurityAlertException as sae:
+            logger.warning("security.python_execution_violation", path=dataset_path, alert=str(sae))
+            return {"success": False, "error": str(sae), "security_alert": True}
         except Exception as e:
             logger.error("run_python_forecast_error", path=dataset_path, error=str(e))
             return {"success": False, "error": str(e)}

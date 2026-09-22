@@ -39,3 +39,12 @@ os.system('echo hacked')
 """
         with pytest.raises(PolarsCodeExecutionError):
             PolarsCodeExecutor.execute_cleaning_code(df, script)
+
+    def test_sandbox_blocks_subclasses_dunder_escape(self):
+        df = pl.DataFrame({"a": [1, 2, 3]})
+        script = """
+res = (1).__class__.__base__.__subclasses__()
+"""
+        with pytest.raises(PolarsCodeExecutionError) as exc_info:
+            PolarsCodeExecutor.execute_cleaning_code(df, script)
+        assert "unsafe attribute" in str(exc_info.value).lower() or "forbidden" in str(exc_info.value).lower()

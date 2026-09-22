@@ -1,3 +1,4 @@
+import ast
 from typing import Any
 
 import polars as pl
@@ -7,6 +8,39 @@ from ..logging_config import logger
 
 class PolarsCodeExecutionError(Exception):
     pass
+
+
+FORBIDDEN_AST_NODES = (ast.Import, ast.ImportFrom)
+FORBIDDEN_NAMES = {
+    "__subclasses__",
+    "__bases__",
+    "__mro__",
+    "__globals__",
+    "__builtins__",
+    "__import__",
+    "eval",
+    "exec",
+    "open",
+    "os",
+    "subprocess",
+    "sys",
+}
+
+
+def validate_code_ast(code_snippet: str) -> None:
+    """Validates Python code AST to prevent sandbox escapes via dunder traversal or unsafe imports/builtins."""
+    try:
+        tree = ast.parse(code_snippet)
+    except SyntaxError as e:
+        raise PolarsCodeExecutionError(f"Syntax error in code snippet: {e}") from e
+
+    for node in ast.walk(tree):
+        if isinstance(node, FORBIDDEN_AST_NODES):
+            raise PolarsCodeExecutionError("Access Denied: Import statements are forbidden in cleaning scripts.")
+        if isinstance(node, ast.Name) and node.id in FORBIDDEN_NAMES:
+            raise PolarsCodeExecutionError(f"Access Denied: Use of unsafe identifier '{node.id}' is forbidden.")
+        if isinstance(node, ast.Attribute) and node.attr in FORBIDDEN_NAMES:
+            raise PolarsCodeExecutionError(f"Access Denied: Use of unsafe attribute '{node.attr}' is forbidden.")
 
 
 class PolarsCodeExecutor:
@@ -63,6 +97,7 @@ class PolarsCodeExecutor:
         }
 
         try:
+            validate_code_ast(code_snippet)
             # Execute cleaning script in safe namespace
             exec(code_snippet, cls.SAFE_GLOBALS, local_vars)
         except Exception as e:

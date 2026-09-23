@@ -83,6 +83,21 @@ class TestDatasets:
         assert resp.status_code == 200
         assert resp.json() == []
 
+    def test_get_datasets_tenant_isolation(self, client, db, auth_headers):
+        # Create dataset owned by another user (owner_id = 9999)
+        ds = Dataset(
+            owner_id=9999,
+            name="other-user-dataset",
+            file_path="test_other.csv"
+        )
+        db.add(ds)
+        db.commit()
+
+        # Request datasets as current test_user who owns no datasets
+        resp = client.get("/api/datasets", headers=auth_headers)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
     def test_get_datasets_with_data(self, client, db, test_user, auth_headers):
         ds = Dataset(
             owner_id=test_user.id,

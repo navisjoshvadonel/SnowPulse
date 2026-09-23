@@ -305,12 +305,9 @@ def get_datasets(
     db: Session = Depends(get_db)
 ):
     """
-    Fetch user's datasets or all available datasets.
+    Fetch datasets belonging strictly to the authenticated user (tenant isolation).
     """
-    user_datasets = db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
-    if user_datasets:
-        return user_datasets
-    return db.query(Dataset).all()
+    return db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
 
 
 

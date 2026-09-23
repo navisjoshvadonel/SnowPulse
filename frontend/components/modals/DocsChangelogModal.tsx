@@ -33,7 +33,11 @@ export default function DocsChangelogModal({ isOpen, onClose }: DocsChangelogMod
                 <p className="text-xs text-white/40">Latest feature updates, API specs, and platform capabilities.</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+            <button
+              onClick={onClose}
+              aria-label="Close modal"
+              className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            >
               <X size={18} />
             </button>
           </div>

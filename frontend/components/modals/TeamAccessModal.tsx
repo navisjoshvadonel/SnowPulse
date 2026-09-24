@@ -75,7 +75,7 @@ export default function TeamAccessModal({ isOpen, onClose }: TeamAccessModalProp
                 <p className="text-xs text-white/40">Manage collaborators, roles, and dataset access permissions.</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+            <button onClick={onClose} aria-label="Close modal" className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
               <X size={18} />
             </button>
           </div>

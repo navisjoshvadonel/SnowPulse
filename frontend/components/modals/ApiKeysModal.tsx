@@ -49,7 +49,7 @@ export default function ApiKeysModal({ isOpen, onClose }: ApiKeysModalProps) {
                 <p className="text-xs text-white/40">Manage Gemini API keys, Snowflake endpoints, and webhook connections.</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+            <button onClick={onClose} aria-label="Close modal" className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
               <X size={18} />
             </button>
           </div>
@@ -74,6 +74,7 @@ export default function ApiKeysModal({ isOpen, onClose }: ApiKeysModalProps) {
                   <button
                     type="button"
                     onClick={() => setShowKey(!showKey)}
+                    aria-label={showKey ? "Hide API key" : "Show API key"}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
                   >
                     {showKey ? <EyeOff size={15} /> : <Eye size={15} />}

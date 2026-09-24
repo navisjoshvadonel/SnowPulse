@@ -79,7 +79,9 @@ export default function DocsChangelogModal({ isOpen, onClose }: DocsChangelogMod
                 className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] transition-colors flex items-center justify-between group cursor-pointer"
               >
                 <div>
-                  <p className="text-xs font-semibold text-white group-hover:text-purple-300 transition-colors">API Reference</p>
+                  <p className="text-xs font-semibold text-white group-hover:text-purple-300 transition-colors">
+                    API Reference <span className="sr-only">(opens in a new tab)</span>
+                  </p>
                   <p className="text-[10px] text-white/40">REST & FastAPI Endpoints</p>
                 </div>
                 <ExternalLink size={14} className="text-white/30 group-hover:text-purple-400 transition-colors" />
@@ -92,7 +94,9 @@ export default function DocsChangelogModal({ isOpen, onClose }: DocsChangelogMod
                 className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] transition-colors flex items-center justify-between group cursor-pointer"
               >
                 <div>
-                  <p className="text-xs font-semibold text-white group-hover:text-purple-300 transition-colors">Architecture Guide</p>
+                  <p className="text-xs font-semibold text-white group-hover:text-purple-300 transition-colors">
+                    Architecture Guide <span className="sr-only">(opens in a new tab)</span>
+                  </p>
                   <p className="text-[10px] text-white/40">Polars + ECharts Stack</p>
                 </div>
                 <ExternalLink size={14} className="text-white/30 group-hover:text-purple-400 transition-colors" />

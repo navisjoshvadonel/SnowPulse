@@ -37,5 +37,24 @@ result = ldf
 import os
 os.system('echo hacked')
 """
-        with pytest.raises(PolarsCodeExecutionError):
+        with pytest.raises(PolarsCodeExecutionError) as exc_info:
             PolarsCodeExecutor.execute_cleaning_code(df, script)
+        assert "Import statements are forbidden" in str(exc_info.value)
+
+    def test_sandbox_blocks_dunder_traversal(self):
+        df = pl.DataFrame({"a": [1, 2, 3]})
+        script = """
+for c in ().__class__.__base__.__subclasses__():
+    if 'catch_warnings' in c.__name__:
+        os = c()._module.sys.modules['os']
+"""
+        with pytest.raises(PolarsCodeExecutionError) as exc_info:
+            PolarsCodeExecutor.execute_cleaning_code(df, script)
+        assert "forbidden" in str(exc_info.value).lower()
+
+    def test_sandbox_blocks_restricted_calls(self):
+        df = pl.DataFrame({"a": [1, 2, 3]})
+        script = "eval('1 + 1')"
+        with pytest.raises(PolarsCodeExecutionError) as exc_info:
+            PolarsCodeExecutor.execute_cleaning_code(df, script)
+        assert "Call to restricted function" in str(exc_info.value)

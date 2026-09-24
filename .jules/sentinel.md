@@ -1,0 +1,4 @@
+## 2026-09-21 - Python exec Sandbox Escape via Class Inheritance Graph Traversal
+**Vulnerability:** Restricting `__builtins__` in `exec()` is insufficient to prevent remote code execution in Python. Attackers can traverse `tuple.__class__.__base__.__subclasses__()` or similar dunder attributes to access imported modules (e.g., `os`, `sys`, `subprocess`) from loaded class references.
+**Learning:** Python namespace sandboxing using custom `__builtins__` dicts without AST-level restrictions allows dunder attribute inspection to leak module globals.
+**Prevention:** Always parse untrusted code snippets with Python's `ast` module prior to execution with `exec()`, explicitly blocking `Import`, `ImportFrom`, calls to dangerous builtins, and attribute access to dunder names (e.g. `__class__`, `__subclasses__`, `__base__`, `__globals__`).

@@ -217,12 +217,22 @@ class DatabaseTools:
     def get_data_quality_report(file_path: str) -> dict[str, Any]:
         """
         Runs DataQualityScorer checks on file bytes to evaluate schema health and completeness.
+        Prevents path traversal by enforcing absolute path checks under allowed base directories or current working directory.
         """
         try:
-            if not os.path.exists(file_path):
+            # Security: Validate file_path to prevent path traversal
+            resolved_path = os.path.realpath(file_path)
+            cwd = os.path.realpath(os.getcwd())
+            tmp_dir = os.path.realpath("/tmp")
+
+            if not (resolved_path.startswith(cwd + os.sep) or resolved_path.startswith(tmp_dir + os.sep) or resolved_path == cwd or resolved_path == tmp_dir):
+                logger.warning("security.path_traversal_attempt", path=file_path, resolved=resolved_path)
+                return {"success": False, "error": "Access Denied: Path traversal detected or unauthorized file access."}
+
+            if not os.path.exists(resolved_path):
                 return {"success": False, "error": f"File not found: {file_path}"}
 
-            with open(file_path, "rb") as f:
+            with open(resolved_path, "rb") as f:
                 content = f.read()
 
             is_valid, report = DataQualityScorer.validate_and_score(content, os.path.basename(file_path))

@@ -112,6 +112,16 @@ class TestDatabaseToolsQuality:
         assert result["total_records"] == 3
 
     def test_get_data_quality_report_missing_file(self):
-        result = DatabaseTools.get_data_quality_report("/nonexistent/file.csv")
+        result = DatabaseTools.get_data_quality_report("nonexistent_file.csv")
         assert result["success"] is False
         assert "not found" in result["error"].lower()
+
+    def test_get_data_quality_report_path_traversal(self):
+        result = DatabaseTools.get_data_quality_report("../../../etc/passwd")
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "path traversal" in result["error"].lower()
+
+    def test_get_data_quality_report_absolute_path_outside_allowed(self):
+        result = DatabaseTools.get_data_quality_report("/etc/passwd")
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "path traversal" in result["error"].lower()

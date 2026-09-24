@@ -78,6 +78,7 @@ export default function TopNavBar({
       <div className="flex-1 max-w-md mx-auto">
         <button
           onClick={onOpenCommandPalette}
+          aria-label="Search insights, metrics, commands"
           className="w-full flex items-center justify-between bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl px-3.5 py-1.5 text-white/40 hover:text-white/70 transition-all cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
@@ -94,6 +95,9 @@ export default function TopNavBar({
         <div className="relative">
           <button
             onClick={() => { setAlertsOpen(!alertsOpen); setDropdownOpen(false); }}
+            aria-label="Notifications & Anomaly Alerts"
+            aria-expanded={alertsOpen}
+            aria-haspopup="true"
             className="relative p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
             title="Notifications & Anomaly Alerts"
           >
@@ -158,6 +162,9 @@ export default function TopNavBar({
         <div className="relative">
           <button
             onClick={() => { setDropdownOpen(!dropdownOpen); setAlertsOpen(false); }}
+            aria-label="User account menu"
+            aria-expanded={dropdownOpen}
+            aria-haspopup="true"
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group"
           >
             <div

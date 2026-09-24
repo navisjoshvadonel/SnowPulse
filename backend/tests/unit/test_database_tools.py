@@ -96,6 +96,15 @@ class TestDatabaseToolsForecast:
         assert result["success"] is False
         assert "error" in result
 
+    def test_run_python_forecast_blocks_sandbox_escape(self, tmp_path):
+        csv_file = tmp_path / "forecast_test.csv"
+        csv_file.write_text("a,b\n1,2\n3,4\n")
+        code = "forecast_result = Exception.__subclasses__()"
+        result = DatabaseTools.run_python_forecast(str(csv_file), code)
+        assert result["success"] is False
+        assert result.get("security_alert") is True
+        assert "Access Denied" in result["error"]
+
 
 class TestDatabaseToolsQuality:
     def test_get_data_quality_report_valid_file(self, tmp_path):

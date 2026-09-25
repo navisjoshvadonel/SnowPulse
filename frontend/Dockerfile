@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.4
 # Build stage: compile Next.js app
 FROM node:20-alpine AS builder
 
@@ -9,10 +8,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Copy package files first for better cache layer
 COPY package*.json ./
 
-# Use BuildKit cache mount for npm downloads
-RUN --mount=type=cache,target=/root/.npm \
-    npm config set cache /root/.npm && \
-    npm ci
+# Install dependencies
+RUN npm ci
 
 # Copy source code
 COPY . .

@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.4
 # Build stage: compile dependencies and prepare app
 FROM python:3.11-slim as builder
 
@@ -16,9 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-# Use BuildKit cache mount for pip downloads
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip setuptools wheel && \
+# Install dependencies
+RUN pip install --upgrade pip setuptools wheel && \
     pip install --user -r requirements.txt
 
 # Runtime stage: minimal final image

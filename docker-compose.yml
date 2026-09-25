@@ -53,7 +53,7 @@ services:
           memory: 256M
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: elestio/minio:latest
     container_name: snowpulse-minio
     restart: unless-stopped
     ports:

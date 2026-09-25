@@ -98,6 +98,28 @@ class TestDatasets:
         assert len(data) >= 1
         assert any(d["name"] == "sales" for d in data)
 
+    def test_get_datasets_isolation(self, client, db, test_user):
+        from backend.app.auth import create_access_token
+        from backend.app.models import User
+
+        ds_a = Dataset(
+            owner_id=test_user.id,
+            name="user_a_private_data",
+            file_path="private.csv"
+        )
+        db.add(ds_a)
+
+        user_b = User(email="user_b@snowpulse.com", hashed_password="hashedpassword")
+        db.add(user_b)
+        db.commit()
+
+        token_b = create_access_token(data={"sub": user_b.email})
+        headers_b = {"Authorization": f"Bearer {token_b}"}
+
+        resp = client.get("/api/datasets", headers=headers_b)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
     def test_delete_dataset_success(self, client, db, test_user, auth_headers):
         ds = Dataset(
             owner_id=test_user.id,

@@ -595,7 +595,8 @@ class DatasetProfiler:
             corr_matrix[:, zero_std_mask] = np.nan
 
             corr_matrix = np.round(corr_matrix, 4)
-            matrix: list[list[float | None]] = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()
+            # Type ignore avoids mypy strict complaints across different numpy stubs versions
+            matrix: list[list[float | None]] = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist() # type: ignore[call-overload, unused-ignore]
 
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:

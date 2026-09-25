@@ -54,7 +54,7 @@ export default function DirectConnectorsModal({ isOpen, onClose }: DirectConnect
                 <p className="text-[11px] text-white/50">Postgres, Snowflake, BigQuery & Cloud Storage Sync</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/5">
+            <button onClick={onClose} aria-label="Close modal" className="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/5">
               <X size={18} />
             </button>
           </div>

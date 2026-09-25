@@ -38,7 +38,7 @@ export default function ExplainChartModal({
                 <p className="text-[11px] font-mono text-purple-300">{chartTitle}</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/5">
+            <button onClick={onClose} aria-label="Close modal" className="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/5">
               <X size={18} />
             </button>
           </div>

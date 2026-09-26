@@ -594,8 +594,9 @@ class DatasetProfiler:
             corr_matrix[zero_std_mask, :] = np.nan
             corr_matrix[:, zero_std_mask] = np.nan
 
+            from typing import cast, Any
             corr_matrix = np.round(corr_matrix, 4)
-            matrix: list[list[float | None]] = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()
+            matrix: list[list[float | None]] = cast(Any, np.where(np.isnan(corr_matrix), None, corr_matrix)).tolist()
 
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:

@@ -30,8 +30,53 @@ class TestAIRoutes:
         assert resp.status_code == 200
         assert resp.json()["success"] is True
 
+    def test_analyze_unauthorized_dataset_access_forbidden(self, client, db, auth_headers):
+        # Create dataset owned by user id 999
+        ds = Dataset(owner_id=999, name="unauthorized-ds", file_path="unauth.csv")
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        resp = client.post("/api/ai/analyze", json={"dataset_id": ds.id}, headers=auth_headers)
+        assert resp.status_code == 404
+
     def test_forecast_dataset_not_found(self, client, auth_headers):
         resp = client.post("/api/ai/forecast", json={"dataset_id": 99999}, headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_forecast_unauthorized_dataset_access_forbidden(self, client, db, auth_headers):
+        ds = Dataset(owner_id=999, name="unauthorized-ds", file_path="unauth.csv")
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        resp = client.post("/api/ai/forecast", json={"dataset_id": ds.id}, headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_report_unauthorized_dataset_access_forbidden(self, client, db, auth_headers):
+        ds = Dataset(owner_id=999, name="unauthorized-ds", file_path="unauth.csv")
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        resp = client.post(
+            "/api/ai/report",
+            json={"query": "Summary", "report_type": "executive", "dataset_id": ds.id},
+            headers=auth_headers
+        )
+        assert resp.status_code == 404
+
+    def test_chat_unauthorized_dataset_access_forbidden(self, client, db, auth_headers):
+        ds = Dataset(owner_id=999, name="unauthorized-ds", file_path="unauth.csv")
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        resp = client.post(
+            "/api/ai/chat",
+            json={"query": "Hello", "dataset_id": ds.id},
+            headers=auth_headers
+        )
         assert resp.status_code == 404
 
     @patch("backend.app.ai.routes.DatabaseTools.get_forecast_scenarios")

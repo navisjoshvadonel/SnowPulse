@@ -9,10 +9,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Copy package files first for better cache layer
 COPY package*.json ./
 
-# Use BuildKit cache mount for npm downloads
+# Use BuildKit cache mount for npm downloads with fetch retries for network resilience
 RUN --mount=type=cache,target=/root/.npm \
     npm config set cache /root/.npm && \
-    npm ci
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    (npm ci || (sleep 5 && npm ci))
 
 # Copy source code
 COPY . .

@@ -1,3 +1,7 @@
 ## 2025-02-28 - Vectorizing N^2 loops in analytics correlations
 **Learning:** In purely mathematical Python code generating dense matrices, calculating individual correlations element-by-element in a nested `for` loop causes extreme O(N^2) bottlenecks when column counts grow dynamically (e.g. 50x slowdowns on 500 columns).
 **Action:** When calculating statistics over a dynamic set of variables, fully vectorize all scalar conditional logic into matrix form using `np.where`, index masking, and numpy primitives (`atleast_2d`, `isnan`). Never use native python loops to construct numerical matrices.
+
+## 2024-05-18 - [Vectorized Correlation Matrix List Conversions]
+**Learning:** In the FastAPI backend, converting 2D numpy correlation matrices (especially those with NaNs due to zero-variance columns) to Python lists for JSON serialization using explicit Python nested loops leads to significant O(N^2) bottlenecks when there are many columns. Using numpy's boolean masking (`corr_matrix[zero_std_mask, :] = np.nan`) combined with vectorized list conversion (`np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()`) effectively and safely serializes NaNs to JSON `nulls` while avoiding the nested loop iteration tax. This aligns with modern Python typing requirements (`list[list[float | None]]`).
+**Action:** Replace nested iteration for matrix JSON serialization with vectorized `np.where(..., None, ...).tolist()` operations across the codebase.

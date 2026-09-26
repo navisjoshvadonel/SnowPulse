@@ -588,16 +588,14 @@ class DatasetProfiler:
 
             std_arr = arr.std(axis=0)
 
-            matrix: list[list[float | None]] = []
-            for i, _ in enumerate(numeric_cols):
-                row: list[float | None] = []
-                for j, _ in enumerate(numeric_cols):
-                    if std_arr[i] == 0 or std_arr[j] == 0:
-                        row.append(None)
-                    else:
-                        val = corr_matrix[i, j]
-                        row.append(None if np.isnan(val) else round(float(val), 4))
-                matrix.append(row)
+            # Bolt: Replaced O(N^2) nested loop with vectorized np.where list conversion
+            # This significantly improves performance when computing correlation matrices
+            zero_std_mask = std_arr == 0
+            corr_matrix[zero_std_mask, :] = np.nan
+            corr_matrix[:, zero_std_mask] = np.nan
+
+            corr_matrix = np.round(corr_matrix, 4)
+            matrix: list[list[float | None]] = np.where(np.isnan(corr_matrix), None, corr_matrix).tolist()
 
             return CorrelationMatrix(columns=numeric_cols, matrix=matrix)
         except Exception as exc:

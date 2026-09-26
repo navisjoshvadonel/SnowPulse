@@ -124,12 +124,14 @@ export default function AiQueryPanel() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={displayedPlaceholder}
+              aria-label="Ask SnowPulse AI a question"
               className="w-full h-[52px] bg-[#12141c]/80 border border-white/10 rounded-xl pl-4 pr-14 text-white placeholder-white/30 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50 transition-all shadow-inner text-[15px]"
               disabled={isSubmitting}
             />
             <button 
               type="submit" 
               disabled={!query.trim() || isSubmitting}
+              aria-label="Submit query"
               className="absolute right-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

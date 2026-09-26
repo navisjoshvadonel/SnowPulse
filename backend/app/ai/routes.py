@@ -54,7 +54,10 @@ async def chat_endpoint(
     context = {"user_id": current_user.id}
 
     if req.dataset_id:
-        dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id).first()
+        dataset = db.query(Dataset).filter(
+            Dataset.id == req.dataset_id,
+            Dataset.owner_id == current_user.id
+        ).first()
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
         # Enforce that path absolute or exists
@@ -117,7 +120,10 @@ async def analyze_endpoint(
     """
     Triggers Polars engine parsing to retrieve general dataset KPIs, correlation matrix, and anomaly flags.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == req.dataset_id,
+        Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -142,11 +148,15 @@ async def report_endpoint(
     # 1. Ask Supervisor Report Agent to build markdown content
     context = {"user_id": current_user.id}
     if req.dataset_id:
-        dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id).first()
-        if dataset:
-            context["dataset_path"] = dataset.file_path
-            context["dataset_id"] = dataset.id
-            context["dataset_name"] = dataset.name
+        dataset = db.query(Dataset).filter(
+            Dataset.id == req.dataset_id,
+            Dataset.owner_id == current_user.id
+        ).first()
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        context["dataset_path"] = dataset.file_path
+        context["dataset_id"] = dataset.id
+        context["dataset_name"] = dataset.name
 
     # Gather statistics to inject
     stats = {}
@@ -203,7 +213,10 @@ async def forecast_endpoint(
     """
     Computes time-series scenario predictions (baseline vs optimistic vs pessimistic growth paths).
     """
-    dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == req.dataset_id,
+        Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

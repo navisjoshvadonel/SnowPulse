@@ -339,7 +339,8 @@ class MLTrainer:
             if len(series) == 0:
                 continue
 
-            if np.issubdtype(series.dtype, np.number):
+            from pandas.api.types import is_numeric_dtype
+            if is_numeric_dtype(series):
                 col_std = float(series.std()) if len(series) > 1 and series.std() is not None else 0.0
                 if col_std <= 1e-12 or series.nunique() <= 1:
                     logger.info("MLTrainer: Masked out zero-variance column '%s' (std=%.2e)", col.name, col_std)
@@ -355,7 +356,7 @@ class MLTrainer:
                     cat_low_cols.append(col.name)
                 else:
                     cat_high_cols.append(col.name)
-            elif col.dtype_category == "numeric" or np.issubdtype(self.df[col.name].dtype, np.number):
+            elif col.dtype_category == "numeric" or is_numeric_dtype(self.df[col.name]):
                 # Calculate skewness to select standard vs robust scaler
                 skew_val = float(series.skew()) if hasattr(series, "skew") and len(series) > 2 else 0.0
                 if abs(skew_val) > 1.5:

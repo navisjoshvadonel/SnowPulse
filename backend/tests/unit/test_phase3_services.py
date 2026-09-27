@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
+
 from app.cache.cache_service import cache_service
 from app.jobs.manager import JobManager
 from app.ml.features import FeaturePipeline
@@ -40,6 +41,22 @@ def test_storage_service_init_and_operations(mock_minio_class):
 
         result = service.get_file("test-bucket", "file.csv")
         assert result == b"retrieved-data"
+
+
+def test_storage_service_path_traversal_prevention():
+    service = StorageService()
+    service.enabled = False  # Test local fallback mode
+
+    # Ensure path traversal attempts raise ValueError
+    with pytest.raises(ValueError, match="Path traversal detected"):
+        service._resolve_local_path("test-bucket", "../../../../etc/passwd")
+
+    with pytest.raises(ValueError, match="Path traversal detected"):
+        service.get_file("test-bucket", "../../etc/passwd")
+
+    with pytest.raises(ValueError, match="Path traversal detected"):
+        service.upload_file("test-bucket", "../../../tmp/evil.txt", b"malicious")
+
 
 # 2. Test Meilisearch Search Wrapper
 @patch("app.search.service.meilisearch.Client")

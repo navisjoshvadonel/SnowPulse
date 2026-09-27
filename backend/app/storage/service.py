@@ -65,6 +65,19 @@ class StorageService:
                 self.enabled = False
                 break
 
+    def _resolve_local_path(self, bucket_name: str, object_name: str) -> str:
+        """
+        Safely resolves local storage path and ensures it stays strictly within self.local_dir to prevent path traversal.
+        """
+        clean_bucket = bucket_name.lstrip("/\\")
+        clean_object = object_name.lstrip("/\\")
+        base_dir = os.path.realpath(self.local_dir)
+        target_path = os.path.realpath(os.path.join(base_dir, clean_bucket, clean_object))
+        if not (target_path == base_dir or target_path.startswith(base_dir + os.sep)):
+            logger.warning(f"security.path_traversal_attempt bucket={bucket_name} object={object_name}")
+            raise ValueError("Access Denied: Path traversal detected in local storage operation.")
+        return target_path
+
     def upload_file(
         self,
         bucket_name: str,
@@ -104,9 +117,8 @@ class StorageService:
                 logger.warning(f"MinIO upload error, falling back to disk: {e}")
 
         # Local storage fallback
-        target_dir = os.path.join(self.local_dir, bucket_name)
-        os.makedirs(target_dir, exist_ok=True)
-        file_path = os.path.join(target_dir, object_name)
+        file_path = self._resolve_local_path(bucket_name, object_name)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "wb") as f:
             f.write(data_bytes)
         logger.info(f"Successfully saved {object_name} locally to {file_path}")
@@ -128,14 +140,9 @@ class StorageService:
                 logger.warning(f"MinIO retrieve error, trying local fallback: {e}")
 
         # Local storage fallback
-        file_path = os.path.join(self.local_dir, bucket_name, object_name)
+        file_path = self._resolve_local_path(bucket_name, object_name)
         if os.path.exists(file_path):
             with open(file_path, "rb") as f:
-                return f.read()
-
-        # Direct path check
-        if os.path.exists(object_name):
-            with open(object_name, "rb") as f:
                 return f.read()
 
         raise RuntimeError(f"File not found in MinIO or local storage: {bucket_name}/{object_name}")

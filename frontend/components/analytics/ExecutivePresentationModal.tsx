@@ -230,7 +230,8 @@ export function ExecutivePresentationModal({
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition"
+              aria-label="Close modal"
+              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

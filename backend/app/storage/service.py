@@ -65,6 +65,22 @@ class StorageService:
                 self.enabled = False
                 break
 
+    def _resolve_local_path(self, bucket_name: str, object_name: str) -> str:
+        """
+        Resolves local storage path safely within local_dir and bucket_dir, preventing directory traversal.
+        """
+        base_dir = os.path.abspath(self.local_dir)
+        clean_bucket = os.path.basename(bucket_name.strip("/\\"))
+        clean_object = os.path.normpath(object_name).lstrip("/\\")
+
+        bucket_dir = os.path.abspath(os.path.join(base_dir, clean_bucket))
+        target_path = os.path.abspath(os.path.join(bucket_dir, clean_object))
+
+        if not target_path.startswith(bucket_dir + os.sep) and target_path != bucket_dir:
+            raise ValueError(f"Directory traversal detected: {bucket_name}/{object_name}")
+
+        return target_path
+
     def upload_file(
         self,
         bucket_name: str,
@@ -103,10 +119,9 @@ class StorageService:
             except Exception as e:
                 logger.warning(f"MinIO upload error, falling back to disk: {e}")
 
-        # Local storage fallback
-        target_dir = os.path.join(self.local_dir, bucket_name)
-        os.makedirs(target_dir, exist_ok=True)
-        file_path = os.path.join(target_dir, object_name)
+        # Local storage fallback with path traversal protection
+        file_path = self._resolve_local_path(bucket_name, object_name)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "wb") as f:
             f.write(data_bytes)
         logger.info(f"Successfully saved {object_name} locally to {file_path}")
@@ -127,15 +142,10 @@ class StorageService:
             except Exception as e:
                 logger.warning(f"MinIO retrieve error, trying local fallback: {e}")
 
-        # Local storage fallback
-        file_path = os.path.join(self.local_dir, bucket_name, object_name)
+        # Local storage fallback with path traversal protection
+        file_path = self._resolve_local_path(bucket_name, object_name)
         if os.path.exists(file_path):
             with open(file_path, "rb") as f:
-                return f.read()
-
-        # Direct path check
-        if os.path.exists(object_name):
-            with open(object_name, "rb") as f:
                 return f.read()
 
         raise RuntimeError(f"File not found in MinIO or local storage: {bucket_name}/{object_name}")
@@ -159,17 +169,20 @@ class StorageService:
 
     def delete_file(self, bucket_name: str, object_name: str) -> None:
         """
-        Deletes an object from the specified bucket.
+        Deletes an object from the specified bucket or local storage fallback.
         """
-        if not self.enabled or not self.client:
-            raise RuntimeError("Storage service is offline.")
+        if self.enabled and self.client:
+            try:
+                self.client.remove_object(bucket_name, object_name)
+                logger.info(f"Deleted {object_name} from bucket {bucket_name}")
+                return
+            except S3Error as e:
+                logger.error(f"MinIO delete error for {bucket_name}/{object_name}: {e}")
 
-        try:
-            self.client.remove_object(bucket_name, object_name)
-            logger.info(f"Deleted {object_name} from bucket {bucket_name}")
-        except S3Error as e:
-            logger.error(f"MinIO delete error for {bucket_name}/{object_name}: {e}")
-            raise RuntimeError(f"Storage deletion failed: {str(e)}")
+        file_path = self._resolve_local_path(bucket_name, object_name)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logger.info(f"Deleted local file {file_path}")
 
 # Global storage service instance
 storage_service = StorageService()

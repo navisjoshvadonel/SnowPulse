@@ -1,3 +1,6 @@
 ## 2025-02-28 - Vectorizing N^2 loops in analytics correlations
 **Learning:** In purely mathematical Python code generating dense matrices, calculating individual correlations element-by-element in a nested `for` loop causes extreme O(N^2) bottlenecks when column counts grow dynamically (e.g. 50x slowdowns on 500 columns).
 **Action:** When calculating statistics over a dynamic set of variables, fully vectorize all scalar conditional logic into matrix form using `np.where`, index masking, and numpy primitives (`atleast_2d`, `isnan`). Never use native python loops to construct numerical matrices.
+## 2025-02-28 - Precise Vectorization of Correlation Matrices
+**Learning:** When replacing legacy Python logic with vectorized NumPy code, ensure exact parity in floating-point comparisons (e.g., replacing `if std == 0` with `std_arr == 0` rather than `std_arr <= 1e-12`) to prevent introducing subtle regressions in edge-case mathematical handling where valid small-scale features might be incorrectly masked as having zero variance.
+**Action:** When vectorizing mathematical code, verify that the zero-thresholding or NaN-handling masks exactly mirror the original nested loop's conditional branches without inadvertently modifying the mathematical thresholds.

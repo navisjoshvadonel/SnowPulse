@@ -82,6 +82,11 @@ class TestDatabaseToolsStatistics:
         assert result["success"] is False
         assert "error" in result
 
+    def test_get_dataset_statistics_path_traversal(self):
+        result = DatabaseTools.get_dataset_statistics("../../../etc/passwd")
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "path traversal" in result["error"].lower()
+
 
 class TestDatabaseToolsSearch:
     def test_search_resources_returns_list(self):
@@ -95,6 +100,11 @@ class TestDatabaseToolsForecast:
         result = DatabaseTools.get_forecast_scenarios(dataset_id=99999)
         assert result["success"] is False
         assert "error" in result
+
+    def test_run_python_forecast_path_traversal(self):
+        result = DatabaseTools.run_python_forecast("../../../etc/passwd", "forecast_result = 123")
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "path traversal" in result["error"].lower()
 
 
 class TestDatabaseToolsQuality:

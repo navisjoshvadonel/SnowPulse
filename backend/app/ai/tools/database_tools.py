@@ -26,6 +26,25 @@ SENSITIVE_TABLES = re.compile(
 class SecurityAlertException(Exception):
     pass
 
+def validate_safe_path(file_path: str) -> str:
+    """
+    Validates that a local file path is safe and prevents directory traversal attacks.
+    """
+    resolved_path = os.path.realpath(file_path)
+    cwd = os.path.realpath(os.getcwd())
+    tmp_dir = os.path.realpath("/tmp")
+
+    if not (
+        resolved_path.startswith(cwd + os.sep)
+        or resolved_path.startswith(tmp_dir + os.sep)
+        or resolved_path == cwd
+        or resolved_path == tmp_dir
+    ):
+        logger.warning("security.path_traversal_attempt", path=file_path, resolved=resolved_path)
+        raise SecurityAlertException("Access Denied: Path traversal detected or unauthorized file access.")
+
+    return resolved_path
+
 def sanitize_and_validate_sql(sql_query: str) -> str:
     """
     Validates that a query is read-only and free of SQL-injection/modification attempts.
@@ -113,6 +132,9 @@ class DatabaseTools:
         Loads dataset using AnalyticsEngine (Polars) and retrieves general statistics context.
         """
         try:
+            if not dataset_path.startswith("minio://"):
+                dataset_path = validate_safe_path(dataset_path)
+
             engine = AnalyticsEngine(dataset_path)
             kpis = engine.get_kpis()
             correlations = engine.get_correlations()
@@ -126,6 +148,8 @@ class DatabaseTools:
                 "anomalies_count": len(anomalies),
                 "summary_context": summary
             }
+        except SecurityAlertException as sae:
+            return {"success": False, "error": str(sae)}
         except Exception as e:
             logger.error("get_dataset_statistics_error", path=dataset_path, error=str(e))
             return {"success": False, "error": str(e)}
@@ -149,6 +173,7 @@ class DatabaseTools:
                 data_bytes = storage_service.get_file(bucket_name, object_name)
                 df = pd.read_csv(io.BytesIO(data_bytes))
             else:
+                dataset_path = validate_safe_path(dataset_path)
                 df = pd.read_csv(dataset_path)
 
             # Restrict harmful builtins
@@ -220,14 +245,7 @@ class DatabaseTools:
         Prevents path traversal by enforcing absolute path checks under allowed base directories or current working directory.
         """
         try:
-            # Security: Validate file_path to prevent path traversal
-            resolved_path = os.path.realpath(file_path)
-            cwd = os.path.realpath(os.getcwd())
-            tmp_dir = os.path.realpath("/tmp")
-
-            if not (resolved_path.startswith(cwd + os.sep) or resolved_path.startswith(tmp_dir + os.sep) or resolved_path == cwd or resolved_path == tmp_dir):
-                logger.warning("security.path_traversal_attempt", path=file_path, resolved=resolved_path)
-                return {"success": False, "error": "Access Denied: Path traversal detected or unauthorized file access."}
+            resolved_path = validate_safe_path(file_path)
 
             if not os.path.exists(resolved_path):
                 return {"success": False, "error": f"File not found: {file_path}"}

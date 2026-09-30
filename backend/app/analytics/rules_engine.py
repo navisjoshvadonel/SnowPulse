@@ -127,9 +127,10 @@ def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.Da
     # Determine cardinality
     cat_card = cat.cardinality if hasattr(cat, "cardinality") else df[cat.name].n_unique()
     # Compute ANOVA effect size (eta squared) as a proxy
-    groups = []
-    for val in df[cat.name].unique().to_list():
-        groups.append(df.filter(pl.col(cat.name) == val)[num.name].drop_nulls().to_numpy())
+    # Vectorized replacement for O(N^2) nested loop performance optimization
+    clean_df = df.select([cat.name, num.name]).drop_nulls()
+    groups_series = clean_df.group_by(cat.name, maintain_order=False).agg(pl.col(num.name))
+    groups = [np.array(s) for s in groups_series[num.name]]
     # If not enough groups, fallback to simple variance between means
     if len(groups) < 2:
         eta2 = 0.0

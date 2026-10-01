@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Bell, Settings, LogOut, User, Users, Key, BookOpen, Check, AlertTriangle, Sparkles, CheckCircle2 } from "lucide-react";
+import { Search, Bell, LogOut, Users, Key, BookOpen, AlertTriangle, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TopNavBarProps {
@@ -96,6 +96,8 @@ export default function TopNavBar({
             onClick={() => { setAlertsOpen(!alertsOpen); setDropdownOpen(false); }}
             className="relative p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
             title="Notifications & Anomaly Alerts"
+            aria-label="Notifications & Anomaly Alerts"
+            aria-expanded={alertsOpen}
           >
             <Bell size={18} />
             {unreadCount > 0 && (
@@ -159,6 +161,8 @@ export default function TopNavBar({
           <button
             onClick={() => { setDropdownOpen(!dropdownOpen); setAlertsOpen(false); }}
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group"
+            aria-label="User menu"
+            aria-expanded={dropdownOpen}
           >
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 shadow-lg"

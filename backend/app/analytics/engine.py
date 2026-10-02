@@ -35,15 +35,7 @@ def _load_df(file_path: str | pl.DataFrame) -> pl.DataFrame:
             file_bytes = storage_service.get_file(parts[0], parts[1])
             return pl.read_csv(io.BytesIO(file_bytes))
 
-        resolved = file_path
-        if not os.path.exists(resolved):
-            backend_path = os.path.join("backend", file_path)
-            if os.path.exists(backend_path):
-                resolved = backend_path
-            else:
-                raise FileNotFoundError(f"Dataset file not found at {file_path}")
-
-        real_path = os.path.realpath(resolved)
+        real_path = os.path.realpath(file_path)
         cwd = os.path.realpath(os.getcwd())
         tmp_dir = os.path.realpath("/tmp")
         local_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", "local_storage"))
@@ -52,7 +44,15 @@ def _load_df(file_path: str | pl.DataFrame) -> pl.DataFrame:
             logger.warning("security.path_traversal_attempt file_path=%s resolved=%s", file_path, real_path)
             raise ValueError(f"Access Denied: Path traversal detected in dataset file path '{file_path}'")
 
-        return pl.read_csv(real_path)
+        resolved = file_path
+        if not os.path.exists(resolved):
+            backend_path = os.path.join("backend", file_path)
+            if os.path.exists(backend_path):
+                resolved = backend_path
+            else:
+                raise FileNotFoundError(f"Dataset file not found at {file_path}")
+
+        return pl.read_csv(resolved)
     raise TypeError(f"Unsupported file_path type: {type(file_path)}")
 
 

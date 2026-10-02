@@ -290,4 +290,8 @@ def test_engine_decompose_root_cause_tree():
     assert "summary_insight" in tree
 
 
+def test_engine_path_traversal_protection():
+    """Verify that AnalyticsEngine rejects path traversal attempts targeting system files."""
+    with pytest.raises(ValueError, match="Access Denied: Path traversal detected"):
+        AnalyticsEngine("../../../etc/passwd")
 

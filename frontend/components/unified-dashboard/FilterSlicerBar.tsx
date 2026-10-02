@@ -110,6 +110,7 @@ export default function FilterSlicerBar({
               {f.label || `${f.column} ${f.op} ${JSON.stringify(f.value)}`}
               <button
                 onClick={() => removeFilter(f.column)}
+                aria-label={`Remove filter for ${f.column}`}
                 className="p-0.5 hover:bg-cyan-500/20 rounded text-cyan-400 hover:text-cyan-200 transition-colors"
               >
                 <X size={12} />

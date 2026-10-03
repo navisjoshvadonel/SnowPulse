@@ -94,6 +94,7 @@ export default function TopNavBar({
         <div className="relative">
           <button
             onClick={() => { setAlertsOpen(!alertsOpen); setDropdownOpen(false); }}
+            aria-label="Notifications and alerts"
             className="relative p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
             title="Notifications & Anomaly Alerts"
           >
@@ -158,6 +159,7 @@ export default function TopNavBar({
         <div className="relative">
           <button
             onClick={() => { setDropdownOpen(!dropdownOpen); setAlertsOpen(false); }}
+            aria-label="User profile menu"
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group"
           >
             <div

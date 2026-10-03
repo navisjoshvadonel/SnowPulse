@@ -259,6 +259,7 @@ export default function AutoAiControlBar({
             onClick={onExportPdf}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
             title="Export Production Executive Deck"
+            aria-label="Export Production Executive Deck"
           >
             <Download size={14} />
             <span className="hidden md:inline">Export Deck</span>

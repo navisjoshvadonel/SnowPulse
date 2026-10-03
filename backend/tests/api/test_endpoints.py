@@ -208,12 +208,30 @@ class TestInsights:
         assert resp.status_code == 404
 
 
-# --- ML History ---
+# --- ML History & Dataset Authorization (BOLA) ---
 
 class TestMLHistory:
     def test_ml_history_nonexistent_dataset(self, client, auth_headers):
         resp = client.get("/api/ml/history/99999?task_type=classification", headers=auth_headers)
         assert resp.status_code == 404
+
+    def test_ml_and_forecast_other_user_dataset_unauthorized(self, client, auth_headers, db):
+        # Create a dataset owned by another user (owner_id=9999)
+        other_ds = Dataset(
+            name="Other User Dataset",
+            owner_id=9999,
+            file_path="local_storage/other.csv"
+        )
+        db.add(other_ds)
+        db.commit()
+        db.refresh(other_ds)
+
+        # Accessing other user's dataset should be rejected (404 Not Found)
+        ml_resp = client.get(f"/api/ml/history/{other_ds.id}?task_type=classification", headers=auth_headers)
+        assert ml_resp.status_code == 404
+
+        forecast_resp = client.get(f"/api/forecast/predict/{other_ds.id}", headers=auth_headers)
+        assert forecast_resp.status_code == 404
 
 
 # --- Upload Dataset validation ---

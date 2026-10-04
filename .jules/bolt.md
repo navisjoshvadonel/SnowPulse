@@ -5,3 +5,6 @@
 ## 2025-03-05 - Avoid .joblib commits during backend testing
 **Learning:** Running backend test suites locally often regenerates or modifies binary `.joblib` machine learning model files in local storage, which can accidentally be staged and committed along with code changes.
 **Action:** Before submitting a PR or running `git commit`, always run `git status` to ensure binary artifacts like `.joblib` files are not accidentally staged. Use `git restore --staged` and `git checkout` to remove them if they are.
+## 2024-10-04 - Vectorize ANOVA calculation grouping
+**Learning:** Polars `filter` operations inside Python loops (e.g., iterating over unique categorical values to filter groups) create extreme $O(N \cdot K)$ bottlenecks on high-cardinality data.
+**Action:** Always replace explicit filtering loops for aggregations with vectorized `df.group_by(col).agg(pl.col(val).drop_nulls())`, and iterate the aggregated lists instead.

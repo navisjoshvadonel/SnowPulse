@@ -8,6 +8,7 @@ from app.ai.tools.database_tools import (
     DatabaseTools,
     SecurityAlertException,
     sanitize_and_validate_sql,
+    validate_safe_path,
 )
 from app.ai.workflows.reports import ReportGenerator
 from app.database import Base
@@ -124,6 +125,25 @@ def test_sql_security_sanitization():
     with pytest.raises(SecurityAlertException):
         # Commands not starting with select
         sanitize_and_validate_sql("UPDATE users SET is_active = 0;")
+
+# 3b. Test Path Traversal Validation
+def test_validate_safe_path():
+    import os
+
+    cwd = os.getcwd()
+    valid_file = os.path.join(cwd, "README.md")
+    assert validate_safe_path(valid_file) == os.path.realpath(valid_file)
+
+    # Path traversal attempts
+    with pytest.raises(SecurityAlertException):
+        validate_safe_path("/etc/passwd")
+
+    with pytest.raises(SecurityAlertException):
+        validate_safe_path("../../../etc/passwd")
+
+    # Prefix collision attack (e.g. /tmp_evil or /app_evil)
+    with pytest.raises(SecurityAlertException):
+        validate_safe_path(f"{cwd}_evil/secret.txt")
 
 # 4. Test SQL Executor Tool
 def test_execute_read_only_sql(db_session):

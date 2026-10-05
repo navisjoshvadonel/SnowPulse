@@ -5,3 +5,6 @@
 ## 2025-03-05 - Avoid .joblib commits during backend testing
 **Learning:** Running backend test suites locally often regenerates or modifies binary `.joblib` machine learning model files in local storage, which can accidentally be staged and committed along with code changes.
 **Action:** Before submitting a PR or running `git commit`, always run `git status` to ensure binary artifacts like `.joblib` files are not accidentally staged. Use `git restore --staged` and `git checkout` to remove them if they are.
+## 2026-10-05 - Vectorized polars group_by aggregation in _score_numeric_categorical
+**Learning:** Using a python for loop with `df.filter(...)` inside `_score_numeric_categorical` is an extreme O(N^2) performance bottleneck when iterating through a categorical column's unique values on high-cardinality datasets.
+**Action:** Replace for-loop filtering with a single vectorized `group_by` and `agg` operation using polars: `df.select([cat, num]).drop_nulls().group_by(cat).agg(pl.col(num))`, which reduces the complexity to O(N) and significantly speeds up categorical scoring.

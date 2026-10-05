@@ -63,8 +63,21 @@ class PolarsCodeExecutor:
         }
 
         try:
+            import ast
+
+            tree = ast.parse(code_snippet)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import | ast.ImportFrom):
+                    raise PolarsCodeExecutionError("Import statements are prohibited in user scripts.")
+                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                    raise PolarsCodeExecutionError(f"Access to dunder attribute '{node.attr}' is prohibited.")
+                if isinstance(node, ast.Name) and node.id.startswith("__"):
+                    raise PolarsCodeExecutionError(f"Access to dunder identifier '{node.id}' is prohibited.")
+
             # Execute cleaning script in safe namespace
             exec(code_snippet, cls.SAFE_GLOBALS, local_vars)
+        except PolarsCodeExecutionError:
+            raise
         except Exception as e:
             logger.error("polars_executor.execution_failed", error=str(e), code=code_snippet)
             raise PolarsCodeExecutionError(f"Failed to execute Polars cleaning script: {str(e)}")

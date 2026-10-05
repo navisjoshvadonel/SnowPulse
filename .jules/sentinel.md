@@ -12,3 +12,8 @@
 **Vulnerability:** `get_datasets` returned all datasets in the database (`db.query(Dataset).all()`) when an authenticated user had no datasets associated with their account, leaking private datasets across tenant boundaries.
 **Learning:** Fallback queries intended as helpful defaults or sample data in multi-tenant data access endpoints can inadvertently bypass tenant isolation checks when user-filtered results are empty.
 **Prevention:** Ensure data retrieval endpoints strictly query filtering conditions (`owner_id == current_user.id`) and never fall back to unfiltered global database queries.
+
+## 2025-05-21 - Python Sandbox Escape via Object Introspection in `PolarsCodeExecutor`
+**Vulnerability:** `PolarsCodeExecutor.execute_cleaning_code` relied solely on `__builtins__` restriction when executing user-provided scripts with `exec()`. Attackers could traverse object inheritance via `(1).__class__.__base__.__subclasses__()` to reach modules like `os` or `subprocess` and execute arbitrary system commands.
+**Learning:** Restricting `__builtins__` in Python `exec()` does not prevent sandbox escapes because object method resolution and type introspection allow reaching hidden classes with access to `__globals__`.
+**Prevention:** Perform static AST analysis using `ast.parse` prior to execution to block import statements (`ast.Import`, `ast.ImportFrom`) and any dunder attribute/identifier references starting with `__`.

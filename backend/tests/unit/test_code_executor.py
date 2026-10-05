@@ -37,5 +37,13 @@ result = ldf
 import os
 os.system('echo hacked')
 """
-        with pytest.raises(PolarsCodeExecutionError):
+        with pytest.raises(PolarsCodeExecutionError, match="Import statements are prohibited"):
+            PolarsCodeExecutor.execute_cleaning_code(df, script)
+
+    def test_sandbox_blocks_dunder_access(self):
+        df = pl.DataFrame({"a": [1, 2, 3]})
+        script = """
+subclasses = (1).__class__.__base__.__subclasses__()
+"""
+        with pytest.raises(PolarsCodeExecutionError, match="Access to dunder attribute"):
             PolarsCodeExecutor.execute_cleaning_code(df, script)

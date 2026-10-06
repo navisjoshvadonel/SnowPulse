@@ -186,3 +186,29 @@ def test_ml_training_history_empty(client, db, test_user, auth_headers):
     response = client.get("/api/ml/history/9999?task_type=forecasting", headers=auth_headers)
     assert response.status_code == 404
 
+
+def test_ml_and_forecast_tenant_isolation(client, db, test_user, auth_headers):
+    # Security test: ensure user cannot access another user's private dataset
+    other_user = User(email="other_tenant@example.com", hashed_password="hashed_pass")
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    other_dataset = Dataset(
+        owner_id=other_user.id,
+        name="other_tenant_data.csv",
+        file_path="other_tenant_data.csv"
+    )
+    db.add(other_dataset)
+    db.commit()
+    db.refresh(other_dataset)
+
+    # Current user should receive 404 when querying another user's dataset
+    response = client.get(f"/api/ml/targets/{other_dataset.id}", headers=auth_headers)
+    assert response.status_code == 404
+
+    response = client.get(f"/api/ml/history/{other_dataset.id}?task_type=forecasting", headers=auth_headers)
+    assert response.status_code == 404
+
+    response = client.get(f"/api/forecast/predict/{other_dataset.id}", headers=auth_headers)
+    assert response.status_code == 404

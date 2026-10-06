@@ -96,6 +96,9 @@ export default function TopNavBar({
             onClick={() => { setAlertsOpen(!alertsOpen); setDropdownOpen(false); }}
             className="relative p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
             title="Notifications & Anomaly Alerts"
+            aria-label="Notifications and anomaly alerts"
+            aria-expanded={alertsOpen}
+            aria-haspopup="true"
           >
             <Bell size={18} />
             {unreadCount > 0 && (
@@ -159,6 +162,9 @@ export default function TopNavBar({
           <button
             onClick={() => { setDropdownOpen(!dropdownOpen); setAlertsOpen(false); }}
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group"
+            aria-label="User profile menu"
+            aria-expanded={dropdownOpen}
+            aria-haspopup="true"
           >
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 shadow-lg"

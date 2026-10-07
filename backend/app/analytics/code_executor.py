@@ -1,3 +1,4 @@
+import ast
 from typing import Any
 
 import polars as pl
@@ -63,6 +64,20 @@ class PolarsCodeExecutor:
         }
 
         try:
+            # Validate AST to block sandbox escapes via imports or dunder introspection
+            try:
+                tree = ast.parse(code_snippet)
+            except Exception as pe:
+                raise PolarsCodeExecutionError(f"Invalid code syntax: {pe}")
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import | ast.ImportFrom):
+                    raise PolarsCodeExecutionError("Import statements are strictly prohibited in code snippets.")
+                if isinstance(node, ast.Name) and node.id.startswith("__"):
+                    raise PolarsCodeExecutionError("Accessing dunder identifiers is prohibited in code snippets.")
+                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                    raise PolarsCodeExecutionError("Accessing dunder attributes is prohibited in code snippets.")
+
             # Execute cleaning script in safe namespace
             exec(code_snippet, cls.SAFE_GLOBALS, local_vars)
         except Exception as e:

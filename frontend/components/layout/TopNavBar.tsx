@@ -78,7 +78,8 @@ export default function TopNavBar({
       <div className="flex-1 max-w-md mx-auto">
         <button
           onClick={onOpenCommandPalette}
-          className="w-full flex items-center justify-between bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl px-3.5 py-1.5 text-white/40 hover:text-white/70 transition-all cursor-pointer"
+          aria-label="Search insights, metrics, and commands"
+          className="w-full flex items-center justify-between bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl px-3.5 py-1.5 text-white/40 hover:text-white/70 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
         >
           <div className="flex items-center gap-2.5">
             <Search size={14} className="text-white/40" />
@@ -94,7 +95,10 @@ export default function TopNavBar({
         <div className="relative">
           <button
             onClick={() => { setAlertsOpen(!alertsOpen); setDropdownOpen(false); }}
-            className="relative p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
+            aria-label="Notifications and anomaly alerts"
+            aria-expanded={alertsOpen}
+            aria-haspopup="true"
+            className="relative p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
             title="Notifications & Anomaly Alerts"
           >
             <Bell size={18} />
@@ -120,7 +124,11 @@ export default function TopNavBar({
                     <Bell size={14} className="text-indigo-400" /> Notifications & Alerts
                   </span>
                   {unreadCount > 0 && (
-                    <button onClick={markAllRead} className="text-[10px] text-indigo-400 hover:text-indigo-300 font-mono cursor-pointer">
+                    <button
+                      onClick={markAllRead}
+                      aria-label="Mark all notifications as read"
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-mono cursor-pointer focus-visible:outline-none focus-visible:underline"
+                    >
                       Mark all read
                     </button>
                   )}
@@ -158,7 +166,10 @@ export default function TopNavBar({
         <div className="relative">
           <button
             onClick={() => { setDropdownOpen(!dropdownOpen); setAlertsOpen(false); }}
-            className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group"
+            aria-label="User account menu"
+            aria-expanded={dropdownOpen}
+            aria-haspopup="true"
+            className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
           >
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 shadow-lg"
@@ -171,6 +182,8 @@ export default function TopNavBar({
           <AnimatePresence>
             {dropdownOpen && (
               <motion.div
+                role="menu"
+                aria-orientation="vertical"
                 initial={{ opacity: 0, y: 8, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -186,22 +199,25 @@ export default function TopNavBar({
                 </div>
 
                 <button
+                  role="menuitem"
                   onClick={() => { setDropdownOpen(false); onOpenModal?.("team"); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                 >
                   <Users size={14} className="text-indigo-400" /> Team & Workspace
                 </button>
 
                 <button
+                  role="menuitem"
                   onClick={() => { setDropdownOpen(false); onOpenModal?.("apikeys"); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                 >
                   <Key size={14} className="text-cyan-400" /> API Keys & Webhooks
                 </button>
 
                 <button
+                  role="menuitem"
                   onClick={() => { setDropdownOpen(false); onOpenModal?.("docs"); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                 >
                   <BookOpen size={14} className="text-purple-400" /> Docs & Release Notes
                 </button>
@@ -209,8 +225,9 @@ export default function TopNavBar({
                 <div className="h-px bg-white/[0.06] my-1" />
 
                 <button
+                  role="menuitem"
                   onClick={() => { setDropdownOpen(false); onLogout?.(); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/[0.08] transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/[0.08] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                 >
                   <LogOut size={14} /> Sign out
                 </button>

@@ -48,11 +48,7 @@ class SignalDetector:
 
     @classmethod
     def detect_signals(
-        cls,
-        df: pl.DataFrame,
-        profile: DatasetProfile,
-        min_signals: int = 5,
-        max_signals: int = 8
+        cls, df: pl.DataFrame, profile: DatasetProfile, min_signals: int = 5, max_signals: int = 8
     ) -> list[DetectedSignal]:
         signals: list[DetectedSignal] = []
 
@@ -130,8 +126,8 @@ class SignalDetector:
                                     "outlier_ratio": round(outlier_ratio, 4),
                                     "lower_bound": round(lower_bound, 2),
                                     "upper_bound": round(upper_bound, 2),
-                                    "iqr": round(iqr, 2)
-                                }
+                                    "iqr": round(iqr, 2),
+                                },
                             )
                         )
 
@@ -172,8 +168,8 @@ class SignalDetector:
                             details={
                                 "anomalous_rows": multi_outliers,
                                 "anomalous_pct": round(multi_ratio * 100, 2),
-                                "evaluated_columns": num_col_names
-                            }
+                                "evaluated_columns": num_col_names,
+                            },
                         )
                     )
             except Exception as e:
@@ -255,8 +251,8 @@ class SignalDetector:
                                     "bucket_mean": round(b_mean, 2),
                                     "overall_mean": round(overall_mean, 2),
                                     "z_score": round(z_score, 2),
-                                    "pct_change": round(pct_change, 2)
-                                }
+                                    "pct_change": round(pct_change, 2),
+                                },
                             )
                         )
                         # Limit 1 shift signal per column to avoid noise
@@ -277,52 +273,66 @@ class SignalDetector:
         matrix = profile.correlation_matrix.matrix
         col_map = {c.name: c for c in profile.columns}
 
-        for i in range(len(cols)):
-            for j in range(i + 1, len(cols)):
-                c1_name, c2_name = cols[i], cols[j]
-                r_val = matrix[i][j]
-                if r_val is None:
-                    continue
+        # Vectorized linear correlation signal extraction for O(1) loop iterations
+        # Replace None with NaN for vectorized computation
+        matrix_np = np.array([[np.nan if v is None else v for v in row] for row in matrix], dtype=np.float32)
 
-                c1 = col_map.get(c1_name)
-                c2 = col_map.get(c2_name)
-                if not c1 or not c2:
-                    continue
+        rows, cols_idx = np.triu_indices(len(cols), k=1)
+        r_vals = matrix_np[rows, cols_idx]
 
-                biz_rel = (cls._calc_business_relevance(c1, profile) + cls._calc_business_relevance(c2, profile)) / 2.0
+        with np.errstate(invalid="ignore"):
+            valid_mask = ~np.isnan(r_vals) & (np.abs(r_vals) >= 0.80)
 
-                if r_val >= 0.80:
-                    stat_sig = min(1.0, r_val)
-                    sev_score = min(1.0, stat_sig * biz_rel)
-                    signals.append(
-                        DetectedSignal(
-                            id=f"corr_pos_{c1_name}_{c2_name}",
-                            signal_type="high_correlation",
-                            title=f"Strong Correlation: {c1_name.replace('_', ' ').title()} & {c2_name.replace('_', ' ').title()}",
-                            description=f"High positive correlation (r={r_val:.2f}) indicates these columns move together and may be redundant.",
-                            columns=[c1_name, c2_name],
-                            severity_score=round(sev_score, 3),
-                            statistical_significance=round(stat_sig, 3),
-                            business_relevance=round(biz_rel, 3),
-                            details={"r": round(r_val, 3), "relationship": "positive"}
-                        )
+        valid_rows = rows[valid_mask]
+        valid_cols = cols_idx[valid_mask]
+        valid_r_vals = r_vals[valid_mask]
+
+        for idx in range(len(valid_rows)):
+            i = valid_rows[idx]
+            j = valid_cols[idx]
+            r_val = float(valid_r_vals[idx])
+            c1_name = cols[i]
+            c2_name = cols[j]
+
+            c1 = col_map.get(c1_name)
+            c2 = col_map.get(c2_name)
+            if not c1 or not c2:
+                continue
+
+            biz_rel = (cls._calc_business_relevance(c1, profile) + cls._calc_business_relevance(c2, profile)) / 2.0
+
+            if r_val >= 0.80:
+                stat_sig = min(1.0, r_val)
+                sev_score = min(1.0, stat_sig * biz_rel)
+                signals.append(
+                    DetectedSignal(
+                        id=f"corr_pos_{c1_name}_{c2_name}",
+                        signal_type="high_correlation",
+                        title=f"Strong Correlation: {c1_name.replace('_', ' ').title()} & {c2_name.replace('_', ' ').title()}",
+                        description=f"High positive correlation (r={r_val:.2f}) indicates these columns move together and may be redundant.",
+                        columns=[c1_name, c2_name],
+                        severity_score=round(sev_score, 3),
+                        statistical_significance=round(stat_sig, 3),
+                        business_relevance=round(biz_rel, 3),
+                        details={"r": round(r_val, 3), "relationship": "positive"},
                     )
-                elif r_val <= -0.80:
-                    stat_sig = min(1.0, abs(r_val))
-                    sev_score = min(1.0, stat_sig * biz_rel)
-                    signals.append(
-                        DetectedSignal(
-                            id=f"corr_neg_{c1_name}_{c2_name}",
-                            signal_type="inverse_relationship",
-                            title=f"Inverse Relationship: {c1_name.replace('_', ' ').title()} & {c2_name.replace('_', ' ').title()}",
-                            description=f"Strong negative correlation (r={r_val:.2f}) observed; as {c1_name} increases, {c2_name} decreases.",
-                            columns=[c1_name, c2_name],
-                            severity_score=round(sev_score, 3),
-                            statistical_significance=round(stat_sig, 3),
-                            business_relevance=round(biz_rel, 3),
-                            details={"r": round(r_val, 3), "relationship": "negative"}
-                        )
+                )
+            elif r_val <= -0.80:
+                stat_sig = min(1.0, abs(r_val))
+                sev_score = min(1.0, stat_sig * biz_rel)
+                signals.append(
+                    DetectedSignal(
+                        id=f"corr_neg_{c1_name}_{c2_name}",
+                        signal_type="inverse_relationship",
+                        title=f"Inverse Relationship: {c1_name.replace('_', ' ').title()} & {c2_name.replace('_', ' ').title()}",
+                        description=f"Strong negative correlation (r={r_val:.2f}) observed; as {c1_name} increases, {c2_name} decreases.",
+                        columns=[c1_name, c2_name],
+                        severity_score=round(sev_score, 3),
+                        statistical_significance=round(stat_sig, 3),
+                        business_relevance=round(biz_rel, 3),
+                        details={"r": round(r_val, 3), "relationship": "negative"},
                     )
+                )
 
         # Mutual Information non-linear callouts
         if profile.mutual_information and profile.mutual_information.mi_computed:
@@ -346,7 +356,7 @@ class SignalDetector:
                                 severity_score=round(sev_score, 3),
                                 statistical_significance=round(stat_sig, 3),
                                 business_relevance=round(biz_rel, 3),
-                                details={"mi_score": round(mi_val, 3), "relationship": "non_linear"}
+                                details={"mi_score": round(mi_val, 3), "relationship": "non_linear"},
                             )
                         )
 
@@ -363,47 +373,53 @@ class SignalDetector:
         col_map = {c.name: c for c in null_cols}
 
         try:
-            # Build missingness boolean mask matrix
-            null_masks = {name: df[name].is_null().to_numpy() for name in col_names}
+            # Vectorized missingness cluster detection for O(1) loop iterations
+            mask_matrix = np.array([df[name].is_null().to_numpy() for name in col_names], dtype=np.float32)
+            both_missing_matrix = np.dot(mask_matrix, mask_matrix.T)
+            counts = mask_matrix.sum(axis=1)
 
-            for i in range(len(col_names)):
-                for j in range(i + 1, len(col_names)):
-                    name_a, name_b = col_names[i], col_names[j]
-                    mask_a = null_masks[name_a]
-                    mask_b = null_masks[name_b]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                co_occur_ratio_matrix = both_missing_matrix / counts[:, None]
 
-                    count_a = int(np.sum(mask_a))
-                    if count_a < 5:
-                        continue
+            rows, cols = np.triu_indices(len(col_names), k=1)
+            valid_mask = (counts[rows] >= 5) & (co_occur_ratio_matrix[rows, cols] >= 0.60)
 
-                    both_missing = int(np.sum(mask_a & mask_b))
-                    co_occur_ratio = both_missing / count_a
+            valid_rows = rows[valid_mask]
+            valid_cols = cols[valid_mask]
 
-                    if co_occur_ratio >= 0.60:
-                        c_a = col_map[name_a]
-                        c_b = col_map[name_b]
-                        biz_rel = (cls._calc_business_relevance(c_a, profile) + cls._calc_business_relevance(c_b, profile)) / 2.0
-                        stat_sig = min(1.0, co_occur_ratio)
-                        sev_score = min(1.0, stat_sig * biz_rel)
+            for idx in range(len(valid_rows)):
+                i = valid_rows[idx]
+                j = valid_cols[idx]
+                name_a, name_b = col_names[i], col_names[j]
+                co_occur_ratio = float(co_occur_ratio_matrix[i, j])
+                both_missing = int(both_missing_matrix[i, j])
 
-                        signals.append(
-                            DetectedSignal(
-                                id=f"missing_cluster_{name_a}_{name_b}",
-                                signal_type="missingness_cluster",
-                                title=f"Missingness Cluster: {name_a.replace('_', ' ').title()} & {name_b.replace('_', ' ').title()}",
-                                description=f"When '{name_a}' is missing, '{name_b}' is also missing in {co_occur_ratio*100:.1f}% of cases ({both_missing} rows). Points to systematic data capture issue.",
-                                columns=[name_a, name_b],
-                                severity_score=round(sev_score, 3),
-                                statistical_significance=round(stat_sig, 3),
-                                business_relevance=round(biz_rel, 3),
-                                details={
-                                    "col_a": name_a,
-                                    "col_b": name_b,
-                                    "co_occurrence_pct": round(co_occur_ratio * 100, 1),
-                                    "co_occurrence_count": both_missing
-                                }
-                            )
-                        )
+                c_a = col_map[name_a]
+                c_b = col_map[name_b]
+                biz_rel = (
+                    cls._calc_business_relevance(c_a, profile) + cls._calc_business_relevance(c_b, profile)
+                ) / 2.0
+                stat_sig = min(1.0, co_occur_ratio)
+                sev_score = min(1.0, stat_sig * biz_rel)
+
+                signals.append(
+                    DetectedSignal(
+                        id=f"missing_cluster_{name_a}_{name_b}",
+                        signal_type="missingness_cluster",
+                        title=f"Missingness Cluster: {name_a.replace('_', ' ').title()} & {name_b.replace('_', ' ').title()}",
+                        description=f"When '{name_a}' is missing, '{name_b}' is also missing in {co_occur_ratio*100:.1f}% of cases ({both_missing} rows). Points to systematic data capture issue.",
+                        columns=[name_a, name_b],
+                        severity_score=round(sev_score, 3),
+                        statistical_significance=round(stat_sig, 3),
+                        business_relevance=round(biz_rel, 3),
+                        details={
+                            "col_a": name_a,
+                            "col_b": name_b,
+                            "co_occurrence_pct": round(co_occur_ratio * 100, 1),
+                            "co_occurrence_count": both_missing,
+                        },
+                    )
+                )
         except Exception as e:
             logger.debug(f"Missingness cluster detection failed: {e}")
 
@@ -451,8 +467,8 @@ class SignalDetector:
                             "dominant_value": str(top_val_name),
                             "dominant_share_pct": round(share * 100, 1),
                             "gini_impurity": round(gini, 3),
-                            "cardinality": col.cardinality
-                        }
+                            "cardinality": col.cardinality,
+                        },
                     )
                 )
 

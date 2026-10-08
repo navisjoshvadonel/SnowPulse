@@ -158,6 +158,7 @@ export default function TopNavBar({
         <div className="relative">
           <button
             onClick={() => { setDropdownOpen(!dropdownOpen); setAlertsOpen(false); }}
+            aria-label="User account menu"
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer group"
           >
             <div

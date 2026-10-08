@@ -186,3 +186,30 @@ def test_ml_training_history_empty(client, db, test_user, auth_headers):
     response = client.get("/api/ml/history/9999?task_type=forecasting", headers=auth_headers)
     assert response.status_code == 404
 
+
+def test_ml_dataset_tenant_isolation(client, db, test_user, auth_headers):
+    # Create another user and a dataset belonging to them
+    other_user = User(
+        email="other_owner@snowpulse.com",
+        hashed_password=get_password_hash("password123"),
+        is_active=True,
+    )
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    other_dataset = Dataset(
+        owner_id=other_user.id,
+        name="other_private_data.csv",
+        file_path="other_private_data.csv",
+    )
+    db.add(other_dataset)
+    db.commit()
+    db.refresh(other_dataset)
+
+    # Current user (test_user) attempting to access other_user's dataset history should be denied (404)
+    response = client.get(
+        f"/api/ml/history/{other_dataset.id}?task_type=forecasting",
+        headers=auth_headers,
+    )
+    assert response.status_code == 404

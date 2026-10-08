@@ -322,6 +322,7 @@ export default function Sidebar({
 
         <button
           onClick={onToggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={`sidebar-nav-item mt-1 ${collapsed ? "justify-center px-0 w-full" : "px-3 w-full"}`}
         >
           {collapsed ? (

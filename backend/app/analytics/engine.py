@@ -548,6 +548,8 @@ class AnalyticsEngine:
             # Calculate baseline mean per category for variance contribution
             expected_share = parent_val / max(1, len(group_rows))
 
+            partitions = sub_df.partition_by(dim, as_dict=True)
+
             for row in group_rows:
                 cat_val = str(row[dim] if row[dim] is not None else "Unknown")
                 sum_v = float(row["sum_val"] or 0)
@@ -558,8 +560,8 @@ class AnalyticsEngine:
                 delta = sum_v - expected_share
                 direction = "positive" if delta >= 0 else "negative"
 
-                child_sub = sub_df.filter(pl.col(dim) == row[dim])
-                next_children = build_branch(child_sub, current_dim_idx + 1, sum_v)
+                child_sub = partitions.get((row[dim],))
+                next_children = build_branch(child_sub, current_dim_idx + 1, sum_v) if child_sub is not None else []
 
                 node = {
                     "name": f"{cat_val} ({sum_v:,.0f})",

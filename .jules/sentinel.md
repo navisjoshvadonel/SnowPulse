@@ -12,3 +12,8 @@
 **Vulnerability:** `get_datasets` returned all datasets in the database (`db.query(Dataset).all()`) when an authenticated user had no datasets associated with their account, leaking private datasets across tenant boundaries.
 **Learning:** Fallback queries intended as helpful defaults or sample data in multi-tenant data access endpoints can inadvertently bypass tenant isolation checks when user-filtered results are empty.
 **Prevention:** Ensure data retrieval endpoints strictly query filtering conditions (`owner_id == current_user.id`) and never fall back to unfiltered global database queries.
+
+## 2025-05-21 - DoS in Token Rotation via SQLAlchemy `is False` Expression Evaluation
+**Vulnerability:** `/api/auth/refresh` used `RefreshToken.revoked is False` in the SQLAlchemy `.filter()` clause. In Python, `Column is False` evaluates to the boolean `False`, producing a SQL clause `WHERE false`, causing valid refresh token validation to silently fail every time.
+**Learning:** Using Python's `is` operator on SQLAlchemy Column attributes evaluates object identity in Python at query definition time rather than creating a SQL `IS FALSE` or `= FALSE` filter expression.
+**Prevention:** Use `.is_(False)` or `== False` on SQLAlchemy Column objects to ensure valid SQL binary or IS comparison criteria are generated.

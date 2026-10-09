@@ -60,6 +60,21 @@ class TestLogout:
         resp = client.post("/api/auth/logout")
         assert resp.status_code == 200
 
+    def test_refresh_token_success(self, client, test_user):
+        # Login to obtain valid HttpOnly refresh cookie
+        login_resp = client.post(
+            "/api/auth/login",
+            data={"username": test_user.email, "password": "password123"}
+        )
+        assert login_resp.status_code == 200
+
+        # Request new access token using refresh cookie
+        refresh_resp = client.post("/api/auth/refresh")
+        assert refresh_resp.status_code == 200
+        data = refresh_resp.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+
 
 # --- User/Me ---
 

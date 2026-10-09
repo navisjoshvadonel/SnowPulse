@@ -253,7 +253,7 @@ def refresh_access_token(
     # Query DB to make sure token exists, belongs to the user, and is not revoked
     db_token = db.query(RefreshToken).filter(
         RefreshToken.token == refresh_token,
-        RefreshToken.revoked is False,
+        RefreshToken.revoked.is_(False),
         RefreshToken.expires_at > datetime.datetime.utcnow()
     ).first()
 

@@ -1,8 +1,27 @@
+import ast
 from typing import Any
 
 import polars as pl
 
 from ..logging_config import logger
+
+
+def validate_ast_code(code_str: str) -> None:
+    """
+    Statically analyzes code to block imports and dunder attribute/identifier access.
+    """
+    try:
+        tree = ast.parse(code_str)
+    except SyntaxError as e:
+        raise PolarsCodeExecutionError(f"Syntax error in code: {e}")
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            raise PolarsCodeExecutionError("Import statements are disabled in sandboxed execution.")
+        if isinstance(node, ast.Name) and node.id.startswith("__"):
+            raise PolarsCodeExecutionError(f"Access to dunder identifier '{node.id}' is forbidden.")
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+            raise PolarsCodeExecutionError(f"Access to dunder attribute '{node.attr}' is forbidden.")
 
 
 class PolarsCodeExecutionError(Exception):
@@ -63,6 +82,7 @@ class PolarsCodeExecutor:
         }
 
         try:
+            validate_ast_code(code_snippet)
             # Execute cleaning script in safe namespace
             exec(code_snippet, cls.SAFE_GLOBALS, local_vars)
         except Exception as e:

@@ -176,6 +176,10 @@ class DatabaseTools:
                 dataset_path = validate_safe_path(dataset_path)
                 df = pd.read_csv(dataset_path)
 
+            # Validate AST to block imports & dunder introspection
+            from ...analytics.code_executor import validate_ast_code
+            validate_ast_code(python_code)
+
             # Restrict harmful builtins
             safe_globals = {
                 "pd": pd,

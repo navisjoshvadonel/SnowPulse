@@ -39,3 +39,9 @@ os.system('echo hacked')
 """
         with pytest.raises(PolarsCodeExecutionError):
             PolarsCodeExecutor.execute_cleaning_code(df, script)
+
+    def test_sandbox_blocks_dunder_attribute_access(self):
+        df = pl.DataFrame({"a": [1, 2, 3]})
+        script = "x = df.__class__.__base__"
+        with pytest.raises(PolarsCodeExecutionError):
+            PolarsCodeExecutor.execute_cleaning_code(df, script)

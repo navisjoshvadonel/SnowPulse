@@ -1,3 +1,4 @@
+import ast
 from typing import Any
 
 import polars as pl
@@ -61,6 +62,18 @@ class PolarsCodeExecutor:
             "ldf": ldf,
             "result": None,
         }
+
+        try:
+            tree = ast.parse(code_snippet)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import | ast.ImportFrom):
+                    raise PolarsCodeExecutionError("Access Denied: Import statements are forbidden in sandboxed execution.")
+                if isinstance(node, ast.Name) and node.id.startswith("__"):
+                    raise PolarsCodeExecutionError("Access Denied: Dunder identifiers are forbidden in sandboxed execution.")
+                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                    raise PolarsCodeExecutionError("Access Denied: Dunder attribute access is forbidden in sandboxed execution.")
+        except SyntaxError as e:
+            raise PolarsCodeExecutionError(f"Syntax error in cleaning script: {e}")
 
         try:
             # Execute cleaning script in safe namespace

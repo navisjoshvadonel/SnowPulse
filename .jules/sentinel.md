@@ -12,3 +12,8 @@
 **Vulnerability:** `get_datasets` returned all datasets in the database (`db.query(Dataset).all()`) when an authenticated user had no datasets associated with their account, leaking private datasets across tenant boundaries.
 **Learning:** Fallback queries intended as helpful defaults or sample data in multi-tenant data access endpoints can inadvertently bypass tenant isolation checks when user-filtered results are empty.
 **Prevention:** Ensure data retrieval endpoints strictly query filtering conditions (`owner_id == current_user.id`) and never fall back to unfiltered global database queries.
+
+## 2025-05-21 - Python Sandbox Escape via Object Introspection in Dynamic Code Execution
+**Vulnerability:** `DatabaseTools.run_python_forecast` and `PolarsCodeExecutor` executed dynamic user Python code using `exec()`. Restricting `__builtins__` alone was insufficient because object introspection via dunder attributes (`df.__class__.__init__.__globals__`) provided access to global module namespaces and standard `__builtins__` (including `__import__` and `os`).
+**Learning:** Python sandbox environments using `exec()` cannot be secured solely by sanitizing `__builtins__` or global dicts due to object attribute traversal.
+**Prevention:** Perform static AST analysis using `ast.parse` and `ast.walk` to block `ast.Import`/`ast.ImportFrom` nodes and dunder identifier/attribute access (`__*`) before `exec()` evaluation.

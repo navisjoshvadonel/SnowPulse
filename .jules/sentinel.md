@@ -12,3 +12,8 @@
 **Vulnerability:** `get_datasets` returned all datasets in the database (`db.query(Dataset).all()`) when an authenticated user had no datasets associated with their account, leaking private datasets across tenant boundaries.
 **Learning:** Fallback queries intended as helpful defaults or sample data in multi-tenant data access endpoints can inadvertently bypass tenant isolation checks when user-filtered results are empty.
 **Prevention:** Ensure data retrieval endpoints strictly query filtering conditions (`owner_id == current_user.id`) and never fall back to unfiltered global database queries.
+
+## 2025-05-21 - Cross-Tenant Dataset Access via Fallback Queries and Unfiltered Endpoints
+**Vulnerability:** `_get_dataset_for_user` fell back to querying datasets by ID without checking `owner_id == current_user.id`, and several AI endpoints lacked owner filtering, allowing authenticated users to access other tenants' datasets.
+**Learning:** Helper dataset lookup functions and AI processing routes must strictly enforce tenant ownership filters (`Dataset.owner_id == current_user.id`) and never fall back to unconstrained dataset queries.
+**Prevention:** Always scope resource queries with `owner_id == current_user.id` across all helper functions and secondary router modules.

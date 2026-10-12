@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { MessageSquare, Plus, Check } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 
 interface CommentItem {
   id: string;
@@ -30,6 +30,8 @@ export default function ChartAnnotations() {
     <div className="relative inline-block">
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-label={`Chart annotations and comments, ${comments.length} comment${comments.length === 1 ? "" : "s"}`}
         className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-mono text-white/70 transition-colors cursor-pointer"
       >
         <MessageSquare size={12} className="text-cyan-400" />
@@ -61,10 +63,15 @@ export default function ChartAnnotations() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Add annotation..."
+              aria-label="Add annotation text"
               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
               onKeyDown={(e) => e.key === "Enter" && addComment()}
             />
-            <button onClick={addComment} className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30">
+            <button
+              onClick={addComment}
+              aria-label="Submit annotation"
+              className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 cursor-pointer"
+            >
               <Plus size={14} />
             </button>
           </div>

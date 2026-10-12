@@ -60,3 +60,15 @@ class TestAIRoutes:
         resp = client.get("/api/ai/health", headers=auth_headers)
         assert resp.status_code == 200
         assert resp.json()["status"] == "healthy"
+
+    def test_cross_tenant_dataset_access_blocked(self, client, db, test_user, auth_headers):
+        other_ds = Dataset(owner_id=test_user.id + 999, name="other-tenant-ds", file_path="other.csv")
+        db.add(other_ds)
+        db.commit()
+        db.refresh(other_ds)
+
+        resp = client.post("/api/ai/analyze", json={"dataset_id": other_ds.id}, headers=auth_headers)
+        assert resp.status_code == 404
+
+        resp = client.post("/api/ai/forecast", json={"dataset_id": other_ds.id}, headers=auth_headers)
+        assert resp.status_code == 404

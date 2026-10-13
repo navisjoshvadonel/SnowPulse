@@ -69,6 +69,7 @@ export default function PdfExportModal({
               <button
                 onClick={handlePrint}
                 disabled={downloading}
+                aria-label="Print or download PDF report"
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-400 hover:to-sky-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
               >
                 {downloading ? <Sparkles size={14} className="animate-spin" /> : <Printer size={14} />}
@@ -76,6 +77,7 @@ export default function PdfExportModal({
               </button>
               <button
                 onClick={onClose}
+                aria-label="Close modal"
                 className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
               >
                 <X size={18} />

@@ -5,3 +5,6 @@
 ## 2025-03-05 - Avoid .joblib commits during backend testing
 **Learning:** Running backend test suites locally often regenerates or modifies binary `.joblib` machine learning model files in local storage, which can accidentally be staged and committed along with code changes.
 **Action:** Before submitting a PR or running `git commit`, always run `git status` to ensure binary artifacts like `.joblib` files are not accidentally staged. Use `git restore --staged` and `git checkout` to remove them if they are.
+## 2024-10-13 - O(N^2) Polars Dataframe Filtering
+**Learning:** Extracting groups by iterating over unique categories and doing `df.filter` inside the loop causes extreme O(N^2) bottlenecks on high-cardinality data.
+**Action:** When extracting numeric subsets grouped by a categorical variable in Polars, use `group_by(cat_col).agg(...)` to fetch all sub-arrays at once in a vectorized manner, which is exponentially faster.

@@ -9,10 +9,24 @@ os.environ.setdefault("ENV", "testing")
 
 from unittest.mock import patch
 
-from backend.app.models import Dataset
+from backend.app.models import Dataset, User
 
 
 class TestAIRoutes:
+    def test_analyze_unowned_dataset_returns_404(self, client, db, test_user, auth_headers):
+        other_user = User(email="other@example.com", hashed_password="pw")
+        db.add(other_user)
+        db.commit()
+        db.refresh(other_user)
+
+        ds = Dataset(owner_id=other_user.id, name="other-ds", file_path="test.csv")
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        resp = client.post("/api/ai/analyze", json={"dataset_id": ds.id}, headers=auth_headers)
+        assert resp.status_code == 404
+
     def test_analyze_dataset_not_found(self, client, auth_headers):
         resp = client.post("/api/ai/analyze", json={"dataset_id": 99999}, headers=auth_headers)
         assert resp.status_code == 404

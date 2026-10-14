@@ -131,6 +131,51 @@ class TestVerifyDashboardOwnership:
             )
         assert exc_info.value.status_code == 404
 
+
+class TestGetDatasetForUser:
+    """Tests for _get_dataset_for_user multi-tenant dataset isolation."""
+
+    def test_owner_can_access_own_dataset(self, db, test_user):
+        from backend.app.main import _get_dataset_for_user
+
+        dataset = Dataset(
+            owner_id=test_user.id,
+            name="mine.csv",
+            file_path="mine.csv",
+        )
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+
+        res = _get_dataset_for_user(db=db, dataset_id=dataset.id, current_user=test_user)
+        assert res is not None
+        assert res.id == dataset.id
+
+    def test_other_user_cannot_access_dataset(self, db, test_user):
+        from backend.app.main import _get_dataset_for_user
+
+        other = User(
+            email="other_tenant@test.com",
+            hashed_password=get_password_hash("pw"),
+            is_active=True,
+        )
+        db.add(other)
+        db.commit()
+        db.refresh(other)
+
+        dataset = Dataset(
+            owner_id=other.id,
+            name="other_tenant.csv",
+            file_path="other_tenant.csv",
+        )
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+
+        # test_user attempts to access other user's dataset
+        res = _get_dataset_for_user(db=db, dataset_id=dataset.id, current_user=test_user)
+        assert res is None
+
     def test_nonexistent_dashboard_raises_404(self, db, test_user):
         with pytest.raises(HTTPException) as exc_info:
             verify_dashboard_ownership(

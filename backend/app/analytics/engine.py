@@ -529,37 +529,48 @@ class AnalyticsEngine:
                 return []
 
             dim = valid_dims[current_dim_idx]
-            grouped = (
-                sub_df
-                .group_by(dim)
-                .agg([
-                    pl.col(metric).sum().alias("sum_val"),
-                    pl.col(metric).mean().alias("mean_val"),
-                    pl.len().alias("count")
-                ])
-                .sort("sum_val", descending=True)
-            )
+            partitions = sub_df.partition_by(dim, maintain_order=False)
 
-            results: list[dict[str, Any]] = []
-            group_rows = grouped.to_dicts()
-            if not group_rows:
+            if not partitions:
                 return []
 
-            # Calculate baseline mean per category for variance contribution
-            expected_share = parent_val / max(1, len(group_rows))
+            # Calculate expected share based on number of partitions
+            expected_share = parent_val / max(1, len(partitions))
 
-            for row in group_rows:
-                cat_val = str(row[dim] if row[dim] is not None else "Unknown")
-                sum_v = float(row["sum_val"] or 0)
-                mean_v = float(row["mean_val"] or 0)
-                count_v = int(row["count"] or 0)
+            # Pre-compute metrics for each partition to sort them
+            partition_data = []
+            for p in partitions:
+                sum_v = float(p[metric].sum() or 0)
+                mean_v = float(p[metric].mean() or 0)
+                count_v = p.height
+                raw_cat_val = p[dim][0]
+                cat_val = str(raw_cat_val if raw_cat_val is not None else "Unknown")
+
+                partition_data.append({
+                    "df": p,
+                    "sum_v": sum_v,
+                    "mean_v": mean_v,
+                    "count_v": count_v,
+                    "cat_val": cat_val,
+                })
+
+            # Sort by sum descending to maintain previous behavior
+            partition_data.sort(key=lambda x: x["sum_v"], reverse=True)
+
+            results: list[dict[str, Any]] = []
+
+            for data in partition_data:
+                sum_v = data["sum_v"]
+                mean_v = data["mean_v"]
+                count_v = data["count_v"]
+                cat_val = data["cat_val"]
+                p_df = data["df"]
 
                 impact_pct = (sum_v / parent_val * 100.0) if parent_val > 0 else 0.0
                 delta = sum_v - expected_share
                 direction = "positive" if delta >= 0 else "negative"
 
-                child_sub = sub_df.filter(pl.col(dim) == row[dim])
-                next_children = build_branch(child_sub, current_dim_idx + 1, sum_v)
+                next_children = build_branch(p_df, current_dim_idx + 1, sum_v)
 
                 node = {
                     "name": f"{cat_val} ({sum_v:,.0f})",

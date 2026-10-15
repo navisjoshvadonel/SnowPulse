@@ -1,3 +1,4 @@
+import ast
 from typing import Any
 
 import polars as pl
@@ -63,6 +64,16 @@ class PolarsCodeExecutor:
         }
 
         try:
+            # Security AST inspection: block imports and dunder attribute/identifier access
+            tree = ast.parse(code_snippet)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import | ast.ImportFrom):
+                    raise PolarsCodeExecutionError("Imports are not allowed in sandbox execution.")
+                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                    raise PolarsCodeExecutionError(f"Access to dunder attribute '{node.attr}' is restricted.")
+                if isinstance(node, ast.Name) and node.id.startswith("__"):
+                    raise PolarsCodeExecutionError(f"Access to dunder name '{node.id}' is restricted.")
+
             # Execute cleaning script in safe namespace
             exec(code_snippet, cls.SAFE_GLOBALS, local_vars)
         except Exception as e:

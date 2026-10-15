@@ -39,3 +39,10 @@ os.system('echo hacked')
 """
         with pytest.raises(PolarsCodeExecutionError):
             PolarsCodeExecutor.execute_cleaning_code(df, script)
+
+    def test_sandbox_blocks_dunder_attributes(self):
+        df = pl.DataFrame({"a": [1, 2, 3]})
+        script = "sub = ().__class__.__base__.__subclasses__()"
+        with pytest.raises(PolarsCodeExecutionError) as exc_info:
+            PolarsCodeExecutor.execute_cleaning_code(df, script)
+        assert "dunder attribute" in str(exc_info.value)

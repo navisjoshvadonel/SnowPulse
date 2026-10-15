@@ -555,7 +555,7 @@ class AnalyticsEngine:
                 })
 
             # Sort by sum descending to maintain previous behavior
-            partition_data.sort(key=lambda x: x["sum_v"], reverse=True)
+            partition_data.sort(key=lambda x: float(x["sum_v"]), reverse=True)
 
             results: list[dict[str, Any]] = []
 

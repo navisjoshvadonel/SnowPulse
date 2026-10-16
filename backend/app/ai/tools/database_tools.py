@@ -29,17 +29,16 @@ class SecurityAlertException(Exception):
 def validate_safe_path(file_path: str) -> str:
     """
     Validates that a local file path is safe and prevents directory traversal attacks.
+    Ensures that resolved path strictly matches or resides under allowed directories (cwd or /tmp).
     """
     resolved_path = os.path.realpath(file_path)
     cwd = os.path.realpath(os.getcwd())
     tmp_dir = os.path.realpath("/tmp")
 
-    if not (
-        resolved_path.startswith(cwd + os.sep)
-        or resolved_path.startswith(tmp_dir + os.sep)
-        or resolved_path == cwd
-        or resolved_path == tmp_dir
-    ):
+    is_under_cwd = resolved_path == cwd or resolved_path.startswith(cwd + os.sep)
+    is_under_tmp = resolved_path == tmp_dir or resolved_path.startswith(tmp_dir + os.sep)
+
+    if not (is_under_cwd or is_under_tmp):
         logger.warning("security.path_traversal_attempt", path=file_path, resolved=resolved_path)
         raise SecurityAlertException("Access Denied: Path traversal detected or unauthorized file access.")
 

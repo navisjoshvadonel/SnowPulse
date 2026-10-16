@@ -130,6 +130,7 @@ export default function AiQueryPanel() {
             <button 
               type="submit" 
               disabled={!query.trim() || isSubmitting}
+              aria-label="Submit AI query"
               className="absolute right-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

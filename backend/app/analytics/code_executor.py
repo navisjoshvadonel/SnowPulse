@@ -1,3 +1,4 @@
+import ast
 from typing import Any
 
 import polars as pl
@@ -39,6 +40,25 @@ class PolarsCodeExecutor:
     }
 
     @classmethod
+    def _validate_ast(cls, code_snippet: str) -> None:
+        """
+        Parses code snippet into AST and blocks imports and dunder attribute/name access
+        to prevent object introspection sandbox escapes.
+        """
+        try:
+            tree = ast.parse(code_snippet)
+        except SyntaxError as e:
+            raise PolarsCodeExecutionError(f"Syntax error in Polars script: {e}")
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import | ast.ImportFrom):
+                raise PolarsCodeExecutionError("Access Denied: Import statements are not allowed.")
+            if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                raise PolarsCodeExecutionError(f"Access Denied: Dunder attribute access '{node.attr}' is not allowed.")
+            if isinstance(node, ast.Name) and node.id.startswith("__"):
+                raise PolarsCodeExecutionError(f"Access Denied: Dunder name access '{node.id}' is not allowed.")
+
+    @classmethod
     def execute_cleaning_code(
         cls,
         df: pl.DataFrame,
@@ -48,6 +68,7 @@ class PolarsCodeExecutor:
         Converts df to a LazyFrame (ldf), executes code_snippet in a sandboxed environment,
         and calls .collect() to optimize and materialize the final DataFrame.
         """
+        cls._validate_ast(code_snippet)
         if not isinstance(df, pl.DataFrame):
             if isinstance(df, pl.LazyFrame):
                 ldf = df

@@ -39,3 +39,13 @@ os.system('echo hacked')
 """
         with pytest.raises(PolarsCodeExecutionError):
             PolarsCodeExecutor.execute_cleaning_code(df, script)
+
+    def test_sandbox_blocks_dunder_attribute_and_identifier_access(self):
+        df = pl.DataFrame({"a": [1, 2, 3]})
+        dunder_script_1 = "subclasses = ().__class__.__base__.__subclasses__()"
+        with pytest.raises(PolarsCodeExecutionError, match="Dunder attribute access"):
+            PolarsCodeExecutor.execute_cleaning_code(df, dunder_script_1)
+
+        dunder_script_2 = "b = __builtins__"
+        with pytest.raises(PolarsCodeExecutionError, match="Dunder name access"):
+            PolarsCodeExecutor.execute_cleaning_code(df, dunder_script_2)

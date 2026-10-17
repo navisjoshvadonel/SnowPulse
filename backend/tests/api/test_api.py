@@ -164,6 +164,28 @@ def test_dataset_schema(client, db, test_user, auth_headers):
     response = client.get("/api/datasets/9999/schema", headers=auth_headers)
     assert response.status_code == 404
 
+    # Tenant isolation check: another user's dataset should return 404
+    other_user = User(
+        email="other_schema_user@snowpulse.com",
+        hashed_password=get_password_hash("password123"),
+        is_active=True
+    )
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    other_dataset = Dataset(
+        owner_id=other_user.id,
+        name="other_sales_data.csv",
+        file_path="test_sales_data.csv"
+    )
+    db.add(other_dataset)
+    db.commit()
+    db.refresh(other_dataset)
+
+    response = client.get(f"/api/datasets/{other_dataset.id}/schema", headers=auth_headers)
+    assert response.status_code == 404
+
 
 def test_ml_training_history_empty(client, db, test_user, auth_headers):
     dataset = Dataset(

@@ -411,7 +411,9 @@ def get_dataset_schema(
     Column-level profile of a dataset — delegates to stored DatasetProfile.
     Powers the Dataset Overview panel.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

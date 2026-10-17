@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Code2, Terminal } from "lucide-react";
+import { Code2, Terminal, Check, Copy, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CalculationLineagePopoverProps {
@@ -28,8 +28,11 @@ export default function CalculationLineagePopover({
     <div className="relative inline-block">
       <button
         onClick={() => setOpen(!open)}
-        className="p-1 text-white/40 hover:text-cyan-400 transition-colors cursor-pointer"
+        className="p-1 text-white/40 hover:text-cyan-400 transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
         title="View Logic & Query Lineage"
+        aria-label={`View logic and query lineage for ${metricName}`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
       >
         <Code2 size={13} />
       </button>
@@ -41,14 +44,39 @@ export default function CalculationLineagePopover({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.95 }}
             className="absolute left-0 mt-1 z-50 w-80 p-3 rounded-xl bg-[#12151e] border border-white/10 shadow-2xl space-y-2.5"
+            role="dialog"
+            aria-label={`Calculation lineage for ${metricName}`}
           >
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-1.5">
               <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
                 <Terminal size={12} className="text-cyan-400" /> Calculation Lineage: {metricName}
               </span>
-              <button onClick={copyCode} className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300">
-                {copied ? "Copied SQL" : "Copy SQL"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyCode}
+                  aria-label="Copy SQL query to clipboard"
+                  className="flex items-center gap-1 text-[10px] font-mono text-cyan-400 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded px-1 transition-colors"
+                >
+                  {copied ? (
+                    <>
+                      <Check size={11} className="text-emerald-400" />
+                      <span className="text-emerald-400">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={11} />
+                      <span>Copy SQL</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Close lineage popover"
+                  className="p-0.5 text-white/40 hover:text-white rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
             </div>
 
             <div>

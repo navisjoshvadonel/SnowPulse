@@ -8,3 +8,7 @@
 ## 2025-03-05 - Avoid O(N^2) Polars Iteration
 **Learning:** Polars dataframes should never be manually iterated over using `.filter(pl.col(dim) == value)` inside a Python loop if looping through groups (which causes extreme N^2 algorithmic complexity on categorical columns).
 **Action:** Use `.partition_by(dim)` to vectorize group extraction, returning an iterable of partitioned dataframes dynamically in a single pass (O(N)), leading to 10x+ algorithmic speedups.
+
+## 2023-10-18 - Avoid O(N^2) DataFrame Filtering in Categorical Subsets
+**Learning:** Polars `df.filter` operations inside a python `for` loop over unique categories leads to massive O(N^2) bottlenecks on high-cardinality datasets, as it scans the full DataFrame repeatedly.
+**Action:** Replace `for val in df.unique(): df.filter(...)` with vectorized partitioning via `[p[...].to_numpy() for p in df.partition_by(cat_col)]`. Always filter out empty arrays (e.g., `if len(g) > 0`) before passing to statistical methods like `scipy.stats.f_oneway` to prevent crashes.

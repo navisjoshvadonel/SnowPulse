@@ -17,6 +17,32 @@ class TestAIRoutes:
         resp = client.post("/api/ai/analyze", json={"dataset_id": 99999}, headers=auth_headers)
         assert resp.status_code == 404
 
+    def test_ai_endpoints_unauthorized_dataset_access(self, client, db, test_user, auth_headers):
+        from backend.app.auth import get_password_hash
+        from backend.app.models import User
+
+        # Create a second user
+        other_user = User(email="user2@example.com", hashed_password=get_password_hash("password123"))
+        db.add(other_user)
+        db.commit()
+        db.refresh(other_user)
+
+        # Create dataset owned by user2
+        other_ds = Dataset(owner_id=other_user.id, name="other-user-ds", file_path="other.csv")
+        db.add(other_ds)
+        db.commit()
+        db.refresh(other_ds)
+
+        # Assert user 1 gets 404 when querying another tenant's dataset across AI endpoints
+        resp_analyze = client.post("/api/ai/analyze", json={"dataset_id": other_ds.id}, headers=auth_headers)
+        assert resp_analyze.status_code == 404
+
+        resp_forecast = client.post("/api/ai/forecast", json={"dataset_id": other_ds.id}, headers=auth_headers)
+        assert resp_forecast.status_code == 404
+
+        resp_report = client.post("/api/ai/report", json={"query": "test", "report_type": "kpi", "dataset_id": other_ds.id}, headers=auth_headers)
+        assert resp_report.status_code == 404
+
     @patch("backend.app.ai.routes.DatabaseTools.get_dataset_statistics")
     def test_analyze_dataset_success(self, mock_stats, client, db, test_user, auth_headers):
         mock_stats.return_value = {"success": True, "kpis": {}}

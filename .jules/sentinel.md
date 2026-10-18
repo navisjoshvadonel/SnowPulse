@@ -17,3 +17,8 @@
 **Vulnerability:** `PolarsCodeExecutor` relied exclusively on restricted `__builtins__` dictionary to sandbox user-supplied code snippets, allowing attackers to access Python object introspection (`.__class__.__base__.__subclasses__()`) and escape the sandbox.
 **Learning:** Restricting `__builtins__` in dynamic `exec()` blocks is insufficient to isolate Python code execution because dunder attributes allow traversing object hierarchies to reach unsafe builtins or loaded modules.
 **Prevention:** Enforce static AST inspection (`ast.parse`) before executing user dynamic code to reject import statements (`ast.Import`/`ast.ImportFrom`) and dunder identifier or attribute access (`.startswith("__")`).
+
+## 2025-05-22 - Missing Tenant Authorization Checks on AI Service Endpoints
+**Vulnerability:** `/api/ai/chat`, `/api/ai/analyze`, `/api/ai/report`, and `/api/ai/forecast` queried `Dataset` records by `id` alone without matching `owner_id == current_user.id`, allowing authenticated users to access other tenants' dataset metrics and triggers.
+**Learning:** Dedicated AI endpoints and analytical routes often omit tenant boundary filters when looking up resource IDs in secondary database queries.
+**Prevention:** Always append `Dataset.owner_id == current_user.id` filter criteria on all resource queries accepting client-provided IDs in AI services.

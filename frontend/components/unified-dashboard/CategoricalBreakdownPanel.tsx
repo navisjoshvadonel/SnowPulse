@@ -219,6 +219,7 @@ export default function CategoricalBreakdownPanel({
           <select
             value={selectedCol}
             onChange={(e) => setSelectedCol(e.target.value)}
+            aria-label="Select categorical column to display"
             className="bg-slate-800/80 border border-slate-700 text-xs text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-cyan-500 capitalize"
           >
             {catCols.map((c) => (
@@ -231,6 +232,8 @@ export default function CategoricalBreakdownPanel({
           <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700/80">
             <button
               onClick={() => setChartType("pie")}
+              title="View as Pie Chart"
+              aria-label="View as Pie Chart"
               className={`p-1.5 rounded-lg transition-all ${
                 chartType === "pie" ? "bg-cyan-500/20 text-cyan-300 font-semibold" : "text-slate-400 hover:text-slate-200"
               }`}
@@ -239,6 +242,8 @@ export default function CategoricalBreakdownPanel({
             </button>
             <button
               onClick={() => setChartType("bar")}
+              title="View as Bar Chart"
+              aria-label="View as Bar Chart"
               className={`p-1.5 rounded-lg transition-all ${
                 chartType === "bar" ? "bg-cyan-500/20 text-cyan-300 font-semibold" : "text-slate-400 hover:text-slate-200"
               }`}

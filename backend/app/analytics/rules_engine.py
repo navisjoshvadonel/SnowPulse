@@ -25,6 +25,7 @@ The public API is a single class ``ChartSuggester`` with a method
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -127,16 +128,18 @@ def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.Da
     # Determine cardinality
     cat_card = cat.cardinality if hasattr(cat, "cardinality") else df[cat.name].n_unique()
     # Compute ANOVA effect size (eta squared) as a proxy
-    groups = []
-    for val in df[cat.name].unique().to_list():
-        groups.append(df.filter(pl.col(cat.name) == val)[num.name].drop_nulls().to_numpy())
+    groups = [
+        g[num.name].drop_nulls().to_numpy()
+        for g in df.partition_by(cat.name)
+        if len(g[num.name].drop_nulls()) > 0
+    ]
     # If not enough groups, fallback to simple variance between means
     if len(groups) < 2:
         eta2 = 0.0
     else:
         f_val, p_val = stats.f_oneway(*groups)
         # eta_squared = sum_sq_between / total_sum_sq approximated via p-value
-        eta2 = max(0.0, 1 - p_val)  # rough proxy
+        eta2 = max(0.0, 1 - p_val) if not math.isnan(p_val) else 0.0  # rough proxy
     sig = eta2 * 0.7
     clr = 0.7 if cat_card <= 10 else 0.4
     comp = 1 - (_missingness(df[num.name]) + _missingness(df[cat.name])) / 2

@@ -1,3 +1,4 @@
+import ast
 import os
 import re
 from typing import Any
@@ -187,6 +188,19 @@ class DatabaseTools:
                 }
             }
             local_vars = {"df": df}
+
+            # AST validation to prevent sandbox escape via imports or dunder introspection
+            try:
+                tree = ast.parse(python_code)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Import | ast.ImportFrom):
+                        raise SecurityAlertException("Access Denied: Import statements are not allowed in user code.")
+                    if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                        raise SecurityAlertException(f"Access Denied: Dunder attribute access '{node.attr}' is not allowed.")
+                    if isinstance(node, ast.Name) and node.id.startswith("__"):
+                        raise SecurityAlertException(f"Access Denied: Dunder name access '{node.id}' is not allowed.")
+            except SyntaxError as se:
+                raise SecurityAlertException(f"Syntax error in Python script: {se}")
 
             # Execute
             exec(python_code, safe_globals, local_vars)

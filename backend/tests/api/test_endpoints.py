@@ -119,6 +119,31 @@ class TestDatasets:
         # Ensure test_user does not see other_user's dataset
         assert not any(d["name"] == "other_user_private_data" for d in data)
 
+    def test_get_dataset_for_user_other_tenant_returns_404(self, client, db, test_user, auth_headers):
+        from backend.app.models import User
+        other_user = User(email="other_tenant@snowpulse.com", hashed_password="pwd")
+        db.add(other_user)
+        db.commit()
+        db.refresh(other_user)
+
+        other_ds = Dataset(
+            owner_id=other_user.id,
+            name="other_user_private_dataset",
+            file_path="other_private.csv"
+        )
+        db.add(other_ds)
+        db.commit()
+        db.refresh(other_ds)
+
+        # Confirm that querying other tenant's dataset via endpoints relying on _get_dataset_for_user returns 404
+        resp = client.get(f"/api/ml/history/{other_ds.id}?task_type=classification", headers=auth_headers)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Dataset not found"
+
+        resp_fc = client.get(f"/api/forecast/predict/{other_ds.id}", headers=auth_headers)
+        assert resp_fc.status_code == 404
+        assert resp_fc.json()["detail"] == "Dataset not found"
+
     def test_delete_dataset_success(self, client, db, test_user, auth_headers):
         ds = Dataset(
             owner_id=test_user.id,

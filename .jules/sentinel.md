@@ -17,3 +17,8 @@
 **Vulnerability:** `PolarsCodeExecutor` relied exclusively on restricted `__builtins__` dictionary to sandbox user-supplied code snippets, allowing attackers to access Python object introspection (`.__class__.__base__.__subclasses__()`) and escape the sandbox.
 **Learning:** Restricting `__builtins__` in dynamic `exec()` blocks is insufficient to isolate Python code execution because dunder attributes allow traversing object hierarchies to reach unsafe builtins or loaded modules.
 **Prevention:** Enforce static AST inspection (`ast.parse`) before executing user dynamic code to reject import statements (`ast.Import`/`ast.ImportFrom`) and dunder identifier or attribute access (`.startswith("__")`).
+
+## 2025-05-22 - Multi-Tenant Authorization Bypass in _get_dataset_for_user
+**Vulnerability:** `_get_dataset_for_user` fell back to querying datasets without checking `owner_id == current_user.id` when the dataset didn't belong to the requesting user, allowing unauthorized access to other tenants' dataset machine learning and forecasting resources.
+**Learning:** Authorization helper functions must never include fallback queries that bypass tenant identity checks (`owner_id == current_user.id`).
+**Prevention:** Helper functions validating resource ownership must strictly restrict database filters to `owner_id == current_user.id` and return `None` if ownership is not satisfied.

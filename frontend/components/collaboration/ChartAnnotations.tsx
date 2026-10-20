@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { MessageSquare, Plus, Check } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 
 interface CommentItem {
   id: string;
@@ -64,7 +64,12 @@ export default function ChartAnnotations() {
               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
               onKeyDown={(e) => e.key === "Enter" && addComment()}
             />
-            <button onClick={addComment} className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30">
+            <button
+              onClick={addComment}
+              aria-label="Add annotation"
+              title="Add annotation"
+              className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors cursor-pointer"
+            >
               <Plus size={14} />
             </button>
           </div>

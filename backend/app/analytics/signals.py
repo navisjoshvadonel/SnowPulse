@@ -48,11 +48,7 @@ class SignalDetector:
 
     @classmethod
     def detect_signals(
-        cls,
-        df: pl.DataFrame,
-        profile: DatasetProfile,
-        min_signals: int = 5,
-        max_signals: int = 8
+        cls, df: pl.DataFrame, profile: DatasetProfile, min_signals: int = 5, max_signals: int = 8
     ) -> list[DetectedSignal]:
         signals: list[DetectedSignal] = []
 
@@ -130,8 +126,8 @@ class SignalDetector:
                                     "outlier_ratio": round(outlier_ratio, 4),
                                     "lower_bound": round(lower_bound, 2),
                                     "upper_bound": round(upper_bound, 2),
-                                    "iqr": round(iqr, 2)
-                                }
+                                    "iqr": round(iqr, 2),
+                                },
                             )
                         )
 
@@ -172,8 +168,8 @@ class SignalDetector:
                             details={
                                 "anomalous_rows": multi_outliers,
                                 "anomalous_pct": round(multi_ratio * 100, 2),
-                                "evaluated_columns": num_col_names
-                            }
+                                "evaluated_columns": num_col_names,
+                            },
                         )
                     )
             except Exception as e:
@@ -255,8 +251,8 @@ class SignalDetector:
                                     "bucket_mean": round(b_mean, 2),
                                     "overall_mean": round(overall_mean, 2),
                                     "z_score": round(z_score, 2),
-                                    "pct_change": round(pct_change, 2)
-                                }
+                                    "pct_change": round(pct_change, 2),
+                                },
                             )
                         )
                         # Limit 1 shift signal per column to avoid noise
@@ -304,7 +300,7 @@ class SignalDetector:
                             severity_score=round(sev_score, 3),
                             statistical_significance=round(stat_sig, 3),
                             business_relevance=round(biz_rel, 3),
-                            details={"r": round(r_val, 3), "relationship": "positive"}
+                            details={"r": round(r_val, 3), "relationship": "positive"},
                         )
                     )
                 elif r_val <= -0.80:
@@ -320,7 +316,7 @@ class SignalDetector:
                             severity_score=round(sev_score, 3),
                             statistical_significance=round(stat_sig, 3),
                             business_relevance=round(biz_rel, 3),
-                            details={"r": round(r_val, 3), "relationship": "negative"}
+                            details={"r": round(r_val, 3), "relationship": "negative"},
                         )
                     )
 
@@ -346,7 +342,7 @@ class SignalDetector:
                                 severity_score=round(sev_score, 3),
                                 statistical_significance=round(stat_sig, 3),
                                 business_relevance=round(biz_rel, 3),
-                                details={"mi_score": round(mi_val, 3), "relationship": "non_linear"}
+                                details={"mi_score": round(mi_val, 3), "relationship": "non_linear"},
                             )
                         )
 
@@ -363,26 +359,30 @@ class SignalDetector:
         col_map = {c.name: c for c in null_cols}
 
         try:
-            # Build missingness boolean mask matrix
-            null_masks = {name: df[name].is_null().to_numpy() for name in col_names}
+            # Vectorized Missingness Calculation:
+            # Instead of nested O(N^2) loops over boolean masks (which is very slow for large column counts),
+            # extract all null masks into an (M, N) matrix and compute pairwise overlaps using matrix multiplication (np.dot).
+            mask_matrix = df.select([pl.col(name).is_null() for name in col_names]).to_numpy().astype(np.float32)
+            co_occur_matrix = np.dot(mask_matrix.T, mask_matrix)
+            null_counts = np.diag(co_occur_matrix)
 
             for i in range(len(col_names)):
                 for j in range(i + 1, len(col_names)):
                     name_a, name_b = col_names[i], col_names[j]
-                    mask_a = null_masks[name_a]
-                    mask_b = null_masks[name_b]
+                    count_a = int(null_counts[i])
 
-                    count_a = int(np.sum(mask_a))
                     if count_a < 5:
                         continue
 
-                    both_missing = int(np.sum(mask_a & mask_b))
+                    both_missing = int(co_occur_matrix[i, j])
                     co_occur_ratio = both_missing / count_a
 
                     if co_occur_ratio >= 0.60:
                         c_a = col_map[name_a]
                         c_b = col_map[name_b]
-                        biz_rel = (cls._calc_business_relevance(c_a, profile) + cls._calc_business_relevance(c_b, profile)) / 2.0
+                        biz_rel = (
+                            cls._calc_business_relevance(c_a, profile) + cls._calc_business_relevance(c_b, profile)
+                        ) / 2.0
                         stat_sig = min(1.0, co_occur_ratio)
                         sev_score = min(1.0, stat_sig * biz_rel)
 
@@ -400,8 +400,8 @@ class SignalDetector:
                                     "col_a": name_a,
                                     "col_b": name_b,
                                     "co_occurrence_pct": round(co_occur_ratio * 100, 1),
-                                    "co_occurrence_count": both_missing
-                                }
+                                    "co_occurrence_count": both_missing,
+                                },
                             )
                         )
         except Exception as e:
@@ -451,8 +451,8 @@ class SignalDetector:
                             "dominant_value": str(top_val_name),
                             "dominant_share_pct": round(share * 100, 1),
                             "gini_impurity": round(gini, 3),
-                            "cardinality": col.cardinality
-                        }
+                            "cardinality": col.cardinality,
+                        },
                     )
                 )
 

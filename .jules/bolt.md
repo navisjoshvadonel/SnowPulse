@@ -8,3 +8,7 @@
 ## 2025-03-05 - Avoid O(N^2) Polars Iteration
 **Learning:** Polars dataframes should never be manually iterated over using `.filter(pl.col(dim) == value)` inside a Python loop if looping through groups (which causes extreme N^2 algorithmic complexity on categorical columns).
 **Action:** Use `.partition_by(dim)` to vectorize group extraction, returning an iterable of partitioned dataframes dynamically in a single pass (O(N)), leading to 10x+ algorithmic speedups.
+
+## 2026-10-20 - Vectorized Pairwise Boolean Operations
+**Learning:** Computing pairwise boolean operations (like checking overlaps or co-occurrences of nulls) using explicit nested Python loops with `np.sum(mask_a & mask_b)` creates severe O(N^2) bottlenecks when the number of columns (N) is high. It can take ~65ms for 100 columns but scales quadratically.
+**Action:** Instead, convert the boolean masks to an (M, N) float32 NumPy matrix and use `np.dot(matrix.T, matrix)` to get an (N, N) matrix of pairwise overlaps. This is significantly faster (~5ms for 100 columns) and avoids Python iteration overhead for array operations.

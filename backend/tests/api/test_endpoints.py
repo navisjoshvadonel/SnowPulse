@@ -229,11 +229,30 @@ class TestInsights:
         assert resp.status_code == 404
 
 
-# --- ML History ---
+# --- ML History & Tenant Isolation ---
 
 class TestMLHistory:
     def test_ml_history_nonexistent_dataset(self, client, auth_headers):
         resp = client.get("/api/ml/history/99999?task_type=classification", headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_ml_endpoints_unowned_dataset_returns_404(self, client, auth_headers, db):
+        from backend.app.models import Dataset, User
+        other_user = User(email="other_tenant@example.com", hashed_password="hashed_password_xyz")
+        db.add(other_user)
+        db.commit()
+        db.refresh(other_user)
+
+        dataset = Dataset(name="Other Tenant Dataset", owner_id=other_user.id, file_path="minio://datasets/other.csv")
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+
+        # Confirm another user cannot access ML history or targets for unowned dataset
+        resp = client.get(f"/api/ml/history/{dataset.id}?task_type=classification", headers=auth_headers)
+        assert resp.status_code == 404
+
+        resp = client.get(f"/api/ml/targets/{dataset.id}", headers=auth_headers)
         assert resp.status_code == 404
 
 

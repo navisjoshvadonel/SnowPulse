@@ -1554,10 +1554,7 @@ def unified_search(
 
 
 def _get_dataset_for_user(db: Session, dataset_id: int, current_user: User) -> Dataset | None:
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
-    if not dataset:
-        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-    return dataset
+    return db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
 
 
 # --- TIME-SERIES FORECASTING API ---

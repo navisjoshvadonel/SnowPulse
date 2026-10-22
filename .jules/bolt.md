@@ -8,3 +8,7 @@
 ## 2025-03-05 - Avoid O(N^2) Polars Iteration
 **Learning:** Polars dataframes should never be manually iterated over using `.filter(pl.col(dim) == value)` inside a Python loop if looping through groups (which causes extreme N^2 algorithmic complexity on categorical columns).
 **Action:** Use `.partition_by(dim)` to vectorize group extraction, returning an iterable of partitioned dataframes dynamically in a single pass (O(N)), leading to 10x+ algorithmic speedups.
+
+## 2026-10-22 - Optimize Polars iter_rows
+**Learning:** Polars `iter_rows()` to list of dicts is slower than using native Polars expressions (e.g. `.select([...]).to_dicts()`). This applies especially in loops that process Polars DataFrames into lists of dictionaries for JSON serialization or other Python processing.
+**Action:** Replace `for row in df.iter_rows(): list.append(...)` patterns with native Polars expressions ending in `.to_dicts()` to achieve better performance by avoiding Python-level looping and object creation for each row.

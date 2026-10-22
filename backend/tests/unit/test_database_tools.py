@@ -106,6 +106,27 @@ class TestDatabaseToolsForecast:
         assert result["success"] is False
         assert "access denied" in result["error"].lower() or "path traversal" in result["error"].lower()
 
+    def test_run_python_forecast_disallows_import(self, tmp_path):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Date,Revenue\n2024-01-01,100\n")
+        result = DatabaseTools.run_python_forecast(str(csv_file), "import os\nforecast_result = 123")
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "import statements are not allowed" in result["error"].lower()
+
+    def test_run_python_forecast_disallows_dunder_access(self, tmp_path):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Date,Revenue\n2024-01-01,100\n")
+        result = DatabaseTools.run_python_forecast(str(csv_file), "cls = ''.__class__\nforecast_result = 123")
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "dunder attribute access" in result["error"].lower()
+
+    def test_run_python_forecast_valid_code(self, tmp_path):
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("Date,Revenue\n2024-01-01,100\n")
+        result = DatabaseTools.run_python_forecast(str(csv_file), "forecast_result = len(df)")
+        assert result["success"] is True
+        assert result["result"] == 1
+
 
 class TestDatabaseToolsQuality:
     def test_get_data_quality_report_valid_file(self, tmp_path):

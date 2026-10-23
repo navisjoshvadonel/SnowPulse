@@ -273,10 +273,11 @@ class AnalyticsEngine:
             .sort("value", descending=True)
         )
 
-        return [
-            {"region": row[0], "value": float(row[1] or 0), "count": int(row[2] or 0)}
-            for row in grouped.iter_rows()
-        ]
+        return grouped.select(
+            pl.col(active_geo).cast(pl.String).alias("region"),
+            pl.col("value").fill_null(0.0).cast(pl.Float64),
+            pl.col("count").cast(pl.Int64)
+        ).to_dicts()
 
     # ------------------------------------------------------------------
     # Anomalies
@@ -1225,16 +1226,13 @@ class AnalyticsEngine:
             raise ValueError("No valid geo-coded rows after coordinate resolution.")
 
         # ---- 1. Heat Points (raw scatter) ----
-        heat_points = []
         sample_df = work_df.head(min(top_n * 20, work_df.height))
-        select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
-        for row in sample_df.select(select_cols).iter_rows(named=True):
-            heat_points.append({
-                "lat": round(float(row["_lat"]), 6),
-                "lng": round(float(row["_lng"]), 6),
-                "value": float(row[metric]) if row[metric] is not None else 0.0,
-                "label": str(row[label_col]) if row[label_col] is not None else "Unknown",
-            })
+        heat_points = sample_df.select(
+            pl.col("_lat").cast(pl.Float64).round(6).alias("lat"),
+            pl.col("_lng").cast(pl.Float64).round(6).alias("lng"),
+            pl.col(metric).fill_null(0.0).cast(pl.Float64).alias("value"),
+            pl.col(label_col).fill_null("Unknown").cast(pl.String).alias("label")
+        ).to_dicts()
 
         # ---- 2. Region Aggregates (grouped) ----
         region_aggregates = []
@@ -1250,19 +1248,17 @@ class AnalyticsEngine:
             ]).sort("total", descending=True).head(top_n)
 
             grand_total = float(work_df[metric].sum() or 1)
-            for row in agg_df.iter_rows(named=True):
-                total_val = float(row["total"]) if row["total"] is not None else 0
-                region_aggregates.append({
-                    "region": str(row[label_col]),
-                    "total": round(total_val, 2),
-                    "avg": round(float(row["avg"] or 0), 2),
-                    "count": int(row["count"]),
-                    "std": round(float(row["std"] or 0), 2),
-                    "max_val": round(float(row["max_val"] or 0), 2),
-                    "pct_of_total": round((total_val / grand_total) * 100, 2) if grand_total > 0 else 0,
-                    "lat": round(float(row["centroid_lat"] or 0), 6),
-                    "lng": round(float(row["centroid_lng"] or 0), 6),
-                })
+            region_aggregates = agg_df.select(
+                pl.col(label_col).cast(pl.String).alias("region"),
+                pl.col("total").fill_null(0.0).cast(pl.Float64).round(2).alias("total"),
+                pl.col("avg").fill_null(0.0).cast(pl.Float64).round(2).alias("avg"),
+                pl.col("count").cast(pl.Int64).alias("count"),
+                pl.col("std").fill_null(0.0).cast(pl.Float64).round(2).alias("std"),
+                pl.col("max_val").fill_null(0.0).cast(pl.Float64).round(2).alias("max_val"),
+                ((pl.col("total").fill_null(0.0).cast(pl.Float64) / grand_total) * 100).round(2).alias("pct_of_total"),
+                pl.col("centroid_lat").fill_null(0.0).cast(pl.Float64).round(6).alias("lat"),
+                pl.col("centroid_lng").fill_null(0.0).cast(pl.Float64).round(6).alias("lng")
+            ).to_dicts()
 
         # ---- 3. Density Clusters (K-Means) ----
         density_clusters = []

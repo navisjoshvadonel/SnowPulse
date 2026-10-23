@@ -17,3 +17,8 @@
 **Vulnerability:** `PolarsCodeExecutor` relied exclusively on restricted `__builtins__` dictionary to sandbox user-supplied code snippets, allowing attackers to access Python object introspection (`.__class__.__base__.__subclasses__()`) and escape the sandbox.
 **Learning:** Restricting `__builtins__` in dynamic `exec()` blocks is insufficient to isolate Python code execution because dunder attributes allow traversing object hierarchies to reach unsafe builtins or loaded modules.
 **Prevention:** Enforce static AST inspection (`ast.parse`) before executing user dynamic code to reject import statements (`ast.Import`/`ast.ImportFrom`) and dunder identifier or attribute access (`.startswith("__")`).
+
+## 2025-05-22 - Missing AST Inspection in `DatabaseTools.run_python_forecast` Sandbox
+**Vulnerability:** `DatabaseTools.run_python_forecast` executed dynamic Pandas user scripts with restricted `__builtins__` but without AST parsing, permitting import statements and object introspection dunder attacks.
+**Learning:** Any endpoint or tool offering custom code execution (`exec()`) must apply uniform AST parsing safeguards across all tool suites rather than assuming built-in restrictions alone are safe.
+**Prevention:** Standardize AST validation across all dynamic execution tools by verifying code AST (`ast.walk`) to disallow imports and dunder attributes (`__`).

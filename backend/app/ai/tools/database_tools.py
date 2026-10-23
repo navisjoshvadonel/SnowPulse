@@ -1,3 +1,4 @@
+import ast
 import os
 import re
 from typing import Any
@@ -25,6 +26,24 @@ SENSITIVE_TABLES = re.compile(
 
 class SecurityAlertException(Exception):
     pass
+
+def validate_python_ast(code_snippet: str) -> None:
+    """
+    Parses user code snippet into AST and blocks imports and dunder attribute/name access
+    to prevent sandbox escape via object introspection.
+    """
+    try:
+        tree = ast.parse(code_snippet)
+    except SyntaxError as e:
+        raise SecurityAlertException(f"Syntax error in Python script: {e}")
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            raise SecurityAlertException("Access Denied: Import statements are not allowed in sandbox.")
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+            raise SecurityAlertException(f"Access Denied: Dunder attribute access '{node.attr}' is not allowed.")
+        if isinstance(node, ast.Name) and node.id.startswith("__"):
+            raise SecurityAlertException(f"Access Denied: Dunder name access '{node.id}' is not allowed.")
 
 def validate_safe_path(file_path: str) -> str:
     """
@@ -175,6 +194,9 @@ class DatabaseTools:
             else:
                 dataset_path = validate_safe_path(dataset_path)
                 df = pd.read_csv(dataset_path)
+
+            # Validate AST before execution
+            validate_python_ast(python_code)
 
             # Restrict harmful builtins
             safe_globals = {

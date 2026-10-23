@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Download, FileText, Sparkles, CheckCircle, ShieldCheck, Printer } from "lucide-react";
+import { X, FileText, Sparkles, CheckCircle, ShieldCheck, Printer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PdfExportModalProps {
@@ -76,6 +76,7 @@ export default function PdfExportModal({
               </button>
               <button
                 onClick={onClose}
+                aria-label="Close modal"
                 className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
               >
                 <X size={18} />

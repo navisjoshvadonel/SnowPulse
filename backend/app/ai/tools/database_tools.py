@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ...analytics.code_executor import PolarsCodeExecutor
 from ...analytics.engine import AnalyticsEngine
 from ...forecasting.predictor import ForecastingPredictor
 from ...logging_config import logger
@@ -175,6 +176,9 @@ class DatabaseTools:
             else:
                 dataset_path = validate_safe_path(dataset_path)
                 df = pd.read_csv(dataset_path)
+
+            # Validate AST to prevent imports and dunder access sandbox escapes
+            PolarsCodeExecutor._validate_ast(python_code)
 
             # Restrict harmful builtins
             safe_globals = {

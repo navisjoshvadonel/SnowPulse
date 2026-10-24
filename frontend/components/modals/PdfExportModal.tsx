@@ -76,7 +76,8 @@ export default function PdfExportModal({
               </button>
               <button
                 onClick={onClose}
-                className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
+                aria-label="Close modal"
+                className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
               >
                 <X size={18} />
               </button>

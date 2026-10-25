@@ -1,3 +1,4 @@
+import ast
 import os
 import re
 from typing import Any
@@ -175,6 +176,20 @@ class DatabaseTools:
             else:
                 dataset_path = validate_safe_path(dataset_path)
                 df = pd.read_csv(dataset_path)
+
+            # Validate AST to prevent sandbox escapes via imports or dunder introspection
+            try:
+                tree = ast.parse(python_code)
+            except SyntaxError as se:
+                raise SecurityAlertException(f"Syntax error in Python forecast script: {se}")
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import | ast.ImportFrom):
+                    raise SecurityAlertException("Access Denied: Import statements are not allowed.")
+                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                    raise SecurityAlertException(f"Access Denied: Dunder attribute access '{node.attr}' is not allowed.")
+                if isinstance(node, ast.Name) and node.id.startswith("__"):
+                    raise SecurityAlertException(f"Access Denied: Dunder name access '{node.id}' is not allowed.")
 
             # Restrict harmful builtins
             safe_globals = {

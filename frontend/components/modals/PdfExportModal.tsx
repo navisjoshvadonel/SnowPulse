@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Download, FileText, Sparkles, CheckCircle, ShieldCheck, Printer } from "lucide-react";
+import { X, FileText, Sparkles, CheckCircle, ShieldCheck, Printer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PdfExportModalProps {
@@ -69,14 +69,15 @@ export default function PdfExportModal({
               <button
                 onClick={handlePrint}
                 disabled={downloading}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-400 hover:to-sky-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-400 hover:to-sky-400 text-white font-semibold text-xs shadow-lg shadow-indigo-500/20 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {downloading ? <Sparkles size={14} className="animate-spin" /> : <Printer size={14} />}
                 <span>Print / Download PDF</span>
               </button>
               <button
                 onClick={onClose}
-                className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
+                aria-label="Close modal"
+                className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus:outline-none"
               >
                 <X size={18} />
               </button>

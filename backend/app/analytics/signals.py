@@ -48,11 +48,7 @@ class SignalDetector:
 
     @classmethod
     def detect_signals(
-        cls,
-        df: pl.DataFrame,
-        profile: DatasetProfile,
-        min_signals: int = 5,
-        max_signals: int = 8
+        cls, df: pl.DataFrame, profile: DatasetProfile, min_signals: int = 5, max_signals: int = 8
     ) -> list[DetectedSignal]:
         signals: list[DetectedSignal] = []
 
@@ -120,7 +116,7 @@ class SignalDetector:
                                 id=f"outlier_{col_name}",
                                 signal_type="outlier",
                                 title=f"Outlier Spike in {col_name.replace('_', ' ').title()}",
-                                description=f"Detected {outliers_count} anomalous data points ({outlier_ratio*100:.1f}% of records) beyond normal IQR bounds.",
+                                description=f"Detected {outliers_count} anomalous data points ({outlier_ratio * 100:.1f}% of records) beyond normal IQR bounds.",
                                 columns=[col_name],
                                 severity_score=round(sev_score, 3),
                                 statistical_significance=round(stat_sig, 3),
@@ -130,8 +126,8 @@ class SignalDetector:
                                     "outlier_ratio": round(outlier_ratio, 4),
                                     "lower_bound": round(lower_bound, 2),
                                     "upper_bound": round(upper_bound, 2),
-                                    "iqr": round(iqr, 2)
-                                }
+                                    "iqr": round(iqr, 2),
+                                },
                             )
                         )
 
@@ -164,7 +160,7 @@ class SignalDetector:
                             id="multivariate_outlier_cluster",
                             signal_type="multivariate_outlier",
                             title="Multivariate Outlier Pattern Detected",
-                            description=f"Isolation Forest identified {multi_outliers} multi-dimensional anomalous records ({multi_ratio*100:.1f}%) across numerical attributes.",
+                            description=f"Isolation Forest identified {multi_outliers} multi-dimensional anomalous records ({multi_ratio * 100:.1f}%) across numerical attributes.",
                             columns=num_col_names[:3],
                             severity_score=round(sev_score, 3),
                             statistical_significance=round(stat_sig, 3),
@@ -172,8 +168,8 @@ class SignalDetector:
                             details={
                                 "anomalous_rows": multi_outliers,
                                 "anomalous_pct": round(multi_ratio * 100, 2),
-                                "evaluated_columns": num_col_names
-                            }
+                                "evaluated_columns": num_col_names,
+                            },
                         )
                     )
             except Exception as e:
@@ -255,8 +251,8 @@ class SignalDetector:
                                     "bucket_mean": round(b_mean, 2),
                                     "overall_mean": round(overall_mean, 2),
                                     "z_score": round(z_score, 2),
-                                    "pct_change": round(pct_change, 2)
-                                }
+                                    "pct_change": round(pct_change, 2),
+                                },
                             )
                         )
                         # Limit 1 shift signal per column to avoid noise
@@ -304,7 +300,7 @@ class SignalDetector:
                             severity_score=round(sev_score, 3),
                             statistical_significance=round(stat_sig, 3),
                             business_relevance=round(biz_rel, 3),
-                            details={"r": round(r_val, 3), "relationship": "positive"}
+                            details={"r": round(r_val, 3), "relationship": "positive"},
                         )
                     )
                 elif r_val <= -0.80:
@@ -320,7 +316,7 @@ class SignalDetector:
                             severity_score=round(sev_score, 3),
                             statistical_significance=round(stat_sig, 3),
                             business_relevance=round(biz_rel, 3),
-                            details={"r": round(r_val, 3), "relationship": "negative"}
+                            details={"r": round(r_val, 3), "relationship": "negative"},
                         )
                     )
 
@@ -346,7 +342,7 @@ class SignalDetector:
                                 severity_score=round(sev_score, 3),
                                 statistical_significance=round(stat_sig, 3),
                                 business_relevance=round(biz_rel, 3),
-                                details={"mi_score": round(mi_val, 3), "relationship": "non_linear"}
+                                details={"mi_score": round(mi_val, 3), "relationship": "non_linear"},
                             )
                         )
 
@@ -364,25 +360,32 @@ class SignalDetector:
 
         try:
             # Build missingness boolean mask matrix
-            null_masks = {name: df[name].is_null().to_numpy() for name in col_names}
+            null_matrix = np.column_stack([df[name].is_null().to_numpy() for name in col_names])
+            counts = np.sum(null_matrix, axis=0)
+
+            # Optimization: Vectorize O(N^2) pairwise overlaps using matrix multiplication (np.dot)
+            # This computes boolean co-occurrence for all column pairs simultaneously in C/BLAS,
+            # avoiding a severe algorithmic bottleneck when datasets have many missing columns.
+            X = null_matrix.astype(np.float32)
+            dot_matrix = np.dot(X.T, X)
 
             for i in range(len(col_names)):
+                count_a = int(counts[i])
+                if count_a < 5:
+                    continue
+
                 for j in range(i + 1, len(col_names)):
                     name_a, name_b = col_names[i], col_names[j]
-                    mask_a = null_masks[name_a]
-                    mask_b = null_masks[name_b]
 
-                    count_a = int(np.sum(mask_a))
-                    if count_a < 5:
-                        continue
-
-                    both_missing = int(np.sum(mask_a & mask_b))
+                    both_missing = int(dot_matrix[i, j])
                     co_occur_ratio = both_missing / count_a
 
                     if co_occur_ratio >= 0.60:
                         c_a = col_map[name_a]
                         c_b = col_map[name_b]
-                        biz_rel = (cls._calc_business_relevance(c_a, profile) + cls._calc_business_relevance(c_b, profile)) / 2.0
+                        biz_rel = (
+                            cls._calc_business_relevance(c_a, profile) + cls._calc_business_relevance(c_b, profile)
+                        ) / 2.0
                         stat_sig = min(1.0, co_occur_ratio)
                         sev_score = min(1.0, stat_sig * biz_rel)
 
@@ -391,7 +394,7 @@ class SignalDetector:
                                 id=f"missing_cluster_{name_a}_{name_b}",
                                 signal_type="missingness_cluster",
                                 title=f"Missingness Cluster: {name_a.replace('_', ' ').title()} & {name_b.replace('_', ' ').title()}",
-                                description=f"When '{name_a}' is missing, '{name_b}' is also missing in {co_occur_ratio*100:.1f}% of cases ({both_missing} rows). Points to systematic data capture issue.",
+                                description=f"When '{name_a}' is missing, '{name_b}' is also missing in {co_occur_ratio * 100:.1f}% of cases ({both_missing} rows). Points to systematic data capture issue.",
                                 columns=[name_a, name_b],
                                 severity_score=round(sev_score, 3),
                                 statistical_significance=round(stat_sig, 3),
@@ -400,8 +403,8 @@ class SignalDetector:
                                     "col_a": name_a,
                                     "col_b": name_b,
                                     "co_occurrence_pct": round(co_occur_ratio * 100, 1),
-                                    "co_occurrence_count": both_missing
-                                }
+                                    "co_occurrence_count": both_missing,
+                                },
                             )
                         )
         except Exception as e:
@@ -442,7 +445,7 @@ class SignalDetector:
                         id=f"imbalance_{col.name}",
                         signal_type="category_imbalance",
                         title=f"Category Imbalance in {col.name.replace('_', ' ').title()}",
-                        description=f"Dominant value '{top_val_name}' accounts for {share*100:.1f}% of all records (Gini impurity={gini:.2f}).",
+                        description=f"Dominant value '{top_val_name}' accounts for {share * 100:.1f}% of all records (Gini impurity={gini:.2f}).",
                         columns=[col.name],
                         severity_score=round(sev_score, 3),
                         statistical_significance=round(stat_sig, 3),
@@ -451,8 +454,8 @@ class SignalDetector:
                             "dominant_value": str(top_val_name),
                             "dominant_share_pct": round(share * 100, 1),
                             "gini_impurity": round(gini, 3),
-                            "cardinality": col.cardinality
-                        }
+                            "cardinality": col.cardinality,
+                        },
                     )
                 )
 

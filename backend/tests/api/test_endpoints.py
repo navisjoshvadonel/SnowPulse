@@ -250,3 +250,37 @@ class TestUploadValidation:
         )
         assert resp.status_code == 400
         assert "Only CSV and Excel" in resp.json()["detail"]
+
+
+class TestTenantDataIsolation:
+    def test_other_user_dataset_access_forbidden(self, client, db, test_user):
+        from backend.app.auth import create_access_token, get_password_hash
+        from backend.app.models import Dataset, User
+
+        ds = Dataset(
+            owner_id=test_user.id,
+            name="Private Dataset",
+            description="Owned by test_user",
+            file_path="test_sales_data.csv",
+        )
+        db.add(ds)
+
+        other_user = User(
+            email="other_user@example.com",
+            hashed_password=get_password_hash("password123"),
+            is_active=True
+        )
+        db.add(other_user)
+        db.commit()
+        db.refresh(ds)
+
+        # Create token for a different user
+        token_other = create_access_token(data={"sub": "other_user@example.com"})
+        headers_other = {"Authorization": f"Bearer {token_other}"}
+
+        # Attempt to access test_user's dataset from another user account via ML / forecasting routes
+        resp = client.get(f"/api/ml/targets/{ds.id}", headers=headers_other)
+        assert resp.status_code == 404
+
+        resp = client.get(f"/api/forecast/predict/{ds.id}", headers=headers_other)
+        assert resp.status_code == 404

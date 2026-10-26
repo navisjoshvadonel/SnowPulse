@@ -17,3 +17,8 @@
 **Vulnerability:** `PolarsCodeExecutor` relied exclusively on restricted `__builtins__` dictionary to sandbox user-supplied code snippets, allowing attackers to access Python object introspection (`.__class__.__base__.__subclasses__()`) and escape the sandbox.
 **Learning:** Restricting `__builtins__` in dynamic `exec()` blocks is insufficient to isolate Python code execution because dunder attributes allow traversing object hierarchies to reach unsafe builtins or loaded modules.
 **Prevention:** Enforce static AST inspection (`ast.parse`) before executing user dynamic code to reject import statements (`ast.Import`/`ast.ImportFrom`) and dunder identifier or attribute access (`.startswith("__")`).
+
+## 2025-05-22 - Multi-Tenant Isolation Bypass in Forecasting and ML Helper
+**Vulnerability:** `_get_dataset_for_user` in `backend/app/main.py` fell back to fetching datasets globally (`db.query(Dataset).filter(Dataset.id == dataset_id).first()`) if the dataset was not owned by `current_user`, leaking private datasets to unauthorized tenants across ML and forecasting endpoints.
+**Learning:** Helper query functions used across multiple API endpoints must not contain fallback queries that relax tenant filtering logic when owner checks fail.
+**Prevention:** Ensure dataset lookup helpers strictly filter by `owner_id == current_user.id` without fallback global queries.

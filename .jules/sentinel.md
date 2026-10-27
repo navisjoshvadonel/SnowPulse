@@ -17,3 +17,8 @@
 **Vulnerability:** `PolarsCodeExecutor` relied exclusively on restricted `__builtins__` dictionary to sandbox user-supplied code snippets, allowing attackers to access Python object introspection (`.__class__.__base__.__subclasses__()`) and escape the sandbox.
 **Learning:** Restricting `__builtins__` in dynamic `exec()` blocks is insufficient to isolate Python code execution because dunder attributes allow traversing object hierarchies to reach unsafe builtins or loaded modules.
 **Prevention:** Enforce static AST inspection (`ast.parse`) before executing user dynamic code to reject import statements (`ast.Import`/`ast.ImportFrom`) and dunder identifier or attribute access (`.startswith("__")`).
+
+## 2025-05-22 - Multi-Tenant BOLA via Fallback Dataset Lookup in `_get_dataset_for_user`
+**Vulnerability:** `_get_dataset_for_user` fell back to fetching any dataset by ID (`db.query(Dataset).filter(Dataset.id == dataset_id).first()`) if the current user was not the dataset owner, allowing BOLA/IDOR in ML and forecasting endpoints.
+**Learning:** Helper routines designed to abstract database resource queries with tenant constraints must not include unauthenticated or un-owned fallback lookups.
+**Prevention:** Ensure helper functions for tenant-bound resource lookups enforce `owner_id == current_user.id` strictly and return `None` when ownership validation fails.

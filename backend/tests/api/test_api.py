@@ -186,3 +186,21 @@ def test_ml_training_history_empty(client, db, test_user, auth_headers):
     response = client.get("/api/ml/history/9999?task_type=forecasting", headers=auth_headers)
     assert response.status_code == 404
 
+
+def test_ml_history_unauthorized_other_user_dataset(client, db, test_user, auth_headers):
+    other_user = User(email="other_ml_user@example.com", hashed_password="hashed_password")
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    other_dataset = Dataset(
+        owner_id=other_user.id,
+        name="other_user_data.csv",
+        file_path="other_user_data.csv"
+    )
+    db.add(other_dataset)
+    db.commit()
+    db.refresh(other_dataset)
+
+    response = client.get(f"/api/ml/history/{other_dataset.id}?task_type=forecasting", headers=auth_headers)
+    assert response.status_code == 404

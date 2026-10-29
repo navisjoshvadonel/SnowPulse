@@ -17,3 +17,8 @@
 **Vulnerability:** `PolarsCodeExecutor` relied exclusively on restricted `__builtins__` dictionary to sandbox user-supplied code snippets, allowing attackers to access Python object introspection (`.__class__.__base__.__subclasses__()`) and escape the sandbox.
 **Learning:** Restricting `__builtins__` in dynamic `exec()` blocks is insufficient to isolate Python code execution because dunder attributes allow traversing object hierarchies to reach unsafe builtins or loaded modules.
 **Prevention:** Enforce static AST inspection (`ast.parse`) before executing user dynamic code to reject import statements (`ast.Import`/`ast.ImportFrom`) and dunder identifier or attribute access (`.startswith("__")`).
+
+## 2025-05-22 - Multi-Tenant Data Leakage via Unfiltered Dataset Queries in AI Endpoints
+**Vulnerability:** `/api/ai/chat`, `/api/ai/analyze`, `/api/ai/report`, and `/api/ai/forecast` queried `Dataset` records by `Dataset.id == req.dataset_id` without filtering by `Dataset.owner_id == current_user.id`, allowing cross-tenant data access.
+**Learning:** Multi-agent or LLM route handlers accepting dataset IDs must strictly check tenant ownership in the database layer before loading file paths or passing dataset metadata into agent execution contexts.
+**Prevention:** Always append `Dataset.owner_id == current_user.id` to database query filters when resolving dataset references for authenticated users.

@@ -60,3 +60,29 @@ class TestAIRoutes:
         resp = client.get("/api/ai/health", headers=auth_headers)
         assert resp.status_code == 200
         assert resp.json()["status"] == "healthy"
+
+    def test_ai_endpoints_tenant_isolation(self, client, db, auth_headers):
+        from backend.app.auth import get_password_hash
+        from backend.app.models import User
+
+        other_user = User(email="other_tenant@example.com", hashed_password=get_password_hash("password123"))
+        db.add(other_user)
+        db.commit()
+        db.refresh(other_user)
+
+        ds = Dataset(owner_id=other_user.id, name="other-tenant-ds", file_path="other.csv")
+        db.add(ds)
+        db.commit()
+        db.refresh(ds)
+
+        # 1. Analyze endpoint
+        resp = client.post("/api/ai/analyze", json={"dataset_id": ds.id}, headers=auth_headers)
+        assert resp.status_code == 404
+
+        # 2. Forecast endpoint
+        resp = client.post("/api/ai/forecast", json={"dataset_id": ds.id}, headers=auth_headers)
+        assert resp.status_code == 404
+
+        # 3. Chat endpoint
+        resp = client.post("/api/ai/chat", json={"query": "Hello", "dataset_id": ds.id}, headers=auth_headers)
+        assert resp.status_code == 404

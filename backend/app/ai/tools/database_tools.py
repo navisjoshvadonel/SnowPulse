@@ -1,3 +1,4 @@
+import ast
 import os
 import re
 from typing import Any
@@ -69,6 +70,25 @@ def sanitize_and_validate_sql(sql_query: str) -> str:
         raise SecurityAlertException("Access Denied: Querying sensitive system tables (users, tokens, dashboards, memory) is forbidden.")
 
     return clean_query
+
+
+def validate_python_code_ast(code_snippet: str) -> None:
+    """
+    Parses code snippet into AST and blocks imports and dunder attribute/name access
+    to prevent sandbox escapes during dynamic execution.
+    """
+    try:
+        tree = ast.parse(code_snippet)
+    except SyntaxError as e:
+        raise SecurityAlertException(f"Syntax error in Python script: {e}")
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            raise SecurityAlertException("Access Denied: Import statements are not allowed.")
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+            raise SecurityAlertException(f"Access Denied: Dunder attribute access '{node.attr}' is not allowed.")
+        if isinstance(node, ast.Name) and node.id.startswith("__"):
+            raise SecurityAlertException(f"Access Denied: Dunder name access '{node.id}' is not allowed.")
 
 
 class DatabaseTools:
@@ -175,6 +195,9 @@ class DatabaseTools:
             else:
                 dataset_path = validate_safe_path(dataset_path)
                 df = pd.read_csv(dataset_path)
+
+            # Validate AST to prevent sandbox escapes
+            validate_python_code_ast(python_code)
 
             # Restrict harmful builtins
             safe_globals = {

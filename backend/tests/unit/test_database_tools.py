@@ -106,6 +106,22 @@ class TestDatabaseToolsForecast:
         assert result["success"] is False
         assert "access denied" in result["error"].lower() or "path traversal" in result["error"].lower()
 
+    def test_run_python_forecast_blocks_import(self, tmp_path):
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("Date,Revenue\n2024-01-01,100\n")
+        code = "import os\nforecast_result = os.getcwd()"
+        result = DatabaseTools.run_python_forecast(str(csv_file), code)
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "import" in result["error"].lower()
+
+    def test_run_python_forecast_blocks_dunder_access(self, tmp_path):
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("Date,Revenue\n2024-01-01,100\n")
+        code = "forecast_result = ().__class__.__base__"
+        result = DatabaseTools.run_python_forecast(str(csv_file), code)
+        assert result["success"] is False
+        assert "access denied" in result["error"].lower() or "dunder" in result["error"].lower()
+
 
 class TestDatabaseToolsQuality:
     def test_get_data_quality_report_valid_file(self, tmp_path):

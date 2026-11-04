@@ -16,3 +16,7 @@
 ## 2023-10-18 - Avoid O(N^2) DataFrame Filtering in Categorical Subsets
 **Learning:** Polars `df.filter` operations inside a python `for` loop over unique categories leads to massive O(N^2) bottlenecks on high-cardinality datasets, as it scans the full DataFrame repeatedly.
 **Action:** Replace `for val in df.unique(): df.filter(...)` with vectorized partitioning via `[p[...].to_numpy() for p in df.partition_by(cat_col)]`. Always filter out empty arrays (e.g., `if len(g) > 0`) before passing to statistical methods like `scipy.stats.f_oneway` to prevent crashes.
+
+## 2025-03-05 - Optimize React component re-renders by memoizing derived arrays
+**Learning:** Recomputing derived arrays (like using `.filter()` and `.map()`) dynamically in the body of a frequently re-rendering React component creates new array references every render. When passed down as props, this defeats child component memoization and causes heavy charts to pointlessly re-render or re-run `useEffect` logic. Also, hooks must always be placed before any conditional early returns.
+**Action:** Wrap any non-trivial derived state objects or arrays in `useMemo` hooks with strict dependencies (e.g. `schemaData`) to preserve referential equality across standard re-renders, and ensure hooks are at the top level of the component.

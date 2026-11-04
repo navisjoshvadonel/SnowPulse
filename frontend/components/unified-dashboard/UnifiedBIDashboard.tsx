@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Presentation, ShieldCheck, Workflow, Sliders, Globe } from "lucide-react";
 import { useFilterStore } from "@/store/filterStore";
 import FilterChipBar from "@/components/dashboard/FilterChipBar";
@@ -137,6 +137,29 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
     activeNumericRanges,
   ]);
 
+  const { columns, totalRows, primaryMetric, primaryMetricColObj, numericColNames, geoColNames } = useMemo(() => {
+    if (!schemaData) {
+      return { columns: [], totalRows: 0, primaryMetric: "volume", primaryMetricColObj: undefined, numericColNames: [], geoColNames: [] };
+    }
+    const cols = schemaData.columns || [];
+    const rows = schemaData.row_count || 0;
+    const numColObj = cols.find((c: any) => c.role === "numeric" || c.dtype_category === "numeric" || c.inferred_role === "metric");
+    const pMetric = schemaData.primary_metric && schemaData.primary_metric !== "volume" ? schemaData.primary_metric : numColObj?.name || "volume";
+
+    const pMetricColObj = cols.find((c: any) => c.name === pMetric) || numColObj;
+    const numColNames = cols.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer" || c.role === "numeric" || c.dtype_category === "numeric").map((c: any) => c.name);
+    const gColNames = cols.filter((c: any) => c.role === "categorical" || c.role === "geo" || c.semantic_type === "location" || c.is_primary_geo).map((c: any) => c.name);
+
+    return {
+      columns: cols,
+      totalRows: rows,
+      primaryMetric: pMetric,
+      primaryMetricColObj: pMetricColObj,
+      numericColNames: numColNames,
+      geoColNames: gColNames
+    };
+  }, [schemaData]);
+
   if (loading) {
     return (
       <div className="w-full py-20 flex flex-col items-center justify-center gap-3">
@@ -155,15 +178,6 @@ export default function UnifiedBIDashboard({ datasetId, initialSchema }: Unified
       </div>
     );
   }
-
-  const columns = schemaData.columns || [];
-  const totalRows = schemaData.row_count || 0;
-  const numColObj = columns.find((c: any) => c.role === "numeric" || c.dtype_category === "numeric" || c.inferred_role === "metric");
-  const primaryMetric = schemaData.primary_metric && schemaData.primary_metric !== "volume" ? schemaData.primary_metric : numColObj?.name || "volume";
-
-  const primaryMetricColObj = columns.find((c: any) => c.name === primaryMetric) || numColObj;
-  const numericColNames = columns.filter((c: any) => c.data_type === "numeric" || c.data_type === "float" || c.data_type === "integer" || c.role === "numeric" || c.dtype_category === "numeric").map((c: any) => c.name);
-  const geoColNames = columns.filter((c: any) => c.role === "categorical" || c.role === "geo" || c.semantic_type === "location" || c.is_primary_geo).map((c: any) => c.name);
 
   return (
     <div className="w-full space-y-6">

@@ -1250,19 +1250,17 @@ class AnalyticsEngine:
             ]).sort("total", descending=True).head(top_n)
 
             grand_total = float(work_df[metric].sum() or 1)
-            for row in agg_df.iter_rows(named=True):
-                total_val = float(row["total"]) if row["total"] is not None else 0
-                region_aggregates.append({
-                    "region": str(row[label_col]),
-                    "total": round(total_val, 2),
-                    "avg": round(float(row["avg"] or 0), 2),
-                    "count": int(row["count"]),
-                    "std": round(float(row["std"] or 0), 2),
-                    "max_val": round(float(row["max_val"] or 0), 2),
-                    "pct_of_total": round((total_val / grand_total) * 100, 2) if grand_total > 0 else 0,
-                    "lat": round(float(row["centroid_lat"] or 0), 6),
-                    "lng": round(float(row["centroid_lng"] or 0), 6),
-                })
+            region_aggregates = agg_df.select([
+                pl.col(label_col).cast(pl.Utf8).alias("region"),
+                pl.col("total").fill_null(0.0).round(2).cast(pl.Float64).alias("total"),
+                pl.col("avg").fill_null(0.0).round(2).cast(pl.Float64).alias("avg"),
+                pl.col("count").cast(pl.Int64).alias("count"),
+                pl.col("std").fill_null(0.0).round(2).cast(pl.Float64).alias("std"),
+                pl.col("max_val").fill_null(0.0).round(2).cast(pl.Float64).alias("max_val"),
+                (pl.col("total").fill_null(0.0) / grand_total * 100).round(2).cast(pl.Float64).alias("pct_of_total") if grand_total > 0 else pl.lit(0.0).alias("pct_of_total"),
+                pl.col("centroid_lat").fill_null(0.0).round(6).cast(pl.Float64).alias("lat"),
+                pl.col("centroid_lng").fill_null(0.0).round(6).cast(pl.Float64).alias("lng"),
+            ]).to_dicts()
 
         # ---- 3. Density Clusters (K-Means) ----
         density_clusters = []
@@ -1323,7 +1321,7 @@ class AnalyticsEngine:
                 pl.col(metric).sum().alias("flow_value")
             ).sort("flow_value", descending=True).head(top_n)
 
-            for row in flow_df.iter_rows(named=True):
+            for row in flow_df.to_dicts():
                 src_key = str(row[source_col]).lower().strip()
                 tgt_key = str(row[target_col]).lower().strip()
                 src_coords = self._GEOCODE_DB.get(src_key)

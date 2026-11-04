@@ -12,3 +12,7 @@
 ## 2025-03-05 - Avoid O(N) Polars Row Iteration
 **Learning:** Polars dataframes and series should not be manually iterated row-by-row in Python using `.iter_rows()` or list comprehensions, as this defeats Polars' native C/Rust vectorization and creates extreme performance bottlenecks on large datasets.
 **Action:** Replace `for row in df.iter_rows():` patterns with native Polars expressions (e.g. `df.select([pl.col(...)...]).to_dicts()`) to push dictionary mapping and type casting down to the optimized backend, yielding significant execution speedups.
+
+## 2023-10-18 - Avoid O(N^2) DataFrame Filtering in Categorical Subsets
+**Learning:** Polars `df.filter` operations inside a python `for` loop over unique categories leads to massive O(N^2) bottlenecks on high-cardinality datasets, as it scans the full DataFrame repeatedly.
+**Action:** Replace `for val in df.unique(): df.filter(...)` with vectorized partitioning via `[p[...].to_numpy() for p in df.partition_by(cat_col)]`. Always filter out empty arrays (e.g., `if len(g) > 0`) before passing to statistical methods like `scipy.stats.f_oneway` to prevent crashes.

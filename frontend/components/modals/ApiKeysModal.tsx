@@ -83,6 +83,7 @@ export default function ApiKeysModal({ isOpen, onClose }: ApiKeysModalProps) {
                 <button
                   type="button"
                   onClick={handleCopy}
+                  aria-label="Copy API Key"
                   className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />} Copy

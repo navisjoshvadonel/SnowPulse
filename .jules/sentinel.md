@@ -18,7 +18,7 @@
 **Learning:** Restricting `__builtins__` in dynamic `exec()` blocks is insufficient to isolate Python code execution because dunder attributes allow traversing object hierarchies to reach unsafe builtins or loaded modules.
 **Prevention:** Enforce static AST inspection (`ast.parse`) before executing user dynamic code to reject import statements (`ast.Import`/`ast.ImportFrom`) and dunder identifier or attribute access (`.startswith("__")`).
 
-## 2025-05-22 - Multi-Tenant Data Leakage via Unfiltered Dataset Queries in AI Endpoints
-**Vulnerability:** `/api/ai/chat`, `/api/ai/analyze`, `/api/ai/report`, and `/api/ai/forecast` queried `Dataset` records by `Dataset.id == req.dataset_id` without filtering by `Dataset.owner_id == current_user.id`, allowing cross-tenant data access.
-**Learning:** Multi-agent or LLM route handlers accepting dataset IDs must strictly check tenant ownership in the database layer before loading file paths or passing dataset metadata into agent execution contexts.
-**Prevention:** Always append `Dataset.owner_id == current_user.id` to database query filters when resolving dataset references for authenticated users.
+## 2025-05-22 - Multi-Tenant Authorization Bypass in `_get_dataset_for_user` Helper
+**Vulnerability:** `_get_dataset_for_user` helper function performed a fallback database query (`db.query(Dataset).filter(Dataset.id == dataset_id).first()`) when a dataset didn't belong to the requesting user, bypassing owner isolation on ML and Forecasting endpoints.
+**Learning:** Helper functions used across endpoints for dataset lookup can undermine tenant security if they implement fallback queries to retrieve resources across owner boundaries.
+**Prevention:** Ensure backend helper functions enforce strict tenant isolation filtering (`owner_id == current_user.id`) without permissive fallback queries.

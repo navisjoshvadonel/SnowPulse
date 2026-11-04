@@ -321,7 +321,9 @@ def get_dataset_profile(
     Returns the full DatasetProfile JSON for a dataset.
     All downstream panels (Overview, Prediction, AI query) should read from here.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -489,7 +491,9 @@ def get_decomposition_tree_endpoint(
     Computes Autonomous SHAP/Variance Root-Cause Decomposition Tree for a dataset.
     Returns nested node architecture with impact percentages, variance deltas, and bottleneck path highlighting.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -525,7 +529,9 @@ def get_monte_carlo_endpoint(
     Executes 1,000 to 10,000 run Monte Carlo stochastic risk simulation using Geometric Brownian Motion.
     Returns P10, P25, P50, P75, P90 confidence bands, VaR 95%, CVaR 95%, loss probability, and outcome distribution.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -568,7 +574,9 @@ def create_calculated_field_endpoint(
     Translates natural language prompts into Polars/Pandas expressions, DAX formulas, and Tableau LODs.
     Appends the computed vector as a virtual schema column and returns summary statistics and preview rows.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -604,7 +612,9 @@ def get_geo_spatial_endpoint(
     Returns heat_points, region_aggregates, density_clusters, arc_flows,
     choropleth_data, distribution_stats, and AI narrative for geographic visualization.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1013,7 +1023,9 @@ def execute_dynamic_query(
     Execute a dynamic JSON query against the dataset.
     Allows custom aggregations, group bys, and filtering.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
 
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found or unauthorized")
@@ -1039,7 +1051,9 @@ def execute_dashboard_aggregate(
     Execute server-side aggregation for the active filter state.
     Calculates summary KPIs, geo intelligence, correlations, trends, and group-bys without returning raw rows.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -1076,7 +1090,9 @@ def get_analytics_summary(
 
     analytics_engine = None
     if not (kpis and trends and geo and anomalies and correlations):
-        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+        dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
         if not dataset:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -1132,7 +1148,9 @@ def get_analytics_insights(
     if insights:
         return insights
 
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1168,7 +1186,9 @@ def get_dataset_chart_suggestions(
     if cached:
         return cached
 
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 
@@ -1210,7 +1230,9 @@ def get_dataset_signals(
     Returns top ranked statistical signals (outliers, drift, correlations, missing clusters, category imbalance)
     computed deterministically from profile & dataset without LLM calls.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    dataset = db.query(Dataset).filter(
+        Dataset.id == dataset_id, Dataset.owner_id == current_user.id
+    ).first()
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 
@@ -1556,10 +1578,7 @@ def unified_search(
 
 
 def _get_dataset_for_user(db: Session, dataset_id: int, current_user: User) -> Dataset | None:
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
-    if not dataset:
-        dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-    return dataset
+    return db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.owner_id == current_user.id).first()
 
 
 # --- TIME-SERIES FORECASTING API ---

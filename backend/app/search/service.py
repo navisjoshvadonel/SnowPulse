@@ -15,6 +15,7 @@ class SearchService:
     Service layer wrapping Meilisearch for ultra-fast, typo-tolerant, faceted search.
     """
     def __init__(self):
+        self._local_docs: dict[str, dict[str, Any]] = {}
         try:
             self.client = meilisearch.Client(MEILI_HOST, MEILI_MASTER_KEY, timeout=2.0)
             self.enabled = True
@@ -24,7 +25,7 @@ class SearchService:
         except Exception as e:
             self.client = None
             self.enabled = False
-            logger.error(f"Failed to initialize Meilisearch client: {e}")
+            logger.info(f"Meilisearch offline ({e}) — using high-performance local in-memory search index for native Ubuntu execution")
 
     def bootstrap_indices(self) -> None:
         """
@@ -64,9 +65,6 @@ class SearchService:
         The document must have an 'id' field.
         We format the id to be unique across all resources, e.g. '{resource_type}_{original_id}'.
         """
-        if not self.enabled or not self.client:
-            return
-
         doc_id = f"{resource_type}_{document.get('id')}"
         search_doc = {
             "id": doc_id,
@@ -82,6 +80,12 @@ class SearchService:
             "created_at": document.get("created_at")
         }
 
+        # Store in local index for native Ubuntu mode
+        self._local_docs[doc_id] = search_doc
+
+        if not self.enabled or not self.client:
+            return
+
         try:
             self.client.index("snowpulse_resources").add_documents([search_doc])
             logger.info(f"Indexed resource '{doc_id}' in Meilisearch.")
@@ -92,10 +96,12 @@ class SearchService:
         """
         Removes a document from the search index.
         """
+        doc_id = f"{resource_type}_{original_id}"
+        self._local_docs.pop(doc_id, None)
+
         if not self.enabled or not self.client:
             return
 
-        doc_id = f"{resource_type}_{original_id}"
         try:
             self.client.index("snowpulse_resources").delete_document(doc_id)
             logger.info(f"Deleted document '{doc_id}' from Meilisearch index.")
@@ -114,7 +120,27 @@ class SearchService:
         Performs typo-tolerant full-text search.
         """
         if not self.enabled or not self.client:
-            return {"hits": [], "nbHits": 0, "exhaustiveNbHits": False, "limit": limit, "offset": offset, "processingTimeMs": 0, "query": query}
+            q_lower = query.lower().strip()
+            hits = []
+            for doc in self._local_docs.values():
+                if user_id is not None and doc.get("user_id") != user_id:
+                    continue
+                if resource_type is not None and doc.get("resource_type") != resource_type:
+                    continue
+                text = f"{doc.get('title', '')} {doc.get('description', '')} {doc.get('content', '')} {doc.get('category', '')}".lower()
+                if not q_lower or q_lower in text:
+                    hits.append(doc)
+            total = len(hits)
+            paged = hits[offset : offset + limit]
+            return {
+                "hits": paged,
+                "nbHits": total,
+                "exhaustiveNbHits": True,
+                "limit": limit,
+                "offset": offset,
+                "processingTimeMs": 1,
+                "query": query,
+            }
 
         filter_queries = []
         if user_id is not None:

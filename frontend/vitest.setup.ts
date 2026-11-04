@@ -1,6 +1,32 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
+// Mock framer-motion to render plain elements in JSDOM and strip animation props
+vi.mock('framer-motion', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const React = require('react');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dummy = ({ children, ...props }: any) => {
+    const {
+      initial,
+      animate,
+      exit,
+      transition,
+      variants,
+      layout,
+      layoutId,
+      ...cleanProps
+    } = props;
+    return React.createElement('div', cleanProps, children);
+  };
+  return {
+    motion: new Proxy({}, {
+      get: () => dummy,
+    }),
+    AnimatePresence: ({ children }: any) => children,
+  };
+})
+
 // Mock ECharts for JSDOM environment
 vi.mock('echarts', () => ({
   init: () => ({

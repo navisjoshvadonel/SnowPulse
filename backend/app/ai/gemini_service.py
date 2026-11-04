@@ -3,8 +3,10 @@ import hashlib
 import json
 import os
 import re
+import warnings
 from typing import Any
 
+warnings.filterwarnings("ignore", category=FutureWarning)
 import google.generativeai as genai
 
 

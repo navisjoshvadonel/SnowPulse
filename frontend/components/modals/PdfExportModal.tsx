@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Download, FileText, Sparkles, CheckCircle, ShieldCheck, Printer } from "lucide-react";
+import { X, FileText, Sparkles, CheckCircle, ShieldCheck, Printer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface PdfExportModalProps {

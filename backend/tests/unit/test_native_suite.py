@@ -8,17 +8,17 @@ Unit tests for SnowPulse AI Ubuntu Native Suite:
 - Desktop Integration
 """
 
-import os
 from pathlib import Path
+
 import polars as pl
 import pytest
 
-from app.native.loader import load_dataset
 from app.native.analyzer import NativeDataAnalyzer
 from app.native.automl import NativeAutoMLEngine
 from app.native.chat import NativeDataChatAgent
-from app.native.report import generate_html_report
 from app.native.desktop import install_desktop_integration, send_desktop_notification
+from app.native.loader import load_dataset
+from app.native.report import generate_html_report
 
 
 @pytest.fixture

@@ -20,3 +20,7 @@
 ## 2025-03-05 - Optimize React component re-renders by memoizing derived arrays
 **Learning:** Recomputing derived arrays (like using `.filter()` and `.map()`) dynamically in the body of a frequently re-rendering React component creates new array references every render. When passed down as props, this defeats child component memoization and causes heavy charts to pointlessly re-render or re-run `useEffect` logic. Also, hooks must always be placed before any conditional early returns.
 **Action:** Wrap any non-trivial derived state objects or arrays in `useMemo` hooks with strict dependencies (e.g. `schemaData`) to preserve referential equality across standard re-renders, and ensure hooks are at the top level of the component.
+
+## 2025-03-05 - Avoid iter_rows(named=True) overhead
+**Learning:** Calling `iter_rows(named=True)` on a Polars DataFrame in Python constructs dictionary objects row-by-row on the Python side, bypassing the C/Rust backend optimization and creating an extreme O(N) performance bottleneck.
+**Action:** Replace `for row in df.iter_rows(named=True):` and other `iter_rows` constructs with native vectorizations or `df.to_dicts()`, which pushes the dictionary conversion into the fast native backend and significantly speeds up iterations.

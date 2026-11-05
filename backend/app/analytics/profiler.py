@@ -738,7 +738,7 @@ class DatasetProfiler:
             return []
         try:
             vc = clean.value_counts().sort("count", descending=True).head(5)
-            return [{"value": str(row[0]), "count": int(row[1])} for row in vc.iter_rows()]
+            return [{"value": str(r[series.name]), "count": int(r["count"])} for r in vc.to_dicts()]
         except Exception:
             return []
 

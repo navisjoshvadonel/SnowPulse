@@ -4,9 +4,9 @@ Vectorized exploratory data analysis (EDA), anomaly discovery, and autonomous in
 """
 
 from typing import Any
+
 import numpy as np
 import polars as pl
-from sklearn.ensemble import IsolationForest
 
 from ..analytics.profiler import DatasetProfiler
 from ..analytics.signals import SignalDetector
@@ -77,7 +77,7 @@ class NativeDataAnalyzer:
                 series = self.df[col.name].drop_nulls()
                 if len(series) > 0:
                     top_counts = series.value_counts().sort("count", descending=True).head(3)
-                    top_vals = [f"{row[0]} ({row[1]})" for row in top_counts.iter_rows()]
+                    top_vals = [f"{r[col.name]} ({r['count']})" for r in top_counts.to_dicts()]
                     c_dict["top_values"] = ", ".join(top_vals)
 
             stats.append(c_dict)

@@ -8,10 +8,11 @@ Works both with Gemini API and in 100% offline heuristic mode!
 import os
 import re
 from typing import Any
+
 import polars as pl
 
-from ..analytics.code_executor import PolarsCodeExecutor
 from ..ai.gemini_service import GeminiService
+from ..analytics.code_executor import PolarsCodeExecutor
 
 
 class NativeDataChatAgent:
@@ -19,9 +20,9 @@ class NativeDataChatAgent:
         self.df = df
         self.dataset_name = dataset_name
         self.columns = df.columns
-        self.schema = {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)}
-        self.numeric_cols = [c for c, dt in zip(df.columns, df.dtypes) if dt.is_numeric()]
-        self.categorical_cols = [c for c, dt in zip(df.columns, df.dtypes) if not dt.is_numeric()]
+        self.schema = {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes, strict=False)}
+        self.numeric_cols = [c for c, dt in zip(df.columns, df.dtypes, strict=False) if dt.is_numeric()]
+        self.categorical_cols = [c for c, dt in zip(df.columns, df.dtypes, strict=False) if not dt.is_numeric()]
 
         self.api_key = os.getenv("GEMINI_API_KEY")
         self.has_llm = bool(self.api_key and not self.api_key.startswith("mock-"))
@@ -67,7 +68,7 @@ class NativeDataChatAgent:
             res_df = res_data.collect()
         elif isinstance(res_data, pl.Series):
             res_df = res_data.to_frame()
-        elif isinstance(res_data, (int, float, str, bool)):
+        elif isinstance(res_data, int | float | str | bool):
             res_df = pl.DataFrame({"result": [res_data]})
         elif isinstance(res_data, list):
             res_df = pl.DataFrame(res_data)
@@ -203,7 +204,7 @@ Do NOT include markdown fences, imports, or print statements. Output one clean c
         if res_df.height == 1 and res_df.width == 1:
             val = res_df.to_numpy()[0, 0]
             col_name = res_df.columns[0]
-            return f"The computed {col_name} is **{val:,.2f}**." if isinstance(val, (int, float)) else f"Result: **{val}**."
+            return f"The computed {col_name} is **{val:,.2f}**." if isinstance(val, int | float) else f"Result: **{val}**."
 
         if res_df.height <= 10 and res_df.width <= 4:
             first_col = res_df.columns[0]

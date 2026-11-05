@@ -14,16 +14,15 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
-from rich.text import Text
 from rich.prompt import Prompt
+from rich.table import Table
 
+from .analyzer import NativeDataAnalyzer
+from .automl import NativeAutoMLEngine
+from .chat import NativeDataChatAgent
 from .desktop import install_desktop_integration, send_desktop_notification
 from .loader import load_dataset
-from .analyzer import NativeDataAnalyzer
-from .chat import NativeDataChatAgent
 from .report import generate_html_report
-from .automl import NativeAutoMLEngine
 
 console = Console()
 
@@ -167,8 +166,8 @@ def cmd_chat(args):
                 for col_name in res_df.columns:
                     table.add_column(str(col_name), style="white")
 
-                for row in res_df.head(15).iter_rows():
-                    table.add_row(*[str(val) for val in row])
+                for row in res_df.head(15).to_dicts():
+                    table.add_row(*[str(val) for val in row.values()])
                 console.print(table)
                 if res_df.height > 15:
                     console.print(f"[dim]Showing top 15 of {res_df.height} rows[/dim]")

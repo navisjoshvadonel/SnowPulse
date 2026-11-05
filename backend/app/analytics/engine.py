@@ -274,8 +274,8 @@ class AnalyticsEngine:
         )
 
         return [
-            {"region": row[0], "value": float(row[1] or 0), "count": int(row[2] or 0)}
-            for row in grouped.iter_rows()
+            {"region": str(r[active_geo]), "value": float(r["value"] or 0), "count": int(r["count"] or 0)}
+            for r in grouped.to_dicts()
         ]
 
     # ------------------------------------------------------------------
@@ -1237,7 +1237,7 @@ class AnalyticsEngine:
         heat_points = []
         sample_df = work_df.head(min(top_n * 20, work_df.height))
         select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
-        for row in sample_df.select(select_cols).iter_rows(named=True):
+        for row in sample_df.select(select_cols).to_dicts():
             heat_points.append({
                 "lat": round(float(row["_lat"]), 6),
                 "lng": round(float(row["_lng"]), 6),

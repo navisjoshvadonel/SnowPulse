@@ -8,10 +8,11 @@ Works both with Gemini API and in 100% offline heuristic mode!
 import os
 import re
 from typing import Any
+
 import polars as pl
 
-from ..analytics.code_executor import PolarsCodeExecutor
 from ..ai.gemini_service import GeminiService
+from ..analytics.code_executor import PolarsCodeExecutor
 
 
 class NativeDataChatAgent:
@@ -19,9 +20,9 @@ class NativeDataChatAgent:
         self.df = df
         self.dataset_name = dataset_name
         self.columns = df.columns
-        self.schema = {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)}
-        self.numeric_cols = [c for c, dt in zip(df.columns, df.dtypes) if dt.is_numeric()]
-        self.categorical_cols = [c for c, dt in zip(df.columns, df.dtypes) if not dt.is_numeric()]
+        self.schema = {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes, strict=False)}
+        self.numeric_cols = [c for c, dt in zip(df.columns, df.dtypes, strict=False) if dt.is_numeric()]
+        self.categorical_cols = [c for c, dt in zip(df.columns, df.dtypes, strict=False) if not dt.is_numeric()]
 
         self.api_key = os.getenv("GEMINI_API_KEY")
         self.has_llm = bool(self.api_key and not self.api_key.startswith("mock-"))

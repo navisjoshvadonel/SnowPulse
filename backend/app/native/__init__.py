@@ -4,6 +4,7 @@ High-performance local data analysis, AutoML, conversational analytics, and desk
 """
 
 import warnings
+
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 
 from .analyzer import NativeDataAnalyzer

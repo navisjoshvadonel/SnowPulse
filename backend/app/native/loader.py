@@ -4,11 +4,12 @@ Supports CSV, TSV, Parquet, JSON, JSONL, Excel, and SQLite.
 Returns Polars DataFrames with optimized schema inference.
 """
 
-import os
+import sqlite3
 from pathlib import Path
 from typing import Any
-import polars as pl
+
 import pandas as pd
+import polars as pl
 
 
 def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
@@ -24,7 +25,7 @@ def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
     if ext in (".csv", ".txt", ".dat"):
         # Auto-detect delimiter
         try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(path, encoding="utf-8", errors="ignore") as f:
                 header = f.readline()
                 if "\t" in header and "," not in header:
                     separator = "\t"
@@ -58,20 +59,26 @@ def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
         return pl.from_pandas(pdf)
 
     elif ext in (".db", ".sqlite", ".sqlite3"):
-        # Read from SQLite
+        # Read from SQLite with table validation to prevent SQL injection
         table = kwargs.get("table")
-        import sqlite3
         conn = sqlite3.connect(path)
-        if not table:
+        try:
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
+            tables = [row[0] for row in cursor.fetchall()]
             if not tables:
-                conn.close()
                 raise ValueError(f"No tables found in SQLite database: {path}")
-            table = tables[0][0]
-        pdf = pd.read_sql_query(f"SELECT * FROM {table}", conn)
-        conn.close()
+
+            if not table:
+                table = tables[0]
+            elif table not in tables:
+                raise ValueError(f"Table '{table}' not found in SQLite database: {path}")
+
+            # Safe identifier quoting for SQLite
+            safe_table = '"' + table.replace('"', '""') + '"'
+            pdf = pd.read_sql_query(f"SELECT * FROM {safe_table}", conn)
+        finally:
+            conn.close()
         return pl.from_pandas(pdf)
 
     else:

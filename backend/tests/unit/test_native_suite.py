@@ -8,17 +8,16 @@ Unit tests for SnowPulse AI Ubuntu Native Suite:
 - Desktop Integration
 """
 
-import os
 from pathlib import Path
+
 import polars as pl
 import pytest
-
-from app.native.loader import load_dataset
 from app.native.analyzer import NativeDataAnalyzer
 from app.native.automl import NativeAutoMLEngine
 from app.native.chat import NativeDataChatAgent
-from app.native.report import generate_html_report
 from app.native.desktop import install_desktop_integration, send_desktop_notification
+from app.native.loader import load_dataset
+from app.native.report import generate_html_report
 
 
 @pytest.fixture
@@ -41,6 +40,32 @@ def test_loader_from_csv(tmp_path, sample_df):
     assert isinstance(loaded, pl.DataFrame)
     assert loaded.height == 30
     assert loaded.width == 6
+
+
+def test_loader_from_sqlite_security(tmp_path):
+    import sqlite3
+    db_file = tmp_path / "test_db.sqlite"
+    conn = sqlite3.connect(db_file)
+    conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);")
+    conn.execute("INSERT INTO users (name) VALUES ('Alice'), ('Bob');")
+    conn.commit()
+    conn.close()
+
+    # Valid load without explicit table parameter
+    df1 = load_dataset(db_file)
+    assert df1.height == 2
+    assert "name" in df1.columns
+
+    # Valid load with explicit table parameter
+    df2 = load_dataset(db_file, table="users")
+    assert df2.height == 2
+
+    # Malicious SQL injection attempt or non-existent table must raise ValueError
+    with pytest.raises(ValueError, match="not found in SQLite database"):
+        load_dataset(db_file, table="users; DROP TABLE users;--")
+
+    with pytest.raises(ValueError, match="not found in SQLite database"):
+        load_dataset(db_file, table="non_existent_table")
 
 
 def test_analyzer_summary_and_correlations(sample_df):

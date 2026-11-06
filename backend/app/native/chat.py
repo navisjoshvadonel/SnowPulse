@@ -68,7 +68,7 @@ class NativeDataChatAgent:
             res_df = res_data.collect()
         elif isinstance(res_data, pl.Series):
             res_df = res_data.to_frame()
-        elif isinstance(res_data, (int, float, str, bool)):
+        elif isinstance(res_data, int | float | str | bool):
             res_df = pl.DataFrame({"result": [res_data]})
         elif isinstance(res_data, list):
             res_df = pl.DataFrame(res_data)
@@ -204,7 +204,7 @@ Do NOT include markdown fences, imports, or print statements. Output one clean c
         if res_df.height == 1 and res_df.width == 1:
             val = res_df.to_numpy()[0, 0]
             col_name = res_df.columns[0]
-            return f"The computed {col_name} is **{val:,.2f}**." if isinstance(val, (int, float)) else f"Result: **{val}**."
+            return f"The computed {col_name} is **{val:,.2f}**." if isinstance(val, int | float) else f"Result: **{val}**."
 
         if res_df.height <= 10 and res_df.width <= 4:
             first_col = res_df.columns[0]

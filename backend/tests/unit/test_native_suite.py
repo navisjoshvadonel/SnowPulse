@@ -148,3 +148,14 @@ def test_desktop_integration_execution():
 
     notif_ok = send_desktop_notification("Test", "SnowPulse test notification")
     assert isinstance(notif_ok, bool)
+
+
+def test_cli_doctor_and_install():
+    from app.native.cli import cmd_doctor, cmd_install_desktop
+
+    class DummyArgs:
+        pass
+
+    args = DummyArgs()
+    assert cmd_doctor(args) == 0
+    assert cmd_install_desktop(args) == 0

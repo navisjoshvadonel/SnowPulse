@@ -142,6 +142,36 @@ def cmd_chat(args):
 
     mode_info = "[bold green]Gemini AI Mode Enabled[/bold green]" if chat_agent.has_llm else "[bold yellow]Offline Native Heuristic Mode Active (Set GEMINI_API_KEY for full LLM power)[/bold yellow]"
     console.print(f"[dim]Dataset:[/dim] [bold white]{dataset_name}[/bold white] ({df.height:,} rows, {df.width} cols) | {mode_info}")
+
+    # Single-shot query mode
+    single_query = getattr(args, "query", None)
+    if single_query:
+        with console.status("[bold cyan]Analyzing dataset & synthesizing Polars expressions...[/bold cyan]"):
+            res = chat_agent.query(single_query)
+
+        if not res.get("success"):
+            console.print(f"[bold red]Query failed:[/bold red] {res.get('error')}")
+            if res.get("code"):
+                console.print(f"[dim]Generated code: {res.get('code')}[/dim]")
+            return 1
+
+        res_df = res.get("result_df")
+        if res_df is not None and res_df.height > 0:
+            table = Table(border_style="cyan", show_header=True)
+            for col_name in res_df.columns:
+                table.add_column(str(col_name), style="white")
+
+            for row in res_df.head(20).iter_rows():
+                table.add_row(*[str(val) for val in row])
+            console.print(table)
+            if res_df.height > 20:
+                console.print(f"[dim]Showing top 20 of {res_df.height} rows[/dim]")
+
+        if res.get("narrative"):
+            console.print(f"[bold white]{res.get('narrative')}[/bold white]")
+        console.print(f"[dim]⚡ Polars: {res.get('code')}[/dim]\n")
+        return 0
+
     console.print("[dim]Type your natural language data questions below. Type 'exit' or 'quit' to end.[/dim]\n")
 
     while True:
@@ -336,6 +366,7 @@ def main():
     # chat
     p_chat = subparsers.add_parser("chat", help="Interactive conversational AI data analyst session")
     p_chat.add_argument("dataset", help="Path to dataset to converse with")
+    p_chat.add_argument("-q", "--query", help="Single query to execute without entering interactive REPL")
 
     # report
     p_report = subparsers.add_parser("report", help="Generate interactive standalone HTML report")

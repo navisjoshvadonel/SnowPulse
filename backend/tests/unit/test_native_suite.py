@@ -104,6 +104,18 @@ def test_chat_agent_offline_queries(sample_df):
     assert res3["success"] is True
 
 
+def test_cli_chat_single_query(sample_df, tmp_path):
+    from unittest.mock import MagicMock
+    from app.native.cli import cmd_chat
+    csv_file = tmp_path / "data.csv"
+    sample_df.write_csv(csv_file)
+
+    args = MagicMock()
+    args.dataset = str(csv_file)
+    args.query = "average mrr by plan"
+    assert cmd_chat(args) == 0
+
+
 def test_html_report_generation(tmp_path, sample_df):
     out_file = tmp_path / "test_report.html"
     html_content = generate_html_report(sample_df, dataset_name="SampleTest", output_path=out_file)

@@ -1,64 +1,168 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <!-- Container 3D Gradient -->
-    <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <!-- Background Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#070b14" />
+      <stop offset="50%" stop-color="#0c1322" />
+      <stop offset="100%" stop-color="#050811" />
+    </linearGradient>
+
+    <!-- Border Glow Gradient -->
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f5ff" stop-opacity="0.8" />
+      <stop offset="35%" stop-color="#38bdf8" stop-opacity="0.3" />
+      <stop offset="70%" stop-color="#818cf8" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#00f5ff" stop-opacity="0.6" />
+    </linearGradient>
+
+    <!-- Pulse Beam Gradient -->
+    <linearGradient id="pulseBeam" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.1" />
+      <stop offset="25%" stop-color="#00f5ff" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="1" />
+      <stop offset="75%" stop-color="#00f5ff" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.1" />
+    </linearGradient>
+
+    <!-- Frost Arm Gradient -->
+    <linearGradient id="frostGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="30%" stop-color="#d9dbff" />
-      <stop offset="100%" stop-color="#a3a8ff" />
-    </linearGradient>
-    
-    <!-- Snowflake Base 3D Gradient -->
-    <linearGradient id="snowBaseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#07006c" />
-      <stop offset="100%" stop-color="#02002b" />
+      <stop offset="50%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
     </linearGradient>
 
-    <!-- Snowflake Highlight Gradient (simulates 3D shine) -->
-    <linearGradient id="snowHighlightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#b4b7ff" />
-      <stop offset="50%" stop-color="#5558ff" />
-      <stop offset="100%" stop-color="#0e00be" />
-    </linearGradient>
-    
-    <!-- Bevel light border -->
-    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1" />
-    </linearGradient>
+    <!-- Radial Core Glow -->
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00f5ff" stop-opacity="0.45" />
+      <stop offset="30%" stop-color="#38bdf8" stop-opacity="0.2" />
+      <stop offset="70%" stop-color="#0c1322" stop-opacity="0" />
+    </radialGradient>
 
-    <filter id="logoShadow" x="-15%" y="-15%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="2.5" stdDeviation="2" flood-color="#000" flood-opacity="0.4"/>
+    <radialGradient id="apexGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#00f5ff" />
+      <stop offset="100%" stop-color="#00f5ff" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Filters for Neon Glow -->
+    <filter id="neonGlowWide" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="16" result="blurWide" />
+      <feMerge>
+        <feMergeNode in="blurWide" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
     </filter>
-    
-    <!-- Symmetrical Arm Definition -->
-    <g id="snowflake-arm-def">
-      <!-- Base Layer (depth) -->
-      <path d="M50,40 L50,17 M50,28 L40,18 M50,28 L60,18" stroke="url(#snowBaseGrad)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
-      <!-- Highlight Layer (bevel) -->
-      <path d="M49.5,39.5 L49.5,16.5 M49.5,27.5 L39.5,17.5 M49.5,27.5 L59.5,17.5" stroke="url(#snowHighlightGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-    </g>
+
+    <filter id="neonGlowTight" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blurTight" />
+      <feMerge>
+        <feMergeNode in="blurTight" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="tileShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.75" />
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#00f5ff" flood-opacity="0.15" />
+    </filter>
   </defs>
 
-  <!-- 3D Card Background -->
-  <rect x="4" y="4" width="92" height="92" rx="24" fill="url(#btnGrad)" stroke="url(#borderGrad)" stroke-width="1.5" filter="url(#logoShadow)" />
-  
-  <!-- Central Snowflake Logo -->
-  <g filter="url(#logoShadow)">
-    <!-- Central Hexagon (Base) -->
-    <polygon points="50,38 60.4,44 60.4,56 50,62 39.6,56 39.6,44" fill="url(#snowBaseGrad)" />
-    <!-- Central Hexagon (Highlight, offset up-left) -->
-    <polygon points="49.5,37.5 59.9,43.5 59.9,55.5 49.5,61.5 39.1,55.5 39.1,43.5" fill="url(#snowHighlightGrad)" />
-    
-    <!-- Symmetrical Arms -->
-    <use href="#snowflake-arm-def" transform="rotate(0, 50, 50)" />
-    <use href="#snowflake-arm-def" transform="rotate(60, 50, 50)" />
-    <use href="#snowflake-arm-def" transform="rotate(120, 50, 50)" />
-    <use href="#snowflake-arm-def" transform="rotate(180, 50, 50)" />
-    <use href="#snowflake-arm-def" transform="rotate(240, 50, 50)" />
-    <use href="#snowflake-arm-def" transform="rotate(300, 50, 50)" />
-    
-    <!-- Central Core Bead (glossy sphere in center for extra 3D feel) -->
-    <circle cx="50" cy="50" r="4" fill="#ffffff" opacity="0.15" />
-    <circle cx="49" cy="49" r="2" fill="#ffffff" opacity="0.6" />
+  <!-- 1. Obsidian App Tile (Squircle) -->
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bgGrad)" stroke="url(#rimGrad)" stroke-width="4.5" filter="url(#tileShadow)" />
+
+  <!-- 2. Ambient Ice Core Glow Behind Motif -->
+  <circle cx="256" cy="256" r="190" fill="url(#coreGlow)" />
+
+  <!-- 3. Subtle Hexagonal Tech Grid Radar Rings -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#00f5ff" stroke-width="1.2" stroke-opacity="0.15" stroke-dasharray="6 8" />
+  <circle cx="256" cy="256" r="105" fill="none" stroke="#38bdf8" stroke-width="1" stroke-opacity="0.2" />
+  <circle cx="256" cy="256" r="50" fill="none" stroke="#ffffff" stroke-width="0.8" stroke-opacity="0.25" stroke-dasharray="4 6" />
+
+  <!-- 4. Symmetrical Snowflake Pulse Skeleton (6-Fold Crystal Geometry) -->
+  <g id="snow-crystal-skeleton" stroke="url(#frostGrad)" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+    <!-- 60 deg Diagonal Axis 1 (Top-Left to Bottom-Right) -->
+    <line x1="136" y1="148" x2="376" y2="364" stroke-width="7" />
+    <!-- Chevron branches on Axis 1 -->
+    <path d="M165,175 L145,190 M165,175 L180,155" stroke-width="5" />
+    <path d="M205,210 L190,225 M205,210 L220,195" stroke-width="5" />
+    <path d="M307,302 L292,317 M307,302 L322,287" stroke-width="5" />
+    <path d="M347,337 L332,352 M347,337 L367,322" stroke-width="5" />
+    <!-- Diamond tips -->
+    <polygon points="136,148 126,140 136,128 146,140" fill="#00f5ff" />
+    <polygon points="376,364 366,376 376,388 386,376" fill="#00f5ff" />
+
+    <!-- 120 deg Diagonal Axis 2 (Top-Right to Bottom-Left) -->
+    <line x1="376" y1="148" x2="136" y2="364" stroke-width="7" />
+    <!-- Chevron branches on Axis 2 -->
+    <path d="M347,175 L367,190 M347,175 L332,155" stroke-width="5" />
+    <path d="M307,210 L322,225 M307,210 L292,195" stroke-width="5" />
+    <path d="M205,302 L220,317 M205,302 L190,287" stroke-width="5" />
+    <path d="M165,337 L180,352 M165,337 L145,322" stroke-width="5" />
+    <!-- Diamond tips -->
+    <polygon points="376,148 366,140 376,128 386,140" fill="#00f5ff" />
+    <polygon points="136,364 126,376 136,388 146,376" fill="#00f5ff" />
+
+    <!-- Vertical Snowflake Spine (Forms the Central Pulse Axis) -->
+    <line x1="256" y1="84" x2="256" y2="428" stroke-width="7" />
+    <path d="M256,130 L234,152 M256,130 L278,152" stroke-width="5.5" />
+    <path d="M256,180 L238,198 M256,180 L274,198" stroke-width="5.5" />
+    <path d="M256,332 L238,314 M256,332 L274,314" stroke-width="5.5" />
+    <path d="M256,382 L234,360 M256,382 L278,360" stroke-width="5.5" />
+    <!-- Diamond vertical tips -->
+    <polygon points="256,84 246,74 256,60 266,74" fill="#ffffff" />
+    <polygon points="256,428 246,438 256,452 266,438" fill="#ffffff" />
+  </g>
+
+  <!-- 5. Dynamic Cardiogram / Telemetry PULSE WAVE (The Differentiating Soul of SnowPulse) -->
+  <!-- Wide Neon Underglow for Pulse -->
+  <path d="M 52,256 L 140,256 L 168,256 L 188,212 L 208,298 L 236,112 L 256,400 L 276,176 L 298,310 L 318,230 L 336,270 L 356,256 L 460,256"
+        fill="none" stroke="#00f5ff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#neonGlowWide)" />
+
+  <!-- Mid Glow Layer -->
+  <path d="M 52,256 L 140,256 L 168,256 L 188,212 L 208,298 L 236,112 L 256,400 L 276,176 L 298,310 L 318,230 L 336,270 L 356,256 L 460,256"
+        fill="none" stroke="#00f5ff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.8" filter="url(#neonGlowTight)" />
+
+  <!-- Core Sharp Laser Beam -->
+  <path d="M 52,256 L 140,256 L 168,256 L 188,212 L 208,298 L 236,112 L 256,400 L 276,176 L 298,310 L 318,230 L 336,270 L 356,256 L 460,256"
+        fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- 6. Crystalline Pulse Nodes & Energy Vertices (Where Snow & Pulse Meet) -->
+  <!-- Main Peak Apex (236, 112) -->
+  <circle cx="236" cy="112" r="14" fill="url(#apexGlow)" filter="url(#neonGlowTight)" />
+  <circle cx="236" cy="112" r="5" fill="#ffffff" />
+  <!-- Secondary Peak Apex (276, 176) -->
+  <circle cx="276" cy="176" r="11" fill="url(#apexGlow)" filter="url(#neonGlowTight)" />
+  <circle cx="276" cy="176" r="4" fill="#ffffff" />
+  <!-- Deep Trough Vertex (256, 400) -->
+  <circle cx="256" cy="400" r="14" fill="url(#apexGlow)" filter="url(#neonGlowTight)" />
+  <circle cx="256" cy="400" r="5" fill="#ffffff" />
+  <!-- Entry & Exit Pulse Beacons -->
+  <circle cx="188" cy="212" r="8" fill="#00f5ff" />
+  <circle cx="208" cy="298" r="8" fill="#00f5ff" />
+  <circle cx="298" cy="310" r="8" fill="#00f5ff" />
+  <circle cx="318" cy="230" r="8" fill="#00f5ff" />
+  <circle cx="336" cy="270" r="7" fill="#00f5ff" />
+
+  <!-- 7. Central Radiant Hexagonal Snow-Core -->
+  <g filter="url(#neonGlowTight)">
+    <!-- Outer Hex Core -->
+    <polygon points="256,218 288,236 288,276 256,294 224,276 224,236"
+             fill="#07101f" stroke="#00f5ff" stroke-width="4" stroke-linejoin="round" />
+    <!-- Inner Pulsing Crystal Diamond -->
+    <polygon points="256,234 274,256 256,278 238,256"
+             fill="url(#frostGrad)" stroke="#ffffff" stroke-width="2" />
+    <circle cx="256" cy="256" r="4.5" fill="#ffffff" />
+  </g>
+
+  <!-- 8. Sparkle Crystals / Data Pulse Flakes -->
+  <g fill="#ffffff" opacity="0.9">
+    <!-- Star 1 Top Right -->
+    <path d="M 400,105 Q 400,118 413,118 Q 400,118 400,131 Q 400,118 387,118 Q 400,118 400,105 Z" fill="#00f5ff" />
+    <!-- Star 2 Bottom Left -->
+    <path d="M 105,395 Q 105,408 118,408 Q 105,408 105,421 Q 105,408 92,408 Q 105,408 105,395 Z" fill="#38bdf8" />
+    <!-- Tiny ice glints -->
+    <circle cx="112" cy="180" r="3" fill="#00f5ff" opacity="0.7" />
+    <circle cx="410" cy="330" r="3.5" fill="#38bdf8" opacity="0.7" />
+    <circle cx="360" cy="90" r="2.5" fill="#ffffff" opacity="0.8" />
   </g>
 </svg>

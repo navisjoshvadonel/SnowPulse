@@ -105,7 +105,17 @@ Keywords=ai;data;analysis;analytics;machine learning;polars;dashboard;statistics
     desktop_file.chmod(0o644)
     results["desktop_entry"] = str(desktop_file)
 
-    # 4. Update desktop database
+    # 4. Install Desktop shortcut on ~/Desktop
+    user_desktop_file = home / "Desktop" / "SnowPulse AI.desktop"
+    try:
+        user_desktop_file.write_text(desktop_content)
+        user_desktop_file.chmod(0o755)
+        subprocess.run(["gio", "set", str(user_desktop_file), "metadata::trusted", "true"], check=False)
+        results["user_desktop_shortcut"] = str(user_desktop_file)
+    except Exception as e:
+        results["user_desktop_shortcut_err"] = str(e)
+
+    # 5. Update desktop database
     try:
         subprocess.run(["update-desktop-database", str(apps_dir)], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         results["database_updated"] = "yes"

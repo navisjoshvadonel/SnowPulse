@@ -105,3 +105,4 @@ echo ""
 
 # Run doctor
 "$HOME/.local/bin/snowpulse" doctor
+

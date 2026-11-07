@@ -222,3 +222,4 @@ SnowPulse AI Team <navisjoshvadonel@github.com>
 
 if __name__ == "__main__":
     build_deb_package()
+

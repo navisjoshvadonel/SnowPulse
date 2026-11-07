@@ -1234,16 +1234,20 @@ class AnalyticsEngine:
             raise ValueError("No valid geo-coded rows after coordinate resolution.")
 
         # ---- 1. Heat Points (raw scatter) ----
-        heat_points = []
         sample_df = work_df.head(min(top_n * 20, work_df.height))
-        select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
-        for row in sample_df.select(select_cols).iter_rows(named=True):
-            heat_points.append({
-                "lat": round(float(row["_lat"]), 6),
-                "lng": round(float(row["_lng"]), 6),
-                "value": float(row[metric]) if row[metric] is not None else 0.0,
-                "label": str(row[label_col]) if row[label_col] is not None else "Unknown",
-            })
+
+        # ⚡ Bolt: Replaced O(N) explicit python loop `iter_rows()` with fully vectorized
+        # Polars expressions to push iteration to the Rust backend and prevent execution bottlenecks.
+        heat_points = (
+            sample_df
+            .select([
+                pl.col("_lat").cast(pl.Float64).round(6).alias("lat"),
+                pl.col("_lng").cast(pl.Float64).round(6).alias("lng"),
+                pl.col(metric).cast(pl.Float64).fill_null(0.0).alias("value"),
+                pl.col(label_col).cast(pl.String).fill_null("Unknown").alias("label")
+            ])
+            .to_dicts()
+        )
 
         # ---- 2. Region Aggregates (grouped) ----
         region_aggregates = []

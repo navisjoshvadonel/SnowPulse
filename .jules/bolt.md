@@ -20,3 +20,7 @@
 ## 2025-03-05 - Optimize React component re-renders by memoizing derived arrays
 **Learning:** Recomputing derived arrays (like using `.filter()` and `.map()`) dynamically in the body of a frequently re-rendering React component creates new array references every render. When passed down as props, this defeats child component memoization and causes heavy charts to pointlessly re-render or re-run `useEffect` logic. Also, hooks must always be placed before any conditional early returns.
 **Action:** Wrap any non-trivial derived state objects or arrays in `useMemo` hooks with strict dependencies (e.g. `schemaData`) to preserve referential equality across standard re-renders, and ensure hooks are at the top level of the component.
+
+## 2025-03-05 - Avoid .iter_rows() looping with Polars
+**Learning:** Avoid looping row-by-row with iter_rows() on polars dataframes, this defeats the C/Rust backend's optimisations, causing major performance bottlenecks when parsing rows. In Polars, when replacing null values using `fill_null()` with a specific typed value (e.g., `0.0` or `"Unknown"`), always cast the column to the target data type before applying `fill_null` (e.g., `pl.col(col).cast(pl.Float64).fill_null(0.0)`). Calling `fill_null()` before casting can cause type safety regressions or errors if the original column type does not match.
+**Action:** Replace `for row in sample_df.select(select_cols).iter_rows(named=True):` with fully vectorised backend Polars commands such as `.select([pl.col(metric).cast(pl.Float64).fill_null(0.0).alias("value")]).to_dicts()`.

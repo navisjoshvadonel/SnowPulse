@@ -36,5 +36,9 @@ coverage.xml
 build/
 dist/*.deb
 
+# Model artifacts and generated reports
+*.joblib
+*_report.html
+
 
 

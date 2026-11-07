@@ -21,6 +21,57 @@ class NativeDataAnalyzer:
         self.categorical_cols = [c.name for c in self.profile.columns if c.dtype_category == "categorical"]
         self.date_cols = [c.name for c in self.profile.columns if c.dtype_category == "datetime"]
 
+        # Identifiers (keys, IDs, hashes, high-cardinality unique tokens)
+        self.identifier_cols = [
+            c.name for c in self.profile.columns
+            if c.inferred_role == "identifier" or c.dtype_category in ["id_like", "unknown"] or c.cardinality_ratio > 0.6
+        ]
+
+        # Meaningful categorical dimensions for business intelligence (excluding unique IDs)
+        self.dimension_cols = [
+            c.name for c in self.profile.columns
+            if (c.inferred_role in ["dimension", "target", "geo"] or c.dtype_category == "categorical")
+            and c.name not in self.identifier_cols
+            and 2 <= c.cardinality <= 50
+        ]
+        if not self.dimension_cols:
+            self.dimension_cols = [
+                c.name for c in self.profile.columns
+                if c.name not in self.identifier_cols and c.dtype_category in ["categorical", "text"]
+            ]
+        if not self.dimension_cols and self.categorical_cols:
+            self.dimension_cols = [self.categorical_cols[0]]
+
+    def get_smart_chart_candidates(self) -> dict[str, Any]:
+        """
+        Determines the optimal primary dimension and metric for real-world visualization.
+        Guarantees non-informative identifiers (like customer_id) are never selected as primary categories.
+        """
+        primary_dim = self.dimension_cols[0] if self.dimension_cols else (self.categorical_cols[0] if self.categorical_cols else None)
+        primary_metric = self.numeric_cols[0] if self.numeric_cols else None
+
+        # Prioritize business-critical dimensions
+        for d in self.dimension_cols:
+            d_low = d.lower()
+            if any(k in d_low for k in ["tier", "plan", "status", "region", "segment", "category", "type", "country"]):
+                primary_dim = d
+                break
+
+        # Prioritize primary financial or core business metrics
+        for m in self.numeric_cols:
+            m_low = m.lower()
+            if any(k in m_low for k in ["mrr", "revenue", "sales", "price", "amount", "score", "value", "churn", "rate"]):
+                primary_metric = m
+                break
+
+        return {
+            "primary_dimension": primary_dim,
+            "primary_metric": primary_metric,
+            "dimensions": self.dimension_cols,
+            "metrics": self.numeric_cols,
+            "identifiers": self.identifier_cols,
+        }
+
     def get_summary(self) -> dict[str, Any]:
         """
         Returns high-level structural metrics and overall data quality health score.

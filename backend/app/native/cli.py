@@ -24,6 +24,7 @@ from .analyzer import NativeDataAnalyzer
 from .chat import NativeDataChatAgent
 from .report import generate_html_report
 from .automl import NativeAutoMLEngine
+from .cleaner import NativeDataPreprocessor
 
 console = Console()
 
@@ -48,6 +49,19 @@ def cmd_analyze(args):
         return 1
 
     dataset_name = Path(args.dataset).name
+    cleaning_report = None
+    if getattr(args, "clean", False):
+        preprocessor = NativeDataPreprocessor()
+        df, cleaning_report = preprocessor.clean(df)
+        console.print(Panel(
+            f"[bold white]Preprocessed Quality:[/bold white] {cleaning_report['initial_health_score']}% ➔ [bold green]{cleaning_report['final_health_score']}%[/bold green]\n"
+            f"[bold white]Resolved Nulls:[/bold white] {cleaning_report['resolved_missing']:,} | "
+            f"[bold white]Duplicates Dropped:[/bold white] {cleaning_report['duplicates_removed']:,} | "
+            f"[bold white]Outliers Winsorized:[/bold white] {cleaning_report['outliers_clipped']:,}",
+            title="[bold green]✨ Auto-Preprocessed Dataset Ahead of EDA[/bold green]",
+            border_style="green",
+        ))
+
     analyzer = NativeDataAnalyzer(df, name=dataset_name)
     summary = analyzer.get_summary()
 
@@ -119,7 +133,7 @@ def cmd_analyze(args):
 
     if args.report:
         report_path = args.report if isinstance(args.report, str) and args.report != "True" else f"{Path(args.dataset).stem}_report.html"
-        generate_html_report(df, dataset_name=dataset_name, output_path=report_path)
+        generate_html_report(df, dataset_name=dataset_name, output_path=report_path, cleaning_report=cleaning_report)
         console.print(f"[bold green]✓ Interactive HTML report generated:[/bold green] {report_path}")
         if args.open:
             webbrowser.open(f"file://{Path(report_path).resolve()}")
@@ -214,6 +228,67 @@ def cmd_chat(args):
     return 0
 
 
+def cmd_clean(args):
+    """Audit and clean a dataset with automated preprocessing."""
+    console.print(f"[bold cyan]Auditing & Preprocessing Dataset:[/bold cyan] {args.dataset}")
+    try:
+        df = load_dataset(args.dataset)
+    except Exception as e:
+        console.print(f"[bold red]Error loading dataset:[/bold red] {e}")
+        return 1
+
+    preprocessor = NativeDataPreprocessor()
+    audit = preprocessor.audit(df)
+
+    health_style = "bold green" if audit["health_score"] >= 95 else "bold yellow"
+    console.print(Panel(
+        f"[bold white]Records:[/bold white] {audit['rows']:,} rows × {audit['columns']} columns\n"
+        f"[bold white]Baseline Data Health:[/bold white] [{health_style}]{audit['health_score']}%[/{health_style}]\n"
+        f"[bold white]Missing Cells:[/bold white] {audit['total_missing']:,} nulls across {audit['missing_cols_count']} columns\n"
+        f"[bold white]Duplicate Rows:[/bold white] {audit['duplicate_rows']:,}\n"
+        f"[bold white]Outliers (IQR Fences):[/bold white] {audit['outliers_detected']} anomalous values",
+        title="[bold yellow]🔍 Pre-Clean Diagnostic Health Audit[/bold yellow]",
+        border_style="yellow"
+    ))
+
+    config = {
+        "impute_strategy": getattr(args, "impute", "median") or "median",
+        "handle_duplicates": not getattr(args, "keep_duplicates", False),
+        "clip_outliers": getattr(args, "winsorize", False),
+        "normalize_text": not getattr(args, "no_normalize_text", False),
+        "parse_dates": True,
+    }
+
+    clean_df, report = preprocessor.clean(df, config)
+
+    console.print(Panel(
+        f"[bold white]Health Improvement:[/bold white] {report['initial_health_score']}% ➔ [bold green]{report['final_health_score']}%[/bold green]\n"
+        f"[bold white]Resolved Missing Cells:[/bold white] {report['resolved_missing']:,}\n"
+        f"[bold white]Duplicates Removed:[/bold white] {report['duplicates_removed']:,}\n"
+        f"[bold white]Outliers Winsorized:[/bold white] {report['outliers_clipped']:,}\n"
+        f"[bold white]Columns Normalized:[/bold white] {report['normalized_columns']:,}",
+        title="[bold green]✨ Cleaned & Preprocessed Successfully[/bold green]",
+        border_style="green"
+    ))
+
+    out_path = args.output or f"{Path(args.dataset).stem}_cleaned.csv"
+    if str(out_path).endswith(".parquet"):
+        clean_df.write_parquet(out_path)
+    else:
+        clean_df.write_csv(out_path)
+    console.print(f"[bold green]✓ Cleaned dataset saved to:[/bold green] {Path(out_path).resolve()}")
+
+    if args.report:
+        report_path = f"{Path(out_path).stem}_report.html"
+        generate_html_report(clean_df, dataset_name=Path(out_path).name, output_path=report_path, cleaning_report=report)
+        console.print(f"[bold green]✓ Preprocessed HTML Report ready:[/bold green] {Path(report_path).resolve()}")
+        if args.open:
+            webbrowser.open(f"file://{Path(report_path).resolve()}")
+
+    send_desktop_notification("SnowPulse AI Data Cleaned", f"Health improved to {report['final_health_score']}% ({Path(out_path).name})")
+    return 0
+
+
 def cmd_report(args):
     """Generate standalone interactive HTML report."""
     console.print(f"[bold cyan]Generating interactive report for:[/bold cyan] {args.dataset}")
@@ -224,8 +299,14 @@ def cmd_report(args):
         return 1
 
     dataset_name = Path(args.dataset).name
+    cleaning_report = None
+    if getattr(args, "clean", False):
+        preprocessor = NativeDataPreprocessor()
+        df, cleaning_report = preprocessor.clean(df)
+        console.print(f"[bold green]✓ Auto-Preprocessed Dataset:[/bold green] Health improved to {cleaning_report['final_health_score']}%")
+
     out_path = args.output or f"{Path(args.dataset).stem}_report.html"
-    generate_html_report(df, dataset_name=dataset_name, output_path=out_path)
+    generate_html_report(df, dataset_name=dataset_name, output_path=out_path, cleaning_report=cleaning_report)
     abs_path = Path(out_path).resolve()
     console.print(f"[bold green]✓ Standalone HTML Report ready:[/bold green] {abs_path}")
 
@@ -377,7 +458,19 @@ def main():
     p_analyze = subparsers.add_parser("analyze", help="Profile and analyze a dataset")
     p_analyze.add_argument("dataset", help="Path to CSV, TSV, Parquet, JSON, Excel, or SQLite file")
     p_analyze.add_argument("-r", "--report", nargs="?", const=True, default=False, help="Generate interactive HTML report")
+    p_analyze.add_argument("--clean", action="store_true", help="Preprocess dataset before analysis")
     p_analyze.add_argument("--open", action="store_true", help="Open generated report in browser")
+
+    # clean
+    p_clean = subparsers.add_parser("clean", help="Audit and clean a dataset (imputation, deduplication, outlier clipping)")
+    p_clean.add_argument("dataset", help="Path to raw dataset")
+    p_clean.add_argument("-o", "--output", help="Path to save cleaned dataset (CSV or Parquet)")
+    p_clean.add_argument("--impute", choices=["median", "mean", "mode", "drop"], default="median", help="Missing value strategy")
+    p_clean.add_argument("--winsorize", action="store_true", help="Clip extreme numeric outliers via IQR fences")
+    p_clean.add_argument("--keep-duplicates", action="store_true", help="Do not drop redundant duplicate rows")
+    p_clean.add_argument("--no-normalize-text", action="store_true", help="Do not normalize whitespace and trim text")
+    p_clean.add_argument("-r", "--report", action="store_true", help="Generate interactive audit HTML report")
+    p_clean.add_argument("--open", action="store_true", help="Open generated audit report in browser")
 
     # chat
     p_chat = subparsers.add_parser("chat", help="Interactive conversational AI data analyst session")
@@ -388,6 +481,7 @@ def main():
     p_report = subparsers.add_parser("report", help="Generate interactive standalone HTML report")
     p_report.add_argument("dataset", help="Path to dataset")
     p_report.add_argument("-o", "--output", help="Output file path (default: <name>_report.html)")
+    p_report.add_argument("--clean", action="store_true", help="Preprocess dataset before report generation")
     p_report.add_argument("--open", action="store_true", help="Open in web browser immediately")
 
     # predict
@@ -419,6 +513,8 @@ def main():
 
     if args.command == "analyze":
         return cmd_analyze(args)
+    elif args.command == "clean":
+        return cmd_clean(args)
     elif args.command == "chat":
         return cmd_chat(args)
     elif args.command == "report":

@@ -161,3 +161,103 @@ def test_desktop_app_api(sample_df, tmp_path):
     html = build_app_html()
     assert "SnowPulse AI" in html
     assert "Conversational AI" in html
+
+
+def test_preprocessor_audit_and_cleaning():
+    from app.native.cleaner import NativeDataPreprocessor
+    # Create dirty DataFrame with duplicates, nulls, and an outlier
+    dirty_df = pl.DataFrame({
+        "customer_id": ["C1", "C2", "C3", "C4", "C5", "C5"], # duplicate row C5
+        "tier": ["Pro", "Free", None, "Pro", "Enterprise", "Enterprise"], # missing cell
+        "revenue": [100.0, 50.0, 80.0, 95.0, 10000.0, 10000.0], # extreme outlier
+        "created_at": ["2023-01-01", "2023-01-02", "2023-01-03", "2023-01-04", "2023-01-05", "2023-01-05"],
+    })
+
+    audit = NativeDataPreprocessor.audit(dirty_df)
+    assert audit["total_rows"] == 6
+    assert audit["total_missing"] == 1
+    assert audit["duplicate_rows"] == 1
+    assert audit["needs_cleaning"] is True
+
+    clean_df, report = NativeDataPreprocessor.clean(dirty_df, config={
+        "deduplicate": True,
+        "missing_numeric_strategy": "median",
+        "missing_categorical_strategy": "mode",
+        "outlier_strategy": "clip",
+    })
+
+    assert clean_df.height == 5 # 1 duplicate dropped
+    assert clean_df["tier"].null_count() == 0 # imputed
+    assert report["final_health_score"] > report["initial_health_score"]
+    assert report["duplicates_removed"] == 1
+    assert report["missing_resolved"] == 1
+
+
+def test_smart_chart_candidates_avoids_identifiers():
+    df = pl.DataFrame({
+        "customer_id": [f"ID-{i}" for i in range(50)], # 100% unique ID
+        "region": ["NA", "EU", "APAC"] * 16 + ["NA", "EU"], # 3 distinct categories
+        "arr": [1000.0 + i * 50 for i in range(50)],
+    })
+
+    analyzer = NativeDataAnalyzer(df, name="IDTest")
+    candidates = analyzer.get_smart_chart_candidates()
+
+    assert candidates["primary_dimension"] == "region" # NOT customer_id!
+    assert candidates["primary_dimension"] != "customer_id"
+    assert candidates["primary_metric"] == "arr"
+
+
+def test_desktop_app_preprocessing_and_reactive_filters(tmp_path):
+    import json
+    from app.native.gui import DesktopAppAPI
+    csv_file = tmp_path / "multi_stage.csv"
+    df = pl.DataFrame({
+        "account_id": [f"ACC-{i}" for i in range(20)],
+        "segment": ["SMB", "Enterprise"] * 10,
+        "spend": [100.0 + i * 10 for i in range(20)],
+    })
+    df.write_csv(csv_file)
+
+    api = DesktopAppAPI()
+    load_res = api.load_dataset(str(csv_file))
+    assert load_res["success"] is True
+    assert load_res["rows"] == 20
+
+    # Stage 2 -> 3 Preprocessing
+    clean_res = api.run_preprocessing(json.dumps({"deduplicate": True}))
+    assert clean_res["success"] is True
+    assert "dashboard_data" in clean_res
+    assert clean_res["dashboard_data"]["summary"]["rows"] == 20
+    assert clean_res["dashboard_data"]["chart_category"]["title"] == "segment"
+
+    # Stage 4 Reactive Slicer Filter
+    filter_res = api.apply_dashboard_filters(json.dumps({"segment": "SMB"}))
+    assert filter_res["success"] is True
+    assert filter_res["dashboard_data"]["summary"]["rows"] == 10 # Filtered from 20 down to 10!
+
+
+def test_cli_clean_subcommand(tmp_path):
+    from unittest.mock import MagicMock
+    from app.native.cli import cmd_clean
+    csv_in = tmp_path / "dirty.csv"
+    csv_out = tmp_path / "cleaned.csv"
+    df = pl.DataFrame({
+        "id": ["A", "B", "B"],
+        "metric": [10.0, None, 20.0],
+    })
+    df.write_csv(csv_in)
+
+    args = MagicMock()
+    args.dataset = str(csv_in)
+    args.output = str(csv_out)
+    args.impute = "mean"
+    args.keep_duplicates = False
+    args.winsorize = False
+    args.no_normalize_text = False
+    args.report = False
+
+    exit_code = cmd_clean(args)
+    assert exit_code == 0
+    assert csv_out.exists()
+

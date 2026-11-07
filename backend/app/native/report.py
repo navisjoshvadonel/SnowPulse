@@ -11,7 +11,12 @@ import polars as pl
 from .analyzer import NativeDataAnalyzer
 
 
-def generate_html_report(df: pl.DataFrame, dataset_name: str = "Dataset", output_path: str | Path | None = None) -> str:
+def generate_html_report(
+    df: pl.DataFrame,
+    dataset_name: str = "Dataset",
+    output_path: str | Path | None = None,
+    cleaning_report: dict[str, Any] | None = None,
+) -> str:
     """
     Generates a standalone interactive HTML report from a dataset.
     """
@@ -22,27 +27,35 @@ def generate_html_report(df: pl.DataFrame, dataset_name: str = "Dataset", output
     signals = analyzer.get_signals()
     narratives = analyzer.generate_narrative()
 
-    # Pre-compute chart data
-    num_cols = analyzer.numeric_cols[:6]
-    cat_cols = analyzer.categorical_cols[:4]
+    # Prepare offline ECharts runtime
+    echarts_file = Path(__file__).resolve().parent / "static" / "echarts.min.js"
+    if echarts_file.exists():
+        echarts_script = f"<script>{echarts_file.read_text(encoding='utf-8')}</script>"
+    else:
+        echarts_script = '<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>'
 
-    # Category chart data (first categorical column)
+    # Smart selection of primary business dimension and metric (filters out IDs)
+    candidates = analyzer.get_smart_chart_candidates()
+    best_dim = candidates["primary_dimension"]
+    best_metric = candidates["primary_metric"]
+
+    # Category chart data (smart meaningful dimension, NOT identifier)
     cat_chart_labels = []
     cat_chart_values = []
     cat_title = "Categorical Distribution"
-    if cat_cols and cat_cols[0] in df.columns:
-        cat_title = f"Top {cat_cols[0]} Breakdown"
-        top_cats = df[cat_cols[0]].drop_nulls().value_counts().sort("count", descending=True).head(7)
+    if best_dim and best_dim in df.columns:
+        cat_title = f"{best_dim} Breakdown"
+        top_cats = df[best_dim].drop_nulls().value_counts().sort("count", descending=True).head(8)
         cat_chart_labels = [str(r[0]) for r in top_cats.iter_rows()]
         cat_chart_values = [int(r[1]) for r in top_cats.iter_rows()]
 
-    # Numeric distribution data (first numeric column)
+    # Numeric distribution data (primary continuous metric)
     num_chart_labels = []
     num_chart_values = []
     num_title = "Numeric Distribution"
-    if num_cols and num_cols[0] in df.columns:
-        num_title = f"{num_cols[0]} Distribution"
-        num_series = df[num_cols[0]].drop_nulls()
+    if best_metric and best_metric in df.columns:
+        num_title = f"{best_metric} Distribution"
+        num_series = df[best_metric].drop_nulls()
         if len(num_series) > 0:
             import numpy as np
             counts, edges = np.histogram(num_series.to_numpy(), bins=10)
@@ -51,6 +64,34 @@ def generate_html_report(df: pl.DataFrame, dataset_name: str = "Dataset", output
 
     # Pre-render table and list sections
     narratives_html = "".join(f'<div class="narrative-item">{n}</div>' for n in narratives)
+
+    cleaning_html = ""
+    if cleaning_report:
+        trans_items = "".join(
+            f'<div class="narrative-item" style="border-left-color: #34d399;">✓ {t}</div>'
+            for t in cleaning_report.get("transformations", [])
+        )
+        cleaning_html = f"""
+        <!-- Data Preprocessing & Cleaning Audit -->
+        <div class="section-card">
+            <div class="section-title" style="color: #34d399;">✨ Data Preprocessing & Quality Audit</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Health Score Gain</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #34d399;">{cleaning_report.get('initial_health_score', 0)}% ➔ {cleaning_report.get('final_health_score', 0)}%</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Missing Cells Resolved</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #fff;">{cleaning_report.get('missing_resolved', 0):,}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Duplicates Removed</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #fff;">{cleaning_report.get('duplicates_removed', 0):,}</div>
+                </div>
+            </div>
+            {trans_items}
+        </div>
+        """
 
     if corrs:
         corrs_html = "".join(
@@ -87,7 +128,7 @@ def generate_html_report(df: pl.DataFrame, dataset_name: str = "Dataset", output
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SnowPulse AI - {dataset_name} Analytics Report</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    {echarts_script}
     <style>
         :root {{
             --bg: #090b10;
@@ -246,6 +287,8 @@ def generate_html_report(df: pl.DataFrame, dataset_name: str = "Dataset", output
                 <div class="kpi-sub">Redundant row instances</div>
             </div>
         </div>
+
+        {cleaning_html}
 
         <!-- AI Executive Narrative -->
         <div class="section-card">

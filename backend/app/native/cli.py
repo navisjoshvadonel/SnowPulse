@@ -353,6 +353,22 @@ def cmd_serve(args):
     return 0
 
 
+def cmd_app(args):
+    """Launches the 100% offline native GTK desktop application."""
+    dataset_path = getattr(args, "dataset", None)
+    try:
+        from .gui import launch_native_desktop_app
+        return launch_native_desktop_app(dataset_path)
+    except Exception as e:
+        console.print(f"[bold yellow]Native GTK window initialization notice:[/bold yellow] {e}")
+        console.print("[dim]Falling back to offline standalone report interface...[/dim]")
+        target = dataset_path or str(Path(__file__).resolve().parent.parent.parent / "local_storage" / "datasets" / "saas_customer_churn_analytics.csv")
+        args.dataset = target
+        args.report = True
+        args.open = True
+        return cmd_analyze(args)
+
+
 def main():
     parser = argparse.ArgumentParser(description="SnowPulse AI - Ubuntu Native AI Data Analysis OS")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
@@ -413,13 +429,10 @@ def main():
         return cmd_doctor(args)
     elif args.command == "install-desktop":
         return cmd_install_desktop(args)
-    elif args.command in ("serve", "app"):
-        if args.command == "app" and getattr(args, "dataset", None):
-            # Open dataset analysis directly
-            args.report = True
-            args.open = True
-            return cmd_analyze(args)
+    elif args.command == "serve":
         return cmd_serve(args)
+    elif args.command == "app":
+        return cmd_app(args)
 
     return 0
 

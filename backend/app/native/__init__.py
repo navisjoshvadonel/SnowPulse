@@ -10,6 +10,7 @@ from .analyzer import NativeDataAnalyzer
 from .automl import NativeAutoMLEngine
 from .chat import NativeDataChatAgent
 from .desktop import install_desktop_integration, send_desktop_notification
+from .gui import DesktopAppAPI, launch_native_desktop_app
 from .loader import load_dataset
 from .report import generate_html_report
 
@@ -19,6 +20,8 @@ __all__ = [
     "NativeDataChatAgent",
     "generate_html_report",
     "NativeAutoMLEngine",
+    "DesktopAppAPI",
+    "launch_native_desktop_app",
     "install_desktop_integration",
     "send_desktop_notification",
 ]

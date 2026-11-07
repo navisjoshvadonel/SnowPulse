@@ -107,3 +107,4 @@ Keywords=ai;data;analysis;analytics;machine learning;polars;pulse;dashboard;stat
 
 if __name__ == "__main__":
     install_all_icons()
+

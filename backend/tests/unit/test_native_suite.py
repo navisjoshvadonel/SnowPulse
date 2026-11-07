@@ -135,3 +135,29 @@ def test_desktop_integration_execution():
 
     notif_ok = send_desktop_notification("Test", "SnowPulse test notification")
     assert isinstance(notif_ok, bool)
+
+
+def test_desktop_app_api(sample_df, tmp_path):
+    from app.native.gui import DesktopAppAPI, build_app_html
+    csv_file = tmp_path / "app_data.csv"
+    sample_df.write_csv(csv_file)
+
+    api = DesktopAppAPI(str(csv_file))
+    res = api.load_dataset(str(csv_file))
+    assert res["success"] is True
+    assert res["summary"]["rows"] == 30
+    assert len(res["preview_rows"]) > 0
+
+    # Test chat query
+    chat_res = api.chat_query("show top 5 rows")
+    assert chat_res["success"] is True
+    assert len(chat_res["rows"]) == 5
+
+    # Test AutoML
+    automl_res = api.run_automl("plan")
+    assert automl_res["success"] is True
+
+    # Test HTML construction
+    html = build_app_html()
+    assert "SnowPulse AI" in html
+    assert "Conversational AI" in html

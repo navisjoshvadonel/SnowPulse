@@ -96,6 +96,7 @@ export default function TeamAccessModal({ isOpen, onClose }: TeamAccessModalProp
             <select
               value={inviteRole}
               onChange={(e: any) => setInviteRole(e.target.value)}
+              aria-label="Select member role"
               className="bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer font-sans"
             >
               <option value="Admin" className="bg-[#12151e]">Admin</option>
@@ -141,7 +142,12 @@ export default function TeamAccessModal({ isOpen, onClose }: TeamAccessModalProp
                     <Shield size={12} className="text-indigo-400" /> {m.role}
                   </span>
                   {m.role !== "Admin" && (
-                    <button onClick={() => handleRemove(m.id)} className="p-1.5 text-white/20 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer" title="Remove member">
+                    <button
+                      onClick={() => handleRemove(m.id)}
+                      className="p-1.5 text-white/20 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+                      title={`Remove ${m.name}`}
+                      aria-label={`Remove member ${m.name}`}
+                    >
                       <Trash2 size={15} />
                     </button>
                   )}

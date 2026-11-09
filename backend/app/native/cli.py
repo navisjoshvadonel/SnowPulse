@@ -14,17 +14,16 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
-from rich.text import Text
 from rich.prompt import Prompt
+from rich.table import Table
 
+from .analyzer import NativeDataAnalyzer
+from .automl import NativeAutoMLEngine
+from .chat import NativeDataChatAgent
+from .cleaner import NativeDataPreprocessor
 from .desktop import install_desktop_integration, send_desktop_notification
 from .loader import load_dataset
-from .analyzer import NativeDataAnalyzer
-from .chat import NativeDataChatAgent
 from .report import generate_html_report
-from .automl import NativeAutoMLEngine
-from .cleaner import NativeDataPreprocessor
 
 console = Console()
 

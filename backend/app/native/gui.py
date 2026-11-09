@@ -7,12 +7,16 @@ Ingestion/Upload ➔ Quality Audit ➔ Preprocessing & Cleaning Studio ➔ React
 
 import base64
 import json
-import os
 from pathlib import Path
 from typing import Any
+
 import numpy as np
 import polars as pl
-import webview
+
+try:
+    import webview
+except ImportError:
+    webview = None
 
 from .analyzer import NativeDataAnalyzer
 from .automl import NativeAutoMLEngine
@@ -398,7 +402,7 @@ def build_app_html() -> str:
         }}
         .brand-title {{ font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }}
         .brand-title span {{ color: var(--accent-cyan); font-weight: 400; font-size: 13px; margin-left: 6px; }}
-        
+
         /* Workflow Stage Stepper */
         .stepper {{
             display: flex;
@@ -849,7 +853,7 @@ def build_app_html() -> str:
             <div class="studio-grid">
                 <div class="config-card">
                     <div class="panel-title">🛠️ Preprocessing Strategy Controls</div>
-                    
+
                     <div class="config-row">
                         <span>Missing Numeric Strategy:</span>
                         <select id="cfg-missing-num">
@@ -1468,7 +1472,7 @@ def build_app_html() -> str:
                         document.getElementById('automl-results').style.display = 'block';
                         document.getElementById('automl-best-model').innerText = res.results.best_model;
                         document.getElementById('automl-task').innerText = res.results.task_type.toUpperCase();
-                        
+
                         const mKeys = Object.keys(res.results.metrics);
                         if (mKeys.length > 0) {{
                             document.getElementById('automl-primary-metric').innerText = res.results.metrics[mKeys[0]];

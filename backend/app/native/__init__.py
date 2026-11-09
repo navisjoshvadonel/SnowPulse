@@ -4,7 +4,6 @@ High-performance local data analysis, AutoML, conversational analytics, and desk
 """
 
 import warnings
-warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 
 from .analyzer import NativeDataAnalyzer
 from .automl import NativeAutoMLEngine
@@ -14,6 +13,8 @@ from .desktop import install_desktop_integration, send_desktop_notification
 from .gui import DesktopAppAPI, launch_native_desktop_app
 from .loader import load_dataset
 from .report import generate_html_report
+
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 
 __all__ = [
     "load_dataset",

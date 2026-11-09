@@ -843,20 +843,11 @@ class AnalyticsEngine:
                 # Sort by date for proper windowing
                 try:
                     self.df = self.df.sort(target_date)
-                    try:
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
-                    except (TypeError, Exception):
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
-                except Exception:
-                    try:
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
-                    except (TypeError, Exception):
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
-            else:
-                try:
-                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
-                except (TypeError, Exception):
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
+                except Exception:
+                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
+            else:
+                expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
 
             calc_type = "rolling_window"
             default_name = f"{target_metric}_{window_size}D_RollingAvg"

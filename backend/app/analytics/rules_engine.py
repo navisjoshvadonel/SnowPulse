@@ -28,6 +28,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import polars as pl
 from scipy import stats
 
@@ -148,9 +149,8 @@ def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.Da
     return score, {"chart": chart, "eta_squared": eta2, "cardinality": cat_card}
 
 def _score_categorical_categorical(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
-    a = df[col_a.name].cast(pl.Categorical)
-    b = df[col_b.name].cast(pl.Categorical)
-    contingency = pl.crosstab(a, b)
+    pdf = df.select([col_a.name, col_b.name]).to_pandas()
+    contingency = pd.crosstab(pdf[col_a.name], pdf[col_b.name])
     chi2, p, dof, _ = stats.chi2_contingency(contingency.to_numpy())
     sig = (1 - p) * 0.7
     clr = 0.8 if max(col_a.cardinality, col_b.cardinality) <= 15 else 0.5

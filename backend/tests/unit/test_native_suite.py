@@ -263,3 +263,57 @@ def test_cli_clean_subcommand(tmp_path):
     assert exit_code == 0
     assert csv_out.exists()
 
+
+def test_loader_additional_formats(tmp_path, sample_df):
+    # TSV format
+    tsv_file = tmp_path / "test.tsv"
+    sample_df.write_csv(tsv_file, separator="\t")
+    loaded_tsv = load_dataset(tsv_file)
+    assert loaded_tsv.height == 30
+
+    # Parquet format
+    pq_file = tmp_path / "test.parquet"
+    sample_df.write_parquet(pq_file)
+    loaded_pq = load_dataset(pq_file)
+    assert loaded_pq.height == 30
+
+    # JSON Lines format
+    json_file = tmp_path / "test.jsonl"
+    sample_df.write_ndjson(json_file)
+    loaded_json = load_dataset(json_file)
+    assert loaded_json.height == 30
+
+    # SQLite database format
+    import sqlite3
+    db_file = tmp_path / "test.db"
+    conn = sqlite3.connect(str(db_file))
+    sample_df.to_pandas().to_sql("customers", conn, index=False)
+    conn.close()
+    loaded_sqlite = load_dataset(db_file)
+    assert loaded_sqlite.height == 30
+
+
+def test_desktop_app_api_extended(sample_df, tmp_path):
+    import base64
+
+    from app.native.gui import DesktopAppAPI
+    csv_file = tmp_path / "app_data_ext.csv"
+    sample_df.write_csv(csv_file)
+
+    api = DesktopAppAPI(str(csv_file))
+    # Test upload_file_content
+    raw_csv = csv_file.read_bytes()
+    b64_content = base64.b64encode(raw_csv).decode("utf-8")
+    up_res = api.upload_file_content("uploaded_test.csv", b64_content)
+    assert up_res["success"] is True
+
+    # Test export clean dataset
+    api.run_preprocessing("{}")
+    exp_csv = api.export_cleaned_dataset("csv")
+    assert exp_csv["success"] is True
+    exp_pq = api.export_cleaned_dataset("parquet")
+    assert exp_pq["success"] is True
+
+    # Test export report
+    rep_res = api.export_report_to_disk()
+    assert rep_res["success"] is True

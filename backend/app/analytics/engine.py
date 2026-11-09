@@ -844,17 +844,17 @@ class AnalyticsEngine:
                 try:
                     self.df = self.df.sort(target_date)
                     try:
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
+                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                     except (TypeError, Exception):
                         expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     try:
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
+                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                     except (TypeError, Exception):
                         expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
             else:
                 try:
-                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
+                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except (TypeError, Exception):
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
 

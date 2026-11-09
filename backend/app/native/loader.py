@@ -4,11 +4,11 @@ Supports CSV, TSV, Parquet, JSON, JSONL, Excel, and SQLite.
 Returns Polars DataFrames with optimized schema inference.
 """
 
-import os
 from pathlib import Path
 from typing import Any
-import polars as pl
+
 import pandas as pd
+import polars as pl
 
 
 def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
@@ -24,7 +24,7 @@ def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
     if ext in (".csv", ".txt", ".dat"):
         # Auto-detect delimiter
         try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(path, encoding="utf-8", errors="ignore") as f:
                 header = f.readline()
                 if "\t" in header and "," not in header:
                     separator = "\t"
@@ -60,19 +60,26 @@ def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
     elif ext in (".db", ".sqlite", ".sqlite3"):
         # Read from SQLite
         table = kwargs.get("table")
+        import re
         import sqlite3
         conn = sqlite3.connect(path)
-        if not table:
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
-            if not tables:
-                conn.close()
-                raise ValueError(f"No tables found in SQLite database: {path}")
-            table = tables[0][0]
-        pdf = pd.read_sql_query(f"SELECT * FROM {table}", conn)
-        conn.close()
-        return pl.from_pandas(pdf)
+        try:
+            if not table:
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                tables = cursor.fetchall()
+                if not tables:
+                    raise ValueError(f"No tables found in SQLite database: {path}")
+                table = tables[0][0]
+
+            # Security: Validate table name identifier to prevent SQL injection
+            if not re.match(r"^[A-Za-z0-9_]+$", str(table)):
+                raise ValueError("Invalid table name: must contain only alphanumeric characters and underscores.")
+
+            pdf = pd.read_sql_query(f'SELECT * FROM "{table}"', conn)
+            return pl.from_pandas(pdf)
+        finally:
+            conn.close()
 
     else:
         # Fallback try read_csv

@@ -43,6 +43,25 @@ def test_loader_from_csv(tmp_path, sample_df):
     assert loaded.width == 6
 
 
+def test_loader_sqlite_table_injection_rejected(tmp_path):
+    import sqlite3
+
+    db_file = tmp_path / "test.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute("CREATE TABLE valid_table (id INT, name TEXT)")
+    conn.execute("INSERT INTO valid_table VALUES (1, 'Alice'), (2, 'Bob')")
+    conn.commit()
+    conn.close()
+
+    # Valid table load should succeed
+    loaded = load_dataset(db_file, table="valid_table")
+    assert loaded.height == 2
+
+    # Malicious table injection should be blocked with ValueError
+    with pytest.raises(ValueError, match="Invalid table name"):
+        load_dataset(db_file, table='valid_table"; DROP TABLE valid_table;--')
+
+
 def test_analyzer_summary_and_correlations(sample_df):
     analyzer = NativeDataAnalyzer(sample_df, name="TestCustomerData")
     summary = analyzer.get_summary()

@@ -22,3 +22,8 @@
 **Vulnerability:** `_get_dataset_for_user` helper function performed a fallback database query (`db.query(Dataset).filter(Dataset.id == dataset_id).first()`) when a dataset didn't belong to the requesting user, bypassing owner isolation on ML and Forecasting endpoints.
 **Learning:** Helper functions used across endpoints for dataset lookup can undermine tenant security if they implement fallback queries to retrieve resources across owner boundaries.
 **Prevention:** Ensure backend helper functions enforce strict tenant isolation filtering (`owner_id == current_user.id`) without permissive fallback queries.
+
+## 2026-11-09 - SQL Injection in Native SQLite Dataset Loader
+**Vulnerability:** `load_dataset` in `app/native/loader.py` interpolated unvalidated `table` kwargs directly into a raw SQL query (`SELECT * FROM {table}`), permitting SQL injection when loading SQLite files.
+**Learning:** Database abstractions or helper utilities that accept dynamic table or identifier names cannot use parameterized SQL for identifiers and must validate against strict identifier patterns before formatting queries.
+**Prevention:** Enforce strict alphanumeric regex validation (`^[A-Za-z0-9_]+$`) and quote identifier names safely before formatting them into SQL statements.

@@ -159,7 +159,7 @@ class NativeDataAnalyzer:
                             "abs_r": abs(r),
                             "relationship": "Strong Positive" if r > 0.7 else ("Moderate Positive" if r > 0 else ("Strong Negative" if r < -0.7 else "Moderate Negative")),
                         })
-            results.sort(key=lambda x: x["abs_r"], reverse=True)
+            results.sort(key=lambda x: float(x["abs_r"]), reverse=True)
             return results[:top_n]
         except Exception:
             return []

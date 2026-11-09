@@ -51,7 +51,7 @@ class NativeDataPreprocessor:
 
         # 3. Outlier audit (IQR method for numeric columns)
         numeric_cols = [c.name for c in profile.columns if c.dtype_category == "numeric"]
-        outlier_audit = []
+        outlier_audit: list[dict[str, Any]] = []
         for col in numeric_cols:
             if col in df.columns:
                 series = df[col].drop_nulls()
@@ -77,7 +77,7 @@ class NativeDataPreprocessor:
         # 4. Inferred Identifiers (IDs/UUIDs/Keys)
         identifiers = [
             c.name for c in profile.columns
-            if c.inferred_role == "identifier" or c.dtype_category in ["id_like", "unknown"] or c.cardinality_ratio > 0.6
+            if bool(c.inferred_role == "identifier" or c.dtype_category in ["id_like", "unknown"] or (c.cardinality_ratio is not None and c.cardinality_ratio > 0.6))
         ]
 
         # 5. Raw Health Score
@@ -86,7 +86,7 @@ class NativeDataPreprocessor:
         outlier_penalty = min(0.2, (len(outlier_audit) / max(len(numeric_cols), 1)) * 0.15) if numeric_cols else 0.0
         health_score = round(max(0.0, (completeness * 0.6 + uniqueness * 0.4) - outlier_penalty) * 100.0, 1)
 
-        outliers_detected = sum(o["outlier_count"] for o in outlier_audit)
+        outliers_detected = sum(int(o["outlier_count"]) for o in outlier_audit)
 
         return {
             "total_rows": total_rows,

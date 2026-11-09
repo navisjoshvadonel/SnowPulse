@@ -5,6 +5,7 @@ outlier remediation (Winsorization/IQR), deduplication, and transformation track
 """
 
 from typing import Any
+
 import numpy as np
 import polars as pl
 
@@ -86,7 +87,9 @@ class NativeDataPreprocessor:
         outlier_penalty = min(0.2, (len(outlier_audit) / max(len(numeric_cols), 1)) * 0.15) if numeric_cols else 0.0
         health_score = round(max(0.0, (completeness * 0.6 + uniqueness * 0.4) - outlier_penalty) * 100.0, 1)
 
-        outliers_detected = sum(o["outlier_count"] for o in outlier_audit)
+        outliers_detected = 0
+        for o in outlier_audit:
+            outliers_detected += int(float(o["outlier_count"]))
 
         return {
             "total_rows": total_rows,

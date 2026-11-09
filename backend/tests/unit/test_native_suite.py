@@ -8,17 +8,16 @@ Unit tests for SnowPulse AI Ubuntu Native Suite:
 - Desktop Integration
 """
 
-import os
 from pathlib import Path
+
 import polars as pl
 import pytest
-
-from app.native.loader import load_dataset
 from app.native.analyzer import NativeDataAnalyzer
 from app.native.automl import NativeAutoMLEngine
 from app.native.chat import NativeDataChatAgent
-from app.native.report import generate_html_report
 from app.native.desktop import install_desktop_integration, send_desktop_notification
+from app.native.loader import load_dataset
+from app.native.report import generate_html_report
 
 
 @pytest.fixture
@@ -106,6 +105,7 @@ def test_chat_agent_offline_queries(sample_df):
 
 def test_cli_chat_single_query(sample_df, tmp_path):
     from unittest.mock import MagicMock
+
     from app.native.cli import cmd_chat
     csv_file = tmp_path / "data.csv"
     sample_df.write_csv(csv_file)
@@ -210,6 +210,7 @@ def test_smart_chart_candidates_avoids_identifiers():
 
 def test_desktop_app_preprocessing_and_reactive_filters(tmp_path):
     import json
+
     from app.native.gui import DesktopAppAPI
     csv_file = tmp_path / "multi_stage.csv"
     df = pl.DataFrame({
@@ -239,6 +240,7 @@ def test_desktop_app_preprocessing_and_reactive_filters(tmp_path):
 
 def test_cli_clean_subcommand(tmp_path):
     from unittest.mock import MagicMock
+
     from app.native.cli import cmd_clean
     csv_in = tmp_path / "dirty.csv"
     csv_out = tmp_path / "cleaned.csv"

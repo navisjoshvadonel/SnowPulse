@@ -4,11 +4,11 @@ Supports CSV, TSV, Parquet, JSON, JSONL, Excel, and SQLite.
 Returns Polars DataFrames with optimized schema inference.
 """
 
-import os
 from pathlib import Path
 from typing import Any
-import polars as pl
+
 import pandas as pd
+import polars as pl
 
 
 def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
@@ -24,7 +24,7 @@ def load_dataset(file_path: str | Path, **kwargs: Any) -> pl.DataFrame:
     if ext in (".csv", ".txt", ".dat"):
         # Auto-detect delimiter
         try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(path, encoding="utf-8", errors="ignore") as f:
                 header = f.readline()
                 if "\t" in header and "," not in header:
                     separator = "\t"

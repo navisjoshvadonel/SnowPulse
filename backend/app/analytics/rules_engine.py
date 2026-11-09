@@ -150,7 +150,7 @@ def _score_numeric_categorical(num: ColumnProfile, cat: ColumnProfile, df: pl.Da
 def _score_categorical_categorical(col_a: ColumnProfile, col_b: ColumnProfile, df: pl.DataFrame) -> tuple[float, dict[str, Any]]:
     a = df[col_a.name].cast(pl.Categorical)
     b = df[col_b.name].cast(pl.Categorical)
-    contingency = pl.crosstab(a, b)  # type: ignore[attr-defined]
+    contingency = pl.crosstab(a, b)
     chi2, p, dof, _ = stats.chi2_contingency(contingency.to_numpy())
     sig = (1 - p) * 0.7
     clr = 0.8 if max(col_a.cardinality, col_b.cardinality) <= 15 else 0.5

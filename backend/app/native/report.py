@@ -7,7 +7,9 @@ with embedded interactive ECharts, KPI meters, and AI narratives.
 import json
 from pathlib import Path
 from typing import Any
+
 import polars as pl
+
 from .analyzer import NativeDataAnalyzer
 
 
@@ -185,7 +187,7 @@ def generate_html_report(
         .kpi-title {{ font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }}
         .kpi-val {{ font-size: 30px; font-weight: 700; color: #fff; }}
         .kpi-sub {{ font-size: 12px; color: var(--text-secondary); margin-top: 4px; }}
-        
+
         .section-card {{
             background: var(--card-bg);
             border: 1px solid var(--card-border);
@@ -195,7 +197,7 @@ def generate_html_report(
             backdrop-filter: blur(12px);
         }}
         .section-title {{ font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }}
-        
+
         .charts-row {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
@@ -203,7 +205,7 @@ def generate_html_report(
             margin-bottom: 28px;
         }}
         .chart-box {{ width: 100%; height: 320px; }}
-        
+
         table {{
             width: 100%;
             border-collapse: collapse;
@@ -224,7 +226,7 @@ def generate_html_report(
             color: var(--text-secondary);
         }}
         tr:hover td {{ background: rgba(255, 255, 255, 0.02); color: #fff; }}
-        
+
         .narrative-item {{
             padding: 12px 16px;
             background: rgba(255, 255, 255, 0.03);

@@ -7,12 +7,15 @@ Ingestion/Upload ➔ Quality Audit ➔ Preprocessing & Cleaning Studio ➔ React
 
 import base64
 import json
-import os
 from pathlib import Path
 from typing import Any
+
 import numpy as np
 import polars as pl
-import webview
+try:
+    import webview
+except ImportError:
+    webview = None
 
 from .analyzer import NativeDataAnalyzer
 from .automl import NativeAutoMLEngine

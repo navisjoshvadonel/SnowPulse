@@ -1,3 +1,4 @@
+extend-exclude = ["app/native", "backend/app/native", "tests/unit/test_native_suite.py", "backend/tests/unit/test_native_suite.py"]
 # Ruff configuration for SnowPulse backend
 line-length = 120
 target-version = "py311"

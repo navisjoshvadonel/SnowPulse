@@ -141,7 +141,12 @@ export default function TeamAccessModal({ isOpen, onClose }: TeamAccessModalProp
                     <Shield size={12} className="text-indigo-400" /> {m.role}
                   </span>
                   {m.role !== "Admin" && (
-                    <button onClick={() => handleRemove(m.id)} className="p-1.5 text-white/20 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer" title="Remove member">
+                    <button
+                      onClick={() => handleRemove(m.id)}
+                      className="p-1.5 text-white/20 hover:text-red-400 focus-visible:text-red-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400/50 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+                      title={`Remove ${m.name}`}
+                      aria-label={`Remove ${m.name}`}
+                    >
                       <Trash2 size={15} />
                     </button>
                   )}

@@ -3,7 +3,7 @@
 import React from "react";
 import { usePinnedChartStore } from "@/store/usePinnedChartStore";
 import GenerativeChart from "@/components/ai-insights/GenerativeChart";
-import { Pin, Trash2, Sparkles } from "lucide-react";
+import { Pin, Trash2 } from "lucide-react";
 
 export default function PinnedChartsPanel() {
   const { pinnedCharts, unpinChart, clearPinnedCharts } = usePinnedChartStore();
@@ -56,6 +56,7 @@ export default function PinnedChartsPanel() {
               <button
                 onClick={() => unpinChart(chart.id)}
                 title="Remove from Dashboard"
+                aria-label="Remove from Dashboard"
                 className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/30 transition-all cursor-pointer shadow-md"
               >
                 <Trash2 className="w-3.5 h-3.5" />

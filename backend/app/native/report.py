@@ -46,8 +46,8 @@ def generate_html_report(
     if best_dim and best_dim in df.columns:
         cat_title = f"{best_dim} Breakdown"
         top_cats = df[best_dim].drop_nulls().value_counts().sort("count", descending=True).head(8)
-        cat_chart_labels = [str(r[0]) for r in top_cats.iter_rows()]
-        cat_chart_values = [int(r[1]) for r in top_cats.iter_rows()]
+        cat_chart_labels = [str(v) for v in top_cats[best_dim].to_list()]
+        cat_chart_values = [int(v) for v in top_cats["count"].to_list()]
 
     # Numeric distribution data (primary continuous metric)
     num_chart_labels = []

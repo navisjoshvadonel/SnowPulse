@@ -1,7 +1,7 @@
 import datetime
 from typing import Any
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserBase(BaseModel):
@@ -19,8 +19,7 @@ class UserResponse(UserBase):
     is_active: bool
     created_at: datetime.datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DatasetBase(BaseModel):
@@ -36,8 +35,7 @@ class DatasetResponse(DatasetBase):
     created_at: datetime.datetime
     job_id: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DashboardBase(BaseModel):
@@ -55,8 +53,7 @@ class DashboardResponse(DashboardBase):
     created_at: datetime.datetime
     dataset: DatasetResponse
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenResponse(BaseModel):
@@ -75,8 +72,7 @@ class InsightResponse(BaseModel):
     category: str
     created_at: datetime.datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class JobSubmission(BaseModel):

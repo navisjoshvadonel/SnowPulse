@@ -117,10 +117,18 @@ class NativeDataPreprocessor:
         Returns the clean DataFrame and a comprehensive audit report of changes made.
         """
         cfg = config or {}
-        deduplicate = cfg.get("deduplicate", True)
-        missing_num_strategy = cfg.get("missing_numeric_strategy", "median")
-        missing_cat_strategy = cfg.get("missing_categorical_strategy", "mode")
-        outlier_strategy = cfg.get("outlier_strategy", "clip")  # "clip", "drop", "keep"
+        deduplicate = cfg.get("deduplicate", cfg.get("handle_duplicates", True))
+        general_impute = cfg.get("impute_strategy")
+        missing_num_strategy = cfg.get("missing_numeric_strategy", general_impute or "median")
+        missing_cat_strategy = cfg.get("missing_categorical_strategy", "mode" if general_impute in ["median", "mean"] else (general_impute or "mode"))
+        
+        if "outlier_strategy" in cfg:
+            outlier_strategy = cfg["outlier_strategy"]
+        elif cfg.get("clip_outliers") or cfg.get("winsorize"):
+            outlier_strategy = "clip"
+        else:
+            outlier_strategy = "clip"
+
         normalize_text = cfg.get("normalize_text", True)
         parse_dates = cfg.get("parse_dates", True)
         drop_identifiers = cfg.get("drop_identifiers", False)

@@ -125,7 +125,8 @@ class DesktopAppAPI:
         """Handles drag-and-drop or browser-based file upload."""
         try:
             raw_bytes = base64.b64decode(content_base64)
-            temp_path = Path.home() / ".snowpulse" / filename
+            safe_filename = Path(filename).name or "uploaded_dataset.csv"
+            temp_path = Path.home() / ".snowpulse" / safe_filename
             temp_path.parent.mkdir(parents=True, exist_ok=True)
             temp_path.write_bytes(raw_bytes)
             return self._load_raw_file(str(temp_path))
@@ -182,8 +183,8 @@ class DesktopAppAPI:
         cat_title = best_dim or "Categorical Dimension"
         if best_dim and best_dim in df.columns:
             vc = df[best_dim].drop_nulls().value_counts().sort("count", descending=True).head(8)
-            cat_labels = [str(r[0]) for r in vc.iter_rows()]
-            cat_values = [int(r[1]) for r in vc.iter_rows()]
+            cat_labels = [str(v) for v in vc[best_dim].to_list()]
+            cat_values = [int(v) for v in vc["count"].to_list()]
 
         # 2. Continuous Metric Distribution
         num_labels = []
@@ -202,8 +203,8 @@ class DesktopAppAPI:
         bivariate_title = f"{best_metric} by {best_dim}" if best_metric and best_dim else "Metric by Dimension"
         if best_metric and best_dim and best_metric in df.columns and best_dim in df.columns:
             grouped = df.group_by(best_dim).agg(pl.col(best_metric).mean().alias("avg_metric")).sort("avg_metric", descending=True).head(8)
-            bivariate_labels = [str(r[0]) for r in grouped.iter_rows()]
-            bivariate_values = [round(float(r[1]), 2) for r in grouped.iter_rows()]
+            bivariate_labels = [str(v) for v in grouped[best_dim].to_list()]
+            bivariate_values = [round(float(v), 2) for v in grouped["avg_metric"].to_list()]
 
         # 4. Preview Rows
         preview_rows = []
@@ -735,12 +736,63 @@ def build_app_html() -> str:
             align-items: center;
             gap: 10px;
         }}
+        /* Toast notification */
+        .toast-container {{
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }}
+        .toast {{
+            pointer-events: auto;
+            min-width: 260px;
+            max-width: 420px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            animation: slideIn 0.25s ease-out;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .toast-info {{
+            background: rgba(14, 21, 37, 0.95);
+            border: 1px solid var(--accent-cyan);
+            color: #fff;
+        }}
+        .toast-success {{
+            background: rgba(6, 40, 25, 0.95);
+            border: 1px solid var(--accent-green);
+            color: #34d399;
+        }}
+        .toast-error {{
+            background: rgba(45, 12, 16, 0.95);
+            border: 1px solid var(--accent-red);
+            color: #f87171;
+        }}
+        .toast.fade-out {{
+            opacity: 0;
+            transform: translateY(8px);
+        }}
+        @keyframes slideIn {{
+            from {{ opacity: 0; transform: translateY(12px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
     </style>
     <script>
         {echarts_js}
     </script>
 </head>
 <body>
+    <div id="toast-container" class="toast-container"></div>
     <header>
         <div class="brand">
             <div class="brand-icon">
@@ -1078,6 +1130,20 @@ def build_app_html() -> str:
         let biChart = null;
         let featChart = null;
 
+        function showToast(msg, type = 'info') {{
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            const icon = type === 'success' ? '✓ ' : (type === 'error' ? '⚠️ ' : 'ℹ️ ');
+            toast.innerHTML = icon + msg;
+            container.appendChild(toast);
+            setTimeout(() => {{
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 300);
+            }}, 3500);
+        }}
+
         function setStep(stepNum) {{
             document.querySelectorAll('.step-item').forEach((el, idx) => {{
                 el.classList.remove('active', 'done');
@@ -1096,19 +1162,30 @@ def build_app_html() -> str:
 
         function openFileDialog() {{
             if (window.pywebview && window.pywebview.api) {{
-                window.pywebview.api.select_file_dialog().then(renderAuditStudio);
+                window.pywebview.api.select_file_dialog()
+                    .then(renderAuditStudio)
+                    .catch(err => showToast('File dialog error: ' + err, 'error'));
             }}
         }}
 
         function loadSample() {{
             if (window.pywebview && window.pywebview.api) {{
-                window.pywebview.api.load_sample_dataset().then(renderAuditStudio);
+                showToast('Loading sample SaaS dataset...', 'info');
+                window.pywebview.api.load_sample_dataset()
+                    .then(renderAuditStudio)
+                    .catch(err => showToast('Failed to load sample: ' + err, 'error'));
             }}
         }}
 
         // Render Studio when dataset is uploaded
         function renderAuditStudio(data) {{
-            if (!data || data.cancelled || !data.success) return;
+            if (!data) return;
+            if (data.cancelled) return;
+            if (!data.success) {{
+                showToast(data.error || 'Failed to load dataset.', 'error');
+                return;
+            }}
+            showToast('Loaded ' + data.filename + ' (' + data.rows.toLocaleString() + ' rows)', 'success');
             rawAuditData = data;
 
             document.getElementById('view-upload').classList.remove('active');
@@ -1167,6 +1244,8 @@ def build_app_html() -> str:
         }}
 
         function applyPreprocessing(isAuto) {{
+            showToast(isAuto ? 'Auto-cleaning & preprocessing dataset...' : 'Applying cleaning pipeline...', 'info');
+
             const config = {{
                 deduplicate: document.getElementById('cfg-dedup').checked,
                 missing_numeric_strategy: isAuto ? 'median' : document.getElementById('cfg-missing-num').value,
@@ -1179,10 +1258,13 @@ def build_app_html() -> str:
             if (window.pywebview && window.pywebview.api) {{
                 window.pywebview.api.run_preprocessing(JSON.stringify(config)).then(res => {{
                     if (res.success) {{
+                        showToast('Dataset preprocessed! Health: ' + res.cleaning_report.final_health_score + '%', 'success');
                         renderDashboard(res.dashboard_data, res.cleaning_report);
                     }} else {{
-                        alert('Cleaning failed: ' + res.error);
+                        showToast('Cleaning failed: ' + res.error, 'error');
                     }}
+                }}).catch(err => {{
+                    showToast('Preprocessing error: ' + err, 'error');
                 }});
             }}
         }}
@@ -1327,8 +1409,10 @@ def build_app_html() -> str:
                 window.pywebview.api.apply_dashboard_filters(JSON.stringify(activeFilters)).then(res => {{
                     if (res.success) {{
                         renderDashboard(res.dashboard_data, null);
+                    }} else {{
+                        showToast('Filter error: ' + res.error, 'error');
                     }}
-                }});
+                }}).catch(err => showToast('Filter error: ' + err, 'error'));
             }}
         }}
 
@@ -1338,7 +1422,7 @@ def build_app_html() -> str:
             if (window.pywebview && window.pywebview.api) {{
                 window.pywebview.api.apply_dashboard_filters(JSON.stringify({{}})).then(res => {{
                     if (res.success) renderDashboard(res.dashboard_data, null);
-                }});
+                }}).catch(err => showToast('Reset error: ' + err, 'error'));
             }}
         }}
 
@@ -1449,6 +1533,9 @@ def build_app_html() -> str:
                         box.innerHTML += `<div class="chat-msg msg-ai" style="color: #f87171;">⚠️ ${{res.error}}</div>`;
                     }}
                     box.scrollTop = box.scrollHeight;
+                }}).catch(err => {{
+                    box.innerHTML += `<div class="chat-msg msg-ai" style="color: #f87171;">⚠️ Chat query error: ${{err}}</div>`;
+                    box.scrollTop = box.scrollHeight;
                 }});
             }}
         }}
@@ -1459,12 +1546,14 @@ def build_app_html() -> str:
             const btn = document.getElementById('btn-run-automl');
             btn.disabled = true;
             status.innerText = 'Training candidate models on cleaned dataset...';
+            showToast('AutoML training started for target: ' + target, 'info');
 
             if (window.pywebview && window.pywebview.api) {{
                 window.pywebview.api.run_automl(target).then(res => {{
                     btn.disabled = false;
                     status.innerText = '';
                     if (res.success) {{
+                        showToast('AutoML training complete! Best model: ' + res.results.best_model, 'success');
                         document.getElementById('automl-results').style.display = 'block';
                         document.getElementById('automl-best-model').innerText = res.results.best_model;
                         document.getElementById('automl-task').innerText = res.results.task_type.toUpperCase();
@@ -1493,8 +1582,12 @@ def build_app_html() -> str:
                             }});
                         }}
                     }} else {{
-                        alert('AutoML failed: ' + res.error);
+                        showToast('AutoML failed: ' + res.error, 'error');
                     }}
+                }}).catch(err => {{
+                    btn.disabled = false;
+                    status.innerText = '';
+                    showToast('AutoML error: ' + err, 'error');
                 }});
             }}
         }}
@@ -1502,20 +1595,61 @@ def build_app_html() -> str:
         function exportCleanedData() {{
             if (window.pywebview && window.pywebview.api) {{
                 window.pywebview.api.export_cleaned_dataset('csv').then(res => {{
-                    if (res.success) alert('Cleaned dataset saved to: ' + res.filepath);
-                    else alert('Export failed: ' + res.error);
-                }});
+                    if (res.success) showToast('Cleaned dataset saved to: ' + res.filepath, 'success');
+                    else showToast('Export failed: ' + res.error, 'error');
+                }}).catch(err => showToast('Export error: ' + err, 'error'));
             }}
         }}
 
         function exportReport() {{
             if (window.pywebview && window.pywebview.api) {{
                 window.pywebview.api.export_report_to_disk().then(res => {{
-                    if (res.success) alert('Report exported successfully to: ' + res.filepath);
-                    else alert('Export failed: ' + res.error);
-                }});
+                    if (res.success) showToast('Report exported to: ' + res.filepath, 'success');
+                    else showToast('Export failed: ' + res.error, 'error');
+                }}).catch(err => showToast('Export error: ' + err, 'error'));
             }}
         }}
+
+        // Setup Drag & Drop File Upload
+        window.addEventListener('DOMContentLoaded', () => {{
+            const dropzone = document.getElementById('file-dropzone');
+            if (!dropzone) return;
+
+            ['dragenter', 'dragover'].forEach(name => {{
+                dropzone.addEventListener(name, (e) => {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('dragover');
+                }}, false);
+            }});
+
+            ['dragleave', 'drop'].forEach(name => {{
+                dropzone.addEventListener(name, (e) => {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('dragover');
+                }}, false);
+            }});
+
+            dropzone.addEventListener('drop', (e) => {{
+                const files = e.dataTransfer ? e.dataTransfer.files : null;
+                if (files && files.length > 0) {{
+                    const file = files[0];
+                    showToast('Uploading ' + file.name + '...', 'info');
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {{
+                        const content = evt.target.result;
+                        const base64 = content.includes(',') ? content.split(',')[1] : btoa(content);
+                        if (window.pywebview && window.pywebview.api) {{
+                            window.pywebview.api.upload_file_content(file.name, base64)
+                                .then(renderAuditStudio)
+                                .catch(err => showToast('Upload error: ' + err, 'error'));
+                        }}
+                    }};
+                    reader.readAsDataURL(file);
+                }}
+            }}, false);
+        }});
     </script>
 </body>
 </html>

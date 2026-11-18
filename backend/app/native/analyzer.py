@@ -128,7 +128,7 @@ class NativeDataAnalyzer:
                 series = self.df[col.name].drop_nulls()
                 if len(series) > 0:
                     top_counts = series.value_counts().sort("count", descending=True).head(3)
-                    top_vals = [f"{row[0]} ({row[1]})" for row in top_counts.iter_rows()]
+                    top_vals = [f"{v} ({c})" for v, c in zip(top_counts[col.name].to_list(), top_counts["count"].to_list())]
                     c_dict["top_values"] = ", ".join(top_vals)
 
             stats.append(c_dict)

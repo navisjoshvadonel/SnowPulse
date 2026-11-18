@@ -252,9 +252,10 @@ def cmd_clean(args):
     ))
 
     config = {
-        "impute_strategy": getattr(args, "impute", "median") or "median",
-        "handle_duplicates": not getattr(args, "keep_duplicates", False),
-        "clip_outliers": getattr(args, "winsorize", False),
+        "missing_numeric_strategy": getattr(args, "impute", "median") or "median",
+        "missing_categorical_strategy": "mode",
+        "deduplicate": not getattr(args, "keep_duplicates", False),
+        "outlier_strategy": "clip" if getattr(args, "winsorize", False) else "keep",
         "normalize_text": not getattr(args, "no_normalize_text", False),
         "parse_dates": True,
     }

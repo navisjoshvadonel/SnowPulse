@@ -273,10 +273,11 @@ class AnalyticsEngine:
             .sort("value", descending=True)
         )
 
-        return [
-            {"region": row[0], "value": float(row[1] or 0), "count": int(row[2] or 0)}
-            for row in grouped.iter_rows()
-        ]
+        return grouped.select([
+            pl.col(active_geo).cast(pl.Utf8).alias("region"),
+            pl.col("value").cast(pl.Float64).fill_null(0.0).alias("value"),
+            pl.col("count").cast(pl.Int64).fill_null(0).alias("count")
+        ]).to_dicts()
 
     # ------------------------------------------------------------------
     # Anomalies
@@ -844,17 +845,17 @@ class AnalyticsEngine:
                 try:
                     self.df = self.df.sort(target_date)
                     try:
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
+                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                     except (TypeError, Exception):
                         expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except Exception:
                     try:
-                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
+                        expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                     except (TypeError, Exception):
                         expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
             else:
                 try:
-                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_samples=1)
+                    expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
                 except (TypeError, Exception):
                     expr = pl.col(target_metric).rolling_mean(window_size=window_size, min_periods=1)
 
@@ -1234,16 +1235,13 @@ class AnalyticsEngine:
             raise ValueError("No valid geo-coded rows after coordinate resolution.")
 
         # ---- 1. Heat Points (raw scatter) ----
-        heat_points = []
         sample_df = work_df.head(min(top_n * 20, work_df.height))
-        select_cols = list(dict.fromkeys(["_lat", "_lng", metric, label_col]))
-        for row in sample_df.select(select_cols).iter_rows(named=True):
-            heat_points.append({
-                "lat": round(float(row["_lat"]), 6),
-                "lng": round(float(row["_lng"]), 6),
-                "value": float(row[metric]) if row[metric] is not None else 0.0,
-                "label": str(row[label_col]) if row[label_col] is not None else "Unknown",
-            })
+        heat_points = sample_df.select([
+            pl.col("_lat").cast(pl.Float64).round(6).alias("lat"),
+            pl.col("_lng").cast(pl.Float64).round(6).alias("lng"),
+            pl.col(metric).cast(pl.Float64).fill_null(0.0).alias("value"),
+            pl.col(label_col).cast(pl.Utf8).fill_null("Unknown").alias("label"),
+        ]).to_dicts()
 
         # ---- 2. Region Aggregates (grouped) ----
         region_aggregates = []
